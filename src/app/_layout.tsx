@@ -20,7 +20,30 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={NAV_THEME[colorScheme]}>
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-      <Stack />
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="search"
+          options={{
+            presentation: "modal",
+            title: "Search",
+          }}
+        />
+        <Stack.Screen
+          name="movies/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="player/[id]"
+          options={{
+            headerShown: false,
+            presentation: "fullScreenModal",
+          }}
+        />
+      </Stack>
       <PortalHost />
     </ThemeProvider>
   );

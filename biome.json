@@ -28,18 +28,11 @@
         "noUnknownAtRules": "off"
       },
       "nursery": {
-        "useSortedClasses": "warn"
+        "useSortedClasses": "off"
       }
     },
     "domains": {
       "react": "recommended"
-    }
-  },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
     }
   },
   "css": {
@@ -57,9 +50,6 @@
         "enabled": false
       },
       "formatter": {
-        "enabled": false
-      },
-      "assist": {
         "enabled": false
       }
     },

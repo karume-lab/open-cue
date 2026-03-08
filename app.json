@@ -7,7 +7,6 @@
     "icon": "./public/core/icon.png",
     "scheme": "cue",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
       "image": "public/core/splash-icon.png",
       "backgroundColor": "#ffffff",
