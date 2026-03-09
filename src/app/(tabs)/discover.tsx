@@ -1,18 +1,18 @@
 import { View } from "react-native";
-import FilterBottomSheet from "@/components/core/FilterBottomSheet";
+import BrowseMoviesGrid from "@/components/core/BrowseMoviesGrid";
+import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
 import Search from "@/components/core/Search";
+import ContinueWatchingCarousel from "@/features/discover/components/ContinueWatchingCarousel";
 
 const DiscoverScreen = () => {
   return (
-    <View>
-      <Search />
-      <FilterBottomSheet />
+    <View className="flex-1 bg-background">
+      <View className="flex-row items-center">
+        <Search />
+        <FilterBottomSheetButton />
+      </View>
 
-      {/* 
-      filtering
-      continue watching
-      browsing grid -> with go to movie detail
-      */}
+      <BrowseMoviesGrid Header={<ContinueWatchingCarousel />} />
     </View>
   );
 };

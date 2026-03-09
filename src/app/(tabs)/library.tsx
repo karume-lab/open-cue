@@ -3,7 +3,7 @@ import { Text } from "@/components/ui/text";
 
 const LibraryScreen = () => {
   return (
-    <View>
+    <View className="flex-1 bg-background">
       <Text>LibraryScreen</Text>
     </View>
   );

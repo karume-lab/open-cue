@@ -24,6 +24,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@gorhom/bottom-sheet": "^5.2.8",
     "@react-navigation/native": "^7.0.0",
     "@rn-primitives/accordion": "^1.2.0",
     "@rn-primitives/alert-dialog": "^1.2.0",

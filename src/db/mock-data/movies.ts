@@ -1,6 +1,6 @@
-import type { MovieInsert } from "@/db/schema";
+import type { MovieSelect } from "@/db/schema";
 
-export const MOVIES: MovieInsert[] = [
+export const MOVIES: MovieSelect[] = [
   {
     id: "mov_001",
     tmdbId: 550,

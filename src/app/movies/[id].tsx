@@ -3,7 +3,7 @@ import { Text } from "@/components/ui/text";
 
 const MoviesDetailScreen = () => {
   return (
-    <View>
+    <View className="flex-1 bg-background">
       <Text>MoviesDetailScreen</Text>
     </View>
   );
