@@ -6,10 +6,12 @@ import {
 } from "@gorhom/bottom-sheet";
 import { ListFilterIcon } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Switch, TouchableOpacity, useColorScheme, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { useUniwind } from "uniwind";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { THEME } from "@/lib/theme";
 
@@ -129,8 +131,8 @@ const FilterBottomSheetButton = ({
     draft.downloadStates.length +
     (draft.sortBy !== "rating" ? 1 : 0);
 
-  const colorScheme = useColorScheme() ?? "dark";
-  const theme = THEME[colorScheme as keyof typeof THEME];
+  const { theme: mode } = useUniwind();
+  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
   return (
     <View>
@@ -176,12 +178,10 @@ const FilterBottomSheetButton = ({
             <View className="flex-row items-center justify-between py-1">
               <Text className="text-foreground/80 text-sm">Offline only</Text>
               <Switch
-                value={draft.offlineOnly}
-                onValueChange={(val) =>
+                checked={draft.offlineOnly}
+                onCheckedChange={(val) =>
                   setDraft((p) => ({ ...p, offlineOnly: val }))
                 }
-                trackColor={{ false: theme.muted, true: theme.primary }}
-                thumbColor={theme.background}
               />
             </View>
           </Section>

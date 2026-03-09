@@ -1,12 +1,13 @@
 import { SearchIcon } from "lucide-react-native";
-import { useColorScheme, View } from "react-native";
+import { View } from "react-native";
+import { useUniwind } from "uniwind";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { THEME } from "@/lib/theme";
 
 const Search = () => {
-  const colorScheme = useColorScheme() ?? "dark";
-  const theme = THEME[colorScheme as keyof typeof THEME];
+  const { theme: mode } = useUniwind();
+  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
   return (
     <View className="bg-background px-4 flex-1">
