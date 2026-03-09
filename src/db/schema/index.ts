@@ -5,7 +5,7 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
-import type { DownloadState } from "@/features/discover/types";
+import type { DownloadState } from "@/types/movies";
 
 export const movies = sqliteTable(
   "movies",

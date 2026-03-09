@@ -7,7 +7,7 @@ import ContinueWatchingCarousel from "@/features/discover/components/ContinueWat
 const DiscoverScreen = () => {
   return (
     <View className="flex-1 bg-background">
-      <View className="flex-row items-center">
+      <View className="flex-row items-center mr-2">
         <Search />
         <FilterBottomSheetButton />
       </View>

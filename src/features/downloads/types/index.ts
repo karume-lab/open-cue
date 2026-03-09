@@ -2,7 +2,7 @@
 // DOWNLOADS — Torrent daemon + subtitle pipeline
 // ─────────────────────────────────────────
 
-import type { DownloadState } from "@/features/discover/types";
+import type { DownloadState } from "@/types/movies";
 
 // Go daemon REST API response shapes
 // POST /torrents

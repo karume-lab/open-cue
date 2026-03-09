@@ -1,9 +1,13 @@
 import { SearchIcon } from "lucide-react-native";
-import { View } from "react-native";
+import { useColorScheme, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { THEME } from "@/lib/theme";
 
 const Search = () => {
+  const colorScheme = useColorScheme() ?? "dark";
+  const theme = THEME[colorScheme as keyof typeof THEME];
+
   return (
     <View className="bg-background px-4 flex-1">
       <View className="flex-row gap-2 items-center bg-card rounded-2xl px-4 py-2">
@@ -12,7 +16,7 @@ const Search = () => {
         <Input
           className="flex-1 text-base text-foreground bg-transparent"
           placeholder="Search movies..."
-          placeholderTextColor="#888888"
+          placeholderTextColor={theme.placeholder}
         />
       </View>
     </View>
