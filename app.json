@@ -19,14 +19,14 @@
     "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.Karume-lab.seiyuu"
+      "bundleIdentifier": "com.karume-lab.cue"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "public/core/adaptive-icon.png"
       },
-      "package": "com.Karume_lab.seiyuu"
+      "package": "com.karume_lab.cue"
     },
     "plugins": ["expo-router", "expo-asset"],
     "experiments": {
