@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
-  useDerivedValue,
+  useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import * as SwitchPrimitives from '@rn-primitives/switch';
@@ -39,37 +39,24 @@ const AnimatedSwitch = React.forwardRef<
   SwitchPrimitives.RootRef,
   SwitchPrimitives.RootProps
 >(({ className, ...props }, ref) => {
-  const [checked, setChecked] = React.useState(props.checked ?? false);
+  // Use a shared value so Reanimated worklets can track changes correctly
+  const isChecked = useSharedValue(props.checked ? 1 : 0);
 
   React.useEffect(() => {
-    if (props.checked !== undefined) {
-      setChecked(props.checked);
-    }
-  }, [props.checked]);
+    isChecked.value = withTiming(props.checked ? 1 : 0, { duration: 200 });
+  }, [props.checked, isChecked]);
 
-  const progress = useDerivedValue(() => {
-    return withTiming(checked ? 1 : 0, { duration: 200 });
-  });
+  const animatedRootStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      isChecked.value,
+      [0, 1],
+      ['#e4e4e7', '#09090b'],
+    ),
+  }));
 
-  const animatedRootStyle = useAnimatedStyle(() => {
-    return {
-      backgroundColor: interpolateColor(
-        progress.value,
-        [0, 1],
-        ['#e4e4e7', '#09090b'] // muted to primary (fallback colors, will use classes below)
-      ),
-    };
-  });
-
-  const animatedThumbStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          translateX: withTiming(checked ? 20 : 0, { duration: 200 }),
-        },
-      ],
-    };
-  });
+  const animatedThumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: isChecked.value * 20 }],
+  }));
 
   return (
     <SwitchPrimitives.Root
@@ -79,28 +66,21 @@ const AnimatedSwitch = React.forwardRef<
         className
       )}
       {...props}
-      onCheckedChange={(val) => {
-        setChecked(val);
-        props.onCheckedChange?.(val);
-      }}
       ref={ref}
     >
       <Animated.View
-         className={cn(
-           "absolute inset-0 rounded-full",
-           checked ? "bg-primary" : "bg-muted"
-         )}
+        className="absolute inset-0 rounded-full"
+        style={animatedRootStyle}
       />
       <SwitchPrimitives.Thumb asChild>
         <Animated.View
-          className={cn(
-            'h-5 w-5 rounded-full bg-background shadow-sm'
-          )}
+          className="h-5 w-5 rounded-full bg-background shadow-sm"
           style={animatedThumbStyle}
         />
       </SwitchPrimitives.Thumb>
     </SwitchPrimitives.Root>
   );
 });
+
 
 export { AnimatedSwitch as Switch };

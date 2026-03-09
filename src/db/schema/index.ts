@@ -51,6 +51,13 @@ export const movies = sqliteTable(
   ],
 );
 
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 // Drizzle infers these from your schema — use them everywhere instead of hand-writing types
 export type MovieInsert = typeof movies.$inferInsert;
 export type MovieSelect = typeof movies.$inferSelect;
+export type SettingInsert = typeof settings.$inferInsert;
+export type SettingSelect = typeof settings.$inferSelect;

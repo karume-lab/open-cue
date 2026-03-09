@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useUniwind } from "uniwind";
 import { DatabaseProvider } from "@/db";
+import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 import { NAV_THEME } from "@/lib/theme";
 
 export {
@@ -23,36 +24,38 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DatabaseProvider>
-        <ThemeProvider value={NAV_THEME[colorScheme]}>
-          <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-          <BottomSheetModalProvider>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="search"
-                options={{
-                  presentation: "modal",
-                  title: "Search",
-                }}
-              />
-              <Stack.Screen
-                name="movies/[id]"
-                options={{
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="player/[id]"
-                options={{
-                  headerShown: false,
-                  presentation: "fullScreenModal",
-                }}
-              />
-            </Stack>
-          </BottomSheetModalProvider>
-          <PortalHost />
-        </ThemeProvider>
+        <SettingsProvider>
+          <ThemeProvider value={NAV_THEME[colorScheme]}>
+            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+            <BottomSheetModalProvider>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="search"
+                  options={{
+                    presentation: "modal",
+                    title: "Search",
+                  }}
+                />
+                <Stack.Screen
+                  name="movies/[id]"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="player/[id]"
+                  options={{
+                    headerShown: false,
+                    presentation: "fullScreenModal",
+                  }}
+                />
+              </Stack>
+            </BottomSheetModalProvider>
+            <PortalHost />
+          </ThemeProvider>
+        </SettingsProvider>
       </DatabaseProvider>
     </GestureHandlerRootView>
   );
