@@ -4,7 +4,7 @@ import { Icon } from "@/components/ui/icon";
 
 export default function TabLayout() {
   return (
-    <Tabs>
+    <Tabs screenOptions={{ tabBarShowLabel: false }}>
       <Tabs.Screen
         name="discover"
         options={{
@@ -30,6 +30,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: "Settings",
+          headerShown: false,
           tabBarIcon: ({ color }) => <Icon as={Settings} color={color} />,
         }}
       />

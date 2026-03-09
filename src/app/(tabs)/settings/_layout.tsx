@@ -12,8 +12,7 @@ export default function SettingsLayout() {
       <Stack.Screen
         name="storage"
         options={{
-          headerTitle: "Storage",
-          headerShown: true,
+          headerShown: false,
         }}
       />
     </Stack>

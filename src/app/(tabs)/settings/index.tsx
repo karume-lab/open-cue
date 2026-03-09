@@ -25,6 +25,9 @@ const SettingsScreen = () => {
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         <View className="mt-6 px-5">
+          <Text className="text-lg font-bold text-foreground mb-6">
+            Settings
+          </Text>
           <View className="bg-card border border-border/50 rounded-3xl overflow-hidden">
             <View className="flex-row items-center justify-between p-5 border-b border-border/10">
               <View className="flex-row items-center gap-4">

@@ -10,7 +10,7 @@ const OnboardingScreen = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace("/settings");
+      router.replace("/discover");
     }, 20);
     return () => clearTimeout(timer);
   }, [router.replace]);
