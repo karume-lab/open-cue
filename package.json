@@ -8,7 +8,7 @@
     "android": "expo prebuild --clean && expo run:android",
     "build": "expo prebuild --clean && ./android/gradlew -p android assembleRelease",
     "install-apk": "adb install ./android/app/build/outputs/apk/release/app-release.apk",
-    "build:install-apk": "bun build && bun install-apk",
+    "build:install-apk": "bun run build && bun install-apk",
     "doctor": "expo-doctor --verbose",
     "update-packages": "expo install --check",
     "reinstall-packages": "rm -rf node_modules bun.lock && bun i",
