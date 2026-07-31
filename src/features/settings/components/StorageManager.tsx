@@ -4,18 +4,14 @@ import { useMemo } from "react";
 import { TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { MOVIES } from "@/db/mock-data/movies";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
+import { useCompletedMovies } from "@/hooks/useMovies";
 
 const calculateSizeMB = (runtime: number) => runtime * 15;
 
 const StorageManager = () => {
   const { storageInfo } = useSettings();
-
-  const downloadedMovies = useMemo(
-    () => MOVIES.filter((m) => m.downloadState === "complete"),
-    [],
-  );
+  const downloadedMovies = useCompletedMovies();
 
   const movieSizes = useMemo(
     () =>

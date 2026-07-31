@@ -8,7 +8,7 @@ import {
   Play,
   Trash2,
 } from "lucide-react-native";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Dimensions,
   Image,
@@ -21,26 +21,58 @@ import { useUniwind } from "uniwind";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { MOVIES } from "@/db/mock-data/movies";
+import { useMovie } from "@/hooks/useMovies";
 import { THEME } from "@/lib/theme";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.62;
 
+// Simple debounce implementation
+function useDebounceCallback<T extends (...args: unknown[]) => void>(
+  callback: T,
+  delay: number,
+) {
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  return React.useCallback(
+    (...args: Parameters<T>) => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => callback(...args), delay);
+    },
+    [callback, delay],
+  );
+}
+
 const MoviesDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const movieId = Array.isArray(id) ? id[0] : id;
 
-  const movie = MOVIES.find((m) => m.id === id) || MOVIES[0];
+  const movie = useMovie(movieId);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const { theme: mode } = useUniwind();
+  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
+
+  const toggleBookmark = useDebounceCallback(async () => {
+    if (!movie) return;
+    await movie.database.write(async () => {
+      await movie.update((m) => {
+        m.isBookmarked = !m.isBookmarked;
+      });
+    });
+  }, 300);
+
+  if (!movie) return <View className="flex-1 bg-background" />;
 
   const releaseYear = movie.releaseDate ? movie.releaseDate.split("-")[0] : "";
   const runtimeFormatted = `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`;
-  const genres: string[] = JSON.parse(movie.genres || "[]");
+  let genres: string[] = [];
+  try {
+    genres = movie.genres ? JSON.parse(movie.genres) : [];
+  } catch (_e) {}
   const progress =
     movie.duration > 0 ? (movie.currentTime / movie.duration) * 100 : 0;
-
-  const { theme: mode } = useUniwind();
-  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
   const renderPrimaryAction = () => {
     switch (movie.downloadState) {
@@ -142,6 +174,7 @@ const MoviesDetailScreen = () => {
 
           {/* Bookmark button */}
           <TouchableOpacity
+            onPress={toggleBookmark}
             className={`absolute top-14 right-4 size-10 items-center justify-center rounded-full border ${
               movie.isBookmarked
                 ? "bg-primary/20 border-primary/40"

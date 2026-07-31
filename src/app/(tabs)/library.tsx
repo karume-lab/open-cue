@@ -4,7 +4,11 @@ import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
 import Search from "@/components/core/Search";
 import ContinueWatchingCarousel from "@/features/discover/components/ContinueWatchingCarousel";
 
+import { useStash } from "@/hooks/useMovies";
+
 const LibraryScreen = () => {
+  const movies = useStash();
+
   return (
     <View className="flex-1 bg-background">
       <View className="flex-row items-center mr-2">
@@ -12,7 +16,7 @@ const LibraryScreen = () => {
         <FilterBottomSheetButton />
       </View>
 
-      <BrowseMoviesGrid Header={<ContinueWatchingCarousel />} />
+      <BrowseMoviesGrid movies={movies} Header={<ContinueWatchingCarousel />} />
     </View>
   );
 };

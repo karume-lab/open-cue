@@ -5,15 +5,12 @@ import { ScrollView, StatusBar, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { MOVIES } from "@/db/mock-data/movies";
+import { useCompletedMovies } from "@/hooks/useMovies";
 
 const calculateSizeMB = (runtime: number) => runtime * 15;
 
 const StorageScreen = () => {
-  const downloadedMovies = useMemo(
-    () => MOVIES.filter((m) => m.downloadState === "complete"),
-    [],
-  );
+  const downloadedMovies = useCompletedMovies();
 
   const movieSizes = useMemo(
     () =>

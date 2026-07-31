@@ -7,7 +7,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useUniwind } from "uniwind";
-import { DatabaseProvider } from "@/db";
+import { DatabaseProvider, database } from "@/db";
 import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 import { NAV_THEME } from "@/lib/theme";
 
@@ -23,7 +23,8 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <DatabaseProvider>
+      {/* @ts-expect-error - WatermelonDB types mismatch */}
+      <DatabaseProvider database={database}>
         <SettingsProvider>
           <ThemeProvider value={NAV_THEME[colorScheme]}>
             <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />

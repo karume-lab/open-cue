@@ -6,11 +6,11 @@ import { useUniwind } from "uniwind";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import type { MovieSelect } from "@/db/schema";
+import type { Movie } from "@/db/models/Movie";
 import { THEME } from "@/lib/theme";
 
 interface MovieCardProps {
-  movie: MovieSelect;
+  movie: Movie;
   onPress?: () => void;
 }
 

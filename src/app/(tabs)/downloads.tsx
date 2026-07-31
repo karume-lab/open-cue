@@ -10,15 +10,24 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import MovieDownloadCard from "@/features/downloads/components/MovieDownloadCard";
 import ToggleDownloadStatus from "@/features/downloads/components/ToggleDownloadStatus";
-import { useCompletedMovies } from "@/features/downloads/hooks/useCompletedMovies";
-import { useDownloadActions } from "@/features/downloads/hooks/useDownloadActions";
-import { useDownloadingMovies } from "@/features/downloads/hooks/useDownloadingMovies";
+import { useCompletedMovies, useDownloadingMovies } from "@/hooks/useMovies";
+
+// Stub implementation for now
+const useDownloadActions = () => {
+  return {
+    pauseMovie: (_id: string) => {},
+    resumeMovie: (_id: string) => {},
+    removeMovie: (_id: string) => {},
+    pauseAll: (_ids: string[]) => {},
+    resumeAll: (_ids: string[]) => {},
+  };
+};
 
 type Route = { key: string; title: string };
 
 const DownloadsScreen = () => {
-  const { data: activeMovies = [] } = useDownloadingMovies();
-  const { data: completedMovies = [] } = useCompletedMovies();
+  const activeMovies = useDownloadingMovies();
+  const completedMovies = useCompletedMovies();
   const { pauseMovie, resumeMovie, removeMovie, pauseAll, resumeAll } =
     useDownloadActions();
 

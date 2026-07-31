@@ -1,3 +1,5 @@
+import { Q } from "@nozbe/watermelondb";
+import { useDatabase } from "@nozbe/watermelondb/react";
 import {
   createContext,
   type FC,
@@ -8,8 +10,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useDatabase } from "@/db/DatabaseProvider";
-import { settings } from "@/db/schema";
+import type { Setting } from "@/db/models/Setting";
 
 export interface SubtitlePreferences {
   fontSize: number;
@@ -48,7 +49,10 @@ export const SettingsProvider: FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const dbSettings = await db.select().from(settings);
+        const dbSettings = await db.collections
+          .get<Setting>("settings")
+          .query()
+          .fetch();
 
         for (const setting of dbSettings) {
           if (setting.key === SETTINGS_KEYS.OFFLINE_MODE) {
@@ -74,49 +78,52 @@ export const SettingsProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [],
   );
 
+  const setSetting = useCallback(
+    async (key: string, value: string) => {
+      await db.write(async () => {
+        const collection = db.collections.get<Setting>("settings");
+        const existing = await collection.query(Q.where("key", key)).fetch();
+        if (existing.length > 0) {
+          await existing[0].update((s) => {
+            s.value = value;
+          });
+        } else {
+          await collection.create((s) => {
+            s.key = key;
+            s.value = value;
+          });
+        }
+      });
+    },
+    [db],
+  );
+
   const setOfflineMode = useCallback(
     async (value: boolean) => {
       setIsOfflineMode(value);
       try {
-        await db
-          .insert(settings)
-          .values({
-            key: SETTINGS_KEYS.OFFLINE_MODE,
-            value: JSON.stringify(value),
-          })
-          .onConflictDoUpdate({
-            target: settings.key,
-            set: { value: JSON.stringify(value) },
-          });
+        await setSetting(SETTINGS_KEYS.OFFLINE_MODE, JSON.stringify(value));
       } catch (error) {
         console.error("Failed to save offline mode:", error);
       }
     },
-    [db],
+    [setSetting],
   );
 
   const updateSubtitlePrefs = useCallback(
     async (prefs: Partial<SubtitlePreferences>) => {
       setSubtitlePrefs((prev) => {
         const newPrefs = { ...prev, ...prefs };
-        // We need to persist inside here or use a separate effect
-        // Persistence is easier to manage here since we have the latest state
-        db.insert(settings)
-          .values({
-            key: SETTINGS_KEYS.SUBTITLE_PREFS,
-            value: JSON.stringify(newPrefs),
-          })
-          .onConflictDoUpdate({
-            target: settings.key,
-            set: { value: JSON.stringify(newPrefs) },
-          })
-          .catch((error) => {
-            console.error("Failed to save subtitle prefs:", error);
-          });
+        setSetting(
+          SETTINGS_KEYS.SUBTITLE_PREFS,
+          JSON.stringify(newPrefs),
+        ).catch((error) => {
+          console.error("Failed to save subtitle prefs:", error);
+        });
         return newPrefs;
       });
     },
-    [db],
+    [setSetting],
   );
 
   const value = useMemo(

@@ -1,18 +1,17 @@
 import { FlatList, View } from "react-native";
 import MovieCard from "@/components/core/MovieCard";
 import { Text } from "@/components/ui/text";
-import { MOVIES } from "@/db/mock-data/movies";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
+import { useContinueWatching } from "@/hooks/useMovies";
 
 const ContinueWatchingCarousel = () => {
   const { isOfflineMode } = useSettings();
-  const movies = MOVIES.filter((movie) => {
+  const allMovies = useContinueWatching();
+
+  const movies = allMovies.filter((movie) => {
     // Global offline mode filter
     if (isOfflineMode && !movie.isOffline) return false;
-
-    const progress =
-      movie.duration > 0 ? (movie.currentTime / movie.duration) * 100 : 0;
-    return progress > 2 && progress < 95;
+    return true; // The hook already filters by progress
   });
 
   if (movies.length === 0) {

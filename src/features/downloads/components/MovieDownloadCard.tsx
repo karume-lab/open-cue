@@ -3,11 +3,11 @@ import { useEffect, useRef } from "react";
 import { Animated, Image, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import type { MovieSelect } from "@/db/schema";
+import type { Movie } from "@/db/models/Movie";
 import { cn } from "@/lib/utils";
 
 interface MovieDownloadCardProps {
-  movie: MovieSelect;
+  movie: Movie;
   onPause?: () => void;
   onResume?: () => void;
   onRemove?: () => void;
