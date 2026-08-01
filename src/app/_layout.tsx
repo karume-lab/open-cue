@@ -11,12 +11,20 @@ import { DatabaseProvider, database } from "@/db";
 import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 import { NAV_THEME } from "@/lib/theme";
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from "expo-router";
+export { ErrorBoundary } from "expo-router";
+
+import { useEffect } from "react";
+import { registerBackgroundTasks } from "@/services/BackgroundTasks";
+import { requestNotificationPermissions } from "@/services/NotificationService";
+
+// Register background task in the global scope
+registerBackgroundTasks();
 
 export default function RootLayout() {
+  useEffect(() => {
+    requestNotificationPermissions();
+  }, []);
+
   const { theme } = useUniwind();
 
   const colorScheme = theme === "dark" ? "dark" : "light";
