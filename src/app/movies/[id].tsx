@@ -21,14 +21,14 @@ import { useUniwind } from "uniwind";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { useMovie } from "@/hooks/useMovies";
+import { useMovieDetailsQuery } from "@/features/discover/services/queries";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import { THEME } from "@/lib/theme";
 import { DownloadService } from "@/services/DownloadService";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.62;
 
-// Simple debounce implementation
 function useDebounceCallback<T extends (...args: unknown[]) => void>(
   callback: T,
   delay: number,
@@ -36,7 +36,6 @@ function useDebounceCallback<T extends (...args: unknown[]) => void>(
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-
   return React.useCallback(
     (...args: Parameters<T>) => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -48,35 +47,34 @@ function useDebounceCallback<T extends (...args: unknown[]) => void>(
 
 const MoviesDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const movieId = Array.isArray(id) ? id[0] : id;
+  const movieIdNum = Number(Array.isArray(id) ? id[0] : id);
 
-  const movie = useMovie(movieId);
+  const { data: movie, isLoading } = useMovieDetailsQuery(movieIdNum);
+  const { bookmarks, downloads, watchHistory, toggleBookmark } = useAppStore();
+
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const handleToggleBookmark = useDebounceCallback(() => {
+    if (movie) toggleBookmark(movie);
+  }, 300);
+
   const { theme: mode } = useUniwind();
   const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
-  const toggleBookmark = useDebounceCallback(async () => {
-    if (!movie) return;
-    await movie.database.write(async () => {
-      await movie.update((m) => {
-        m.isBookmarked = !m.isBookmarked;
-      });
-    });
-  }, 300);
+  if (isLoading || !movie) return <View className="flex-1 bg-background" />;
 
-  if (!movie) return <View className="flex-1 bg-background" />;
+  const isBookmarked = bookmarks.some((b) => b.id === movie.id);
+  const downloadState = downloads[movie.id];
+  const isOffline = downloadState?.state === "complete";
+  const currentTime = watchHistory[movie.id] || 0;
 
-  const releaseYear = movie.releaseDate ? movie.releaseDate.split("-")[0] : "";
+  const releaseYear = movie.year ? movie.year.toString() : "";
   const runtimeFormatted = `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`;
-  let genres: string[] = [];
-  try {
-    genres = movie.genres ? JSON.parse(movie.genres) : [];
-  } catch (_e) {}
-  const progress =
-    movie.duration > 0 ? (movie.currentTime / movie.duration) * 100 : 0;
+  const genres = movie.genres || [];
+  const duration = movie.runtime * 60;
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const renderPrimaryAction = () => {
-    switch (movie.downloadState) {
+    switch (downloadState?.state) {
       case "downloading":
         return (
           <View className="flex-1">
@@ -85,17 +83,17 @@ const MoviesDetailScreen = () => {
                 Downloading...
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {(movie.downloadSpeed / 1000000).toFixed(1)} MB/s
+                {(downloadState.speed / 1000000).toFixed(1)} MB/s
               </Text>
             </View>
             <View className="h-1 w-full bg-muted rounded-full overflow-hidden mb-3">
               <View
                 className="h-full bg-primary rounded-full"
-                style={{ width: `${movie.downloadProgress * 100}%` }}
+                style={{ width: `${downloadState.progress * 100}%` }}
               />
             </View>
             <TouchableOpacity
-              onPress={() => DownloadService.pauseDownload(movie.id)}
+              onPress={() => DownloadService.pauseDownload(movie.id.toString())}
               className="flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4"
             >
               <Icon as={Pause} size={18} className="text-foreground" />
@@ -112,17 +110,19 @@ const MoviesDetailScreen = () => {
                 Paused
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {(movie.downloadProgress * 100).toFixed(0)}%
+                {(downloadState.progress * 100).toFixed(0)}%
               </Text>
             </View>
             <View className="h-1 w-full bg-muted rounded-full overflow-hidden mb-3">
               <View
                 className="h-full bg-muted-foreground/50 rounded-full"
-                style={{ width: `${movie.downloadProgress * 100}%` }}
+                style={{ width: `${downloadState.progress * 100}%` }}
               />
             </View>
             <TouchableOpacity
-              onPress={() => DownloadService.resumeDownload(movie.id)}
+              onPress={() =>
+                DownloadService.resumeDownload(movie.id.toString())
+              }
               className="flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
             >
               <Icon
@@ -155,12 +155,12 @@ const MoviesDetailScreen = () => {
       default:
         return (
           <TouchableOpacity
-            onPress={() => DownloadService.startDownload(movie.id)}
+            onPress={() => DownloadService.startDownload(movie)}
             className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
           >
             <Icon as={Download} size={20} className="text-primary-foreground" />
             <Text className="text-primary-foreground font-bold text-base">
-              {movie.downloadState === "queued" ? "Queued..." : "Download"}
+              {downloadState?.state === "queued" ? "Queued..." : "Download"}
             </Text>
           </TouchableOpacity>
         );
@@ -178,17 +178,18 @@ const MoviesDetailScreen = () => {
         {/* ── HERO ── */}
         <View style={{ height: HERO_HEIGHT }}>
           <Image
-            source={{ uri: movie.posterPath }}
+            source={{
+              uri: movie.large_cover_image || movie.medium_cover_image,
+            }}
             style={{ width, height: HERO_HEIGHT }}
             resizeMode="cover"
           />
 
-          {/* Full gradient — transparent top, solid background bottom */}
           <LinearGradient
             colors={[
               "transparent",
               "transparent",
-              `${theme.background}B3`, // 70% opacity
+              `${theme.background}B3`,
               theme.background,
             ]}
             locations={[0, 0.6, 0.9, 1]}
@@ -201,7 +202,6 @@ const MoviesDetailScreen = () => {
             }}
           />
 
-          {/* Back button */}
           <TouchableOpacity
             onPress={() => router.back()}
             className="absolute top-14 left-4 size-10 bg-background/40 items-center justify-center rounded-full border border-border/10"
@@ -210,11 +210,10 @@ const MoviesDetailScreen = () => {
             <Icon as={ArrowLeft} size={20} className="text-foreground" />
           </TouchableOpacity>
 
-          {/* Bookmark button */}
           <TouchableOpacity
-            onPress={toggleBookmark}
+            onPress={handleToggleBookmark}
             className={`absolute top-14 right-4 size-10 items-center justify-center rounded-full border ${
-              movie.isBookmarked
+              isBookmarked
                 ? "bg-primary/20 border-primary/40"
                 : "bg-background/40 border-border/10"
             }`}
@@ -224,21 +223,17 @@ const MoviesDetailScreen = () => {
               as={Bookmark}
               size={20}
               className={
-                movie.isBookmarked
-                  ? "text-primary fill-primary"
-                  : "text-foreground"
+                isBookmarked ? "text-primary fill-primary" : "text-foreground"
               }
             />
           </TouchableOpacity>
 
-          {/* Hero bottom — title + meta overlaid on gradient */}
           <View
             className="absolute bottom-0 left-0 right-0 px-5 pb-6"
             style={{ zIndex: 5 }}
           >
-            {/* Rating + Meta row */}
             <View className="flex-row items-center gap-2 mb-3">
-              <RatingBadge rating={movie.voteAverage} />
+              <RatingBadge rating={movie.rating} />
               <Text className="text-foreground/50 text-xs">{releaseYear}</Text>
               <Text className="text-foreground/30 text-xs">•</Text>
               <Text className="text-foreground/50 text-xs">
@@ -246,7 +241,6 @@ const MoviesDetailScreen = () => {
               </Text>
             </View>
 
-            {/* Title */}
             <Text
               className="text-foreground font-bold mb-3"
               style={{
@@ -257,7 +251,6 @@ const MoviesDetailScreen = () => {
               {movie.title}
             </Text>
 
-            {/* Genre pills */}
             <View className="flex-row flex-wrap gap-2">
               {genres.map((genre) => (
                 <View
@@ -275,10 +268,8 @@ const MoviesDetailScreen = () => {
 
         {/* ── CONTENT ── */}
         <View className="px-5 pt-6 pb-16">
-          {/* Action row */}
           <View className="flex-row gap-3 mb-8">{renderPrimaryAction()}</View>
 
-          {/* Progress bar — shown when in progress */}
           {progress > 2 && progress < 95 && (
             <View className="mb-8">
               <View className="flex-row justify-between mb-1.5">
@@ -296,7 +287,6 @@ const MoviesDetailScreen = () => {
             </View>
           )}
 
-          {/* Synopsis */}
           <View className="mb-8">
             <Text className="text-base font-bold text-foreground mb-2">
               Synopsis
@@ -305,9 +295,10 @@ const MoviesDetailScreen = () => {
               className="text-muted-foreground text-sm leading-relaxed"
               numberOfLines={isSynopsisExpanded ? undefined : 4}
             >
-              {movie.overview}
+              {movie.description_full || movie.summary}
             </Text>
-            {movie.overview.length > 200 && (
+            {(movie.description_full?.length > 200 ||
+              movie.summary?.length > 200) && (
               <TouchableOpacity
                 onPress={() => setIsSynopsisExpanded(!isSynopsisExpanded)}
                 className="mt-2"
@@ -319,8 +310,7 @@ const MoviesDetailScreen = () => {
             )}
           </View>
 
-          {/* Local storage section */}
-          {movie.isOffline && (
+          {isOffline && (
             <View className="bg-card rounded-2xl border border-border p-4">
               <Text className="text-sm font-bold text-foreground mb-4">
                 Stored on device
@@ -335,14 +325,16 @@ const MoviesDetailScreen = () => {
                       Video file
                     </Text>
                     <Text className="text-xs text-muted-foreground mt-0.5">
-                      {movie.localSubtitlePath
+                      {downloadState?.localSubtitlePath
                         ? "With subtitles"
                         : "No subtitles"}
                     </Text>
                   </View>
                 </View>
                 <TouchableOpacity
-                  onPress={() => DownloadService.cancelDownload(movie.id)}
+                  onPress={() =>
+                    DownloadService.cancelDownload(movie.id.toString())
+                  }
                   className="flex-row items-center gap-1.5 bg-destructive/10 px-3 py-2 rounded-xl"
                 >
                   <Icon as={Trash2} size={14} className="text-destructive" />

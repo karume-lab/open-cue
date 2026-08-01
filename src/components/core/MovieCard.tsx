@@ -6,21 +6,34 @@ import { useUniwind } from "uniwind";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import type { Movie } from "@/db/models/Movie";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import { THEME } from "@/lib/theme";
+import type { YTSMovie } from "@/types/movie";
 
 interface MovieCardProps {
-  movie: Movie;
+  movie: YTSMovie;
   onPress?: () => void;
 }
+
+export const SkeletonCard = () => {
+  return (
+    <View className="w-full aspect-2/3 rounded-2xl bg-muted/20 animate-pulse border border-border/5" />
+  );
+};
 
 const MovieCard = ({ movie, onPress }: MovieCardProps) => {
   const { theme: mode } = useUniwind();
   const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
-  const progress =
-    movie.duration > 0 ? (movie.currentTime / movie.duration) * 100 : 0;
-  const releaseYear = movie.releaseDate ? movie.releaseDate.split("-")[0] : "";
+  const { watchHistory, downloads } = useAppStore();
+  const downloadState = downloads[movie.id]?.state;
+  const isOffline = downloadState === "complete";
+
+  const currentTime = watchHistory[movie.id] || 0;
+  const duration = movie.runtime * 60; // runtime is in minutes
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const releaseYear = movie.year ? movie.year.toString() : "";
+
   const isInProgress = progress > 2 && progress < 95;
   const isWatched = progress >= 95;
 
@@ -28,8 +41,8 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
     <Link href={`/movies/${movie.id}`} asChild>
       <TouchableOpacity activeOpacity={0.75} onPress={onPress} className="w-56">
         <ImageBackground
-          source={{ uri: movie.posterPath }}
-          className="w-full h-64 rounded-2xl overflow-hidden justify-end"
+          source={{ uri: movie.medium_cover_image }}
+          className="w-full h-64 rounded-2xl overflow-hidden justify-end bg-muted"
           resizeMode="cover"
         >
           <LinearGradient
@@ -44,7 +57,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
             }}
           />
 
-          {movie.isOffline && (
+          {isOffline && (
             <View className="absolute inset-0 items-center justify-center">
               <View className="bg-background/40 rounded-full p-3 border border-primary/30">
                 <Icon
@@ -71,7 +84,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
               className="text-foreground font-bold text-sm leading-tight"
               style={{
                 height: 36,
-                textShadowColor: `${theme.background}CC`, // approx 0.8 opacity
+                textShadowColor: `${theme.background}CC`,
                 textShadowRadius: 4,
               }}
               numberOfLines={2}
@@ -89,7 +102,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
                   {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
                 </Text>
               </View>
-              <RatingBadge rating={movie.voteAverage} />
+              <RatingBadge rating={movie.rating} />
             </View>
 
             {isInProgress && (

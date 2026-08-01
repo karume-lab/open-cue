@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import MovieDownloadCard from "@/features/downloads/components/MovieDownloadCard";
 import ToggleDownloadStatus from "@/features/downloads/components/ToggleDownloadStatus";
-import { useCompletedMovies, useDownloadingMovies } from "@/hooks/useMovies";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import { DownloadService } from "@/services/DownloadService";
 
 const useDownloadActions = () => {
@@ -34,8 +34,14 @@ const useDownloadActions = () => {
 type Route = { key: string; title: string };
 
 const DownloadsScreen = () => {
-  const activeMovies = useDownloadingMovies();
-  const completedMovies = useCompletedMovies();
+  const { downloads } = useAppStore();
+
+  const downloadsArray = Object.values(downloads);
+  const activeDownloads = downloadsArray.filter((d) => d.state !== "complete");
+  const completedDownloads = downloadsArray.filter(
+    (d) => d.state === "complete",
+  );
+
   const { pauseMovie, resumeMovie, removeMovie, pauseAll, resumeAll } =
     useDownloadActions();
 
@@ -44,12 +50,12 @@ const DownloadsScreen = () => {
   const [isAllPaused, setIsAllPaused] = useState(false);
 
   const routes: Route[] = [
-    { key: "active", title: `Active (${activeMovies.length})` },
-    { key: "completed", title: `Completed (${completedMovies.length})` },
+    { key: "active", title: `Active (${activeDownloads.length})` },
+    { key: "completed", title: `Completed (${completedDownloads.length})` },
   ];
 
   const handleToggleAll = async () => {
-    const ids = activeMovies.map((m) => m.id);
+    const ids = activeDownloads.map((d) => d.movie.id.toString());
     if (isAllPaused) {
       await resumeAll(ids);
     } else {
@@ -58,23 +64,23 @@ const DownloadsScreen = () => {
     setIsAllPaused(!isAllPaused);
   };
 
-  const handleRemove = async (id: string) => {
-    await removeMovie(id);
+  const handleRemove = async (id: number) => {
+    await removeMovie(id.toString());
   };
 
   const renderScene = ({ route }: { route: Route }) => {
     if (route.key === "active") {
       return (
         <View style={styles.page}>
-          {activeMovies.length > 0 ? (
+          {activeDownloads.length > 0 ? (
             <ScrollView showsVerticalScrollIndicator={false}>
-              {activeMovies.map((movie) => (
+              {activeDownloads.map((d) => (
                 <MovieDownloadCard
-                  key={movie.id}
-                  movie={movie}
-                  onPause={() => pauseMovie(movie.id)}
-                  onResume={() => resumeMovie(movie.id)}
-                  onRemove={() => handleRemove(movie.id)}
+                  key={d.movie.id}
+                  download={d}
+                  onPause={() => pauseMovie(d.movie.id.toString())}
+                  onResume={() => resumeMovie(d.movie.id.toString())}
+                  onRemove={() => handleRemove(d.movie.id)}
                 />
               ))}
               <View style={styles.bottomPad} />
@@ -90,13 +96,13 @@ const DownloadsScreen = () => {
 
     return (
       <View style={styles.page}>
-        {completedMovies.length > 0 ? (
+        {completedDownloads.length > 0 ? (
           <ScrollView showsVerticalScrollIndicator={false}>
-            {completedMovies.map((movie) => (
+            {completedDownloads.map((d) => (
               <MovieDownloadCard
-                key={movie.id}
-                movie={movie}
-                onRemove={() => handleRemove(movie.id)}
+                key={d.movie.id}
+                download={d}
+                onRemove={() => handleRemove(d.movie.id)}
               />
             ))}
             <View style={styles.bottomPad} />

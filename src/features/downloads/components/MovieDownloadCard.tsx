@@ -3,52 +3,50 @@ import { useEffect, useRef } from "react";
 import { Animated, Image, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import type { Movie } from "@/db/models/Movie";
+import type { DownloadState } from "@/features/shared/store/useAppStore";
 import { cn } from "@/lib/utils";
 
 interface MovieDownloadCardProps {
-  movie: Movie;
+  download: DownloadState;
   onPause?: () => void;
   onResume?: () => void;
   onRemove?: () => void;
 }
 
 const MovieDownloadCard = ({
-  movie,
+  download,
   onPause,
   onResume,
   onRemove,
 }: MovieDownloadCardProps) => {
-  const progressAnim = useRef(
-    new Animated.Value(movie.downloadProgress),
-  ).current;
+  const { movie, state, progress, speed } = download;
+  const progressAnim = useRef(new Animated.Value(progress)).current;
 
   useEffect(() => {
     Animated.timing(progressAnim, {
-      toValue: movie.downloadProgress,
+      toValue: progress,
       duration: 500,
       useNativeDriver: false,
     }).start();
-  }, [movie.downloadProgress, progressAnim]);
+  }, [progress, progressAnim]);
 
-  const formatSpeed = (speed: number) => {
-    if (!speed || speed === 0) return "0 B/s";
-    if (speed < 1024) return `${speed} B/s`;
-    if (speed < 1024 * 1024) return `${(speed / 1024).toFixed(1)} KB/s`;
-    return `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;
+  const formatSpeed = (s: number) => {
+    if (!s || s === 0) return "0 B/s";
+    if (s < 1024) return `${s} B/s`;
+    if (s < 1024 * 1024) return `${(s / 1024).toFixed(1)} KB/s`;
+    return `${(s / (1024 * 1024)).toFixed(1)} MB/s`;
   };
 
-  const isDownloading = movie.downloadState === "downloading";
-  const isPaused = movie.downloadState === "paused";
-  const isQueued = movie.downloadState === "queued";
-  const isComplete = movie.downloadState === "complete";
+  const isDownloading = state === "downloading";
+  const isPaused = state === "paused";
+  const isQueued = state === "queued";
+  const isComplete = state === "complete";
 
   return (
     <View className="flex-row items-center gap-4 bg-card/50 p-3 rounded-2xl border border-border/50 mb-3 overflow-hidden">
-      {/* Poster */}
       <View className="relative">
         <Image
-          source={{ uri: movie.posterPath }}
+          source={{ uri: movie.medium_cover_image }}
           className="w-16 h-24 rounded-lg bg-muted"
           resizeMode="cover"
         />
@@ -59,7 +57,6 @@ const MovieDownloadCard = ({
         )}
       </View>
 
-      {/* Info */}
       <View className="flex-1 justify-center py-1">
         <Text
           className="text-base font-bold text-foreground mb-1"
@@ -97,11 +94,11 @@ const MovieDownloadCard = ({
           <View>
             <View className="flex-row justify-between items-center mb-1.5">
               <Text className="text-xs text-muted-foreground">
-                {Math.round(movie.downloadProgress * 100)}%
+                {Math.round(progress * 100)}%
               </Text>
               {isDownloading && (
                 <Text className="text-xs text-muted-foreground font-medium">
-                  {formatSpeed(movie.downloadSpeed)}
+                  {formatSpeed(speed)}
                 </Text>
               )}
             </View>
@@ -129,7 +126,6 @@ const MovieDownloadCard = ({
         )}
       </View>
 
-      {/* Actions */}
       <View className="flex-row items-center gap-1">
         {!isComplete && (
           <TouchableOpacity

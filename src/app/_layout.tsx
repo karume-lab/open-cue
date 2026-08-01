@@ -7,18 +7,20 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useUniwind } from "uniwind";
-import { DatabaseProvider, database } from "@/db";
 import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 import { NAV_THEME } from "@/lib/theme";
 
 export { ErrorBoundary } from "expo-router";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { registerBackgroundTasks } from "@/services/BackgroundTasks";
 import { requestNotificationPermissions } from "@/services/NotificationService";
 
 // Register background task in the global scope
 registerBackgroundTasks();
+
+const queryClient = new QueryClient();
 
 export default function RootLayout() {
   useEffect(() => {
@@ -31,8 +33,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* @ts-expect-error - WatermelonDB types mismatch */}
-      <DatabaseProvider database={database}>
+      <QueryClientProvider client={queryClient}>
         <SettingsProvider>
           <ThemeProvider value={NAV_THEME[colorScheme]}>
             <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
@@ -65,7 +66,7 @@ export default function RootLayout() {
             <PortalHost />
           </ThemeProvider>
         </SettingsProvider>
-      </DatabaseProvider>
+      </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }

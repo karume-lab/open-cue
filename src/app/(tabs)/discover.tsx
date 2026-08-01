@@ -4,10 +4,11 @@ import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
 import Search from "@/components/core/Search";
 import ContinueWatchingCarousel from "@/features/discover/components/ContinueWatchingCarousel";
 
-import { useAllMovies } from "@/hooks/useMovies";
+import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
 
 const DiscoverScreen = () => {
-  const movies = useAllMovies();
+  const { data, isLoading } = useDiscoverMoviesQuery(1);
+  const movies = data?.data?.movies || [];
 
   return (
     <View className="flex-1 bg-background">
@@ -16,7 +17,11 @@ const DiscoverScreen = () => {
         <FilterBottomSheetButton />
       </View>
 
-      <BrowseMoviesGrid movies={movies} Header={<ContinueWatchingCarousel />} />
+      <BrowseMoviesGrid
+        movies={movies}
+        isLoading={isLoading}
+        Header={<ContinueWatchingCarousel />}
+      />
     </View>
   );
 };

@@ -1,33 +1,37 @@
 import type { ReactNode } from "react";
 import { FlatList, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MovieCard from "@/components/core/MovieCard";
-import SkeletonCard from "@/components/core/SkeletonCard";
+import MovieCard, { SkeletonCard } from "@/components/core/MovieCard";
 import { Text } from "@/components/ui/text";
-import type { Movie } from "@/db/models/Movie";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
+import { useAppStore } from "@/features/shared/store/useAppStore";
+import type { YTSMovie } from "@/types/movie";
 
 interface BrowseMoviesGridProps {
   Header?: ReactNode;
-  movies: Movie[];
+  movies?: YTSMovie[];
   isLoading?: boolean;
 }
 
 const BrowseMoviesGrid = ({
   Header,
-  movies,
+  movies = [],
   isLoading,
 }: BrowseMoviesGridProps) => {
   const { isOfflineMode } = useSettings();
+  const { watchHistory, downloads } = useAppStore();
 
   const filteredMovies = movies.filter((movie) => {
+    const isOffline = downloads[movie.id]?.state === "complete";
     // Global offline mode filter
-    if (isOfflineMode && !movie.isOffline) return false;
+    if (isOfflineMode && !isOffline) return false;
 
-    const progress =
-      movie.duration > 0 ? (movie.currentTime / movie.duration) * 100 : 0;
+    const currentTime = watchHistory[movie.id] || 0;
+    const duration = movie.runtime * 60;
+    const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
     return progress <= 2 || progress >= 95;
   });
+
   const safeAreaInsets = useSafeAreaInsets();
 
   if (isLoading) {
@@ -37,10 +41,14 @@ const BrowseMoviesGrid = ({
         <Text className="text-xl font-bold text-foreground mb-4 px-4">
           Explore
         </Text>
-        <View className="flex-row flex-wrap px-4 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((id) => (
-            <SkeletonCard key={`skeleton-${id}`} />
-          ))}
+        <View className="flex-row flex-wrap px-2">
+          {Array.from({ length: 6 }, () => Math.random().toString()).map(
+            (id) => (
+              <View key={`sk-${id}`} className="w-1/2 p-2">
+                <SkeletonCard />
+              </View>
+            ),
+          )}
         </View>
       </View>
     );
@@ -49,12 +57,15 @@ const BrowseMoviesGrid = ({
   return (
     <FlatList
       data={filteredMovies}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.id.toString()}
       numColumns={2}
-      renderItem={({ item }) => <MovieCard movie={item} />}
+      renderItem={({ item }) => (
+        <View className="w-1/2 p-2 flex items-center justify-center">
+          <MovieCard movie={item} />
+        </View>
+      )}
       showsVerticalScrollIndicator={false}
-      columnWrapperStyle={{ gap: 16, paddingHorizontal: 16 }}
-      contentContainerStyle={{ gap: 16, paddingBottom: safeAreaInsets.bottom }}
+      contentContainerStyle={{ paddingBottom: safeAreaInsets.bottom }}
       ListHeaderComponent={
         <View>
           {Header}

@@ -1,17 +1,47 @@
 import { FlatList, View } from "react-native";
 import MovieCard from "@/components/core/MovieCard";
 import { Text } from "@/components/ui/text";
+import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
-import { useContinueWatching } from "@/hooks/useMovies";
+import { useAppStore } from "@/features/shared/store/useAppStore";
+import type { YTSMovie } from "@/types/movie";
 
 const ContinueWatchingCarousel = () => {
   const { isOfflineMode } = useSettings();
-  const allMovies = useContinueWatching();
+  const { watchHistory, downloads } = useAppStore();
+  const { data } = useDiscoverMoviesQuery(1);
 
-  const movies = allMovies.filter((movie) => {
-    // Global offline mode filter
-    if (isOfflineMode && !movie.isOffline) return false;
-    return true; // The hook already filters by progress
+  // This is a naive implementation: check history against currently fetched movies.
+  // In a real app, you would probably just store the full movie in watchHistory instead of fetching it here,
+  // or use the bookmarks/downloads to find it. But since we store full movies in bookmarks/downloads, let's use them!
+  const allKnownMovies: Record<number, YTSMovie> = {};
+
+  // Combine all movies we have full objects for
+  useAppStore.getState().bookmarks.forEach((m) => {
+    allKnownMovies[m.id] = m;
+  });
+  Object.values(useAppStore.getState().downloads).forEach((d) => {
+    allKnownMovies[d.movie.id] = d.movie;
+  });
+  data?.data?.movies?.forEach((m) => {
+    allKnownMovies[m.id] = m;
+  });
+
+  const inProgressMovies = Object.entries(watchHistory)
+    .map(([id, time]) => ({ id: Number(id), time }))
+    .filter(({ id, time }) => {
+      const movie = allKnownMovies[id];
+      if (!movie) return false;
+      const progress = (time / (movie.runtime * 60)) * 100;
+      return progress > 2 && progress < 95;
+    })
+    .map(({ id }) => allKnownMovies[id])
+    .filter(Boolean);
+
+  const movies = inProgressMovies.filter((movie) => {
+    if (isOfflineMode && downloads[movie.id]?.state !== "complete")
+      return false;
+    return true;
   });
 
   if (movies.length === 0) {
@@ -27,7 +57,7 @@ const ContinueWatchingCarousel = () => {
       <FlatList
         horizontal
         data={movies}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => <MovieCard movie={item} />}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16 }}

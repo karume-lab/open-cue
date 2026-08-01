@@ -28,7 +28,7 @@
       },
       "package": "com.karume_lab.cue"
     },
-    "plugins": ["expo-router", "expo-asset", "expo-sqlite"],
+    "plugins": ["expo-router", "expo-asset"],
     "experiments": {
       "typedRoutes": true
     }

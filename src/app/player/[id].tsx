@@ -8,24 +8,29 @@ import Video, {
   type OnLoadData,
   type OnProgressData,
 } from "react-native-video";
+import { useMovieDetailsQuery } from "@/features/discover/services/queries";
 import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
 import SubtitlePreferencesSheet from "@/features/settings/components/SubtitlePreferencesSheet";
-import { useMovie } from "@/hooks/useMovies";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 
 const DEMO_VIDEO_URL =
   "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
 const PlayerDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const movieId = Array.isArray(id) ? id[0] : id;
-  const movie = useMovie(movieId);
+  const movieId = Number(Array.isArray(id) ? id[0] : id);
+
+  const { data: movie, isLoading } = useMovieDetailsQuery(movieId);
+  const { watchHistory, updateWatchHistory } = useAppStore();
 
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const subtitleSheetRef = useRef<BottomSheetModal>(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
+
+  const savedCurrentTime = watchHistory[movieId] || 0;
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -35,27 +40,14 @@ const PlayerDetailScreen = () => {
   const lastSavedTime = useRef<number>(0);
 
   const saveProgress = useCallback(
-    async (time: number) => {
-      if (!movie) return;
-      try {
-        await movie.database.write(async () => {
-          await movie.update((m) => {
-            m.currentTime = time;
-            if (duration > 0) {
-              m.duration = duration;
-            }
-          });
-        });
-        lastSavedTime.current = time;
-      } catch (e) {
-        console.warn("Failed to save progress", e);
-      }
+    (time: number) => {
+      updateWatchHistory(movieId, time);
+      lastSavedTime.current = time;
     },
-    [movie, duration],
+    [movieId, updateWatchHistory],
   );
 
   const handleBack = useCallback(() => {
-    // Save time one last time before exiting
     saveProgress(currentTime);
     router.back();
   }, [saveProgress, currentTime]);
@@ -68,11 +60,9 @@ const PlayerDetailScreen = () => {
     }, 3000);
   }, []);
 
-  // Orientation and Status Bar Lock
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
     StatusBar.setHidden(true);
-
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
@@ -88,17 +78,14 @@ const PlayerDetailScreen = () => {
     };
   }, [handleBack]);
 
-  // Initialize playback time from DB
   useEffect(() => {
-    if (movie && movie.currentTime > 0 && currentTime === 0) {
-      // Small delay to ensure video is ready before seeking
+    if (movie && savedCurrentTime > 0 && currentTime === 0) {
       setTimeout(() => {
-        videoRef.current?.seek(movie.currentTime);
+        videoRef.current?.seek(savedCurrentTime);
       }, 500);
     }
-  }, [movie, currentTime]);
+  }, [movie, savedCurrentTime, currentTime]);
 
-  // Auto-hide controls
   useEffect(() => {
     interactControls();
     return () => {
@@ -108,7 +95,6 @@ const PlayerDetailScreen = () => {
 
   const handleProgress = (data: OnProgressData) => {
     setCurrentTime(data.currentTime);
-    // Save every 10 seconds
     if (Math.abs(data.currentTime - lastSavedTime.current) >= 10) {
       saveProgress(data.currentTime);
     }
@@ -130,13 +116,13 @@ const PlayerDetailScreen = () => {
     setCurrentTime(newTime);
   };
 
-  if (!movie) return <View className="flex-1 bg-black" />;
+  if (isLoading || !movie) return <View className="flex-1 bg-black" />;
 
   return (
     <View className="flex-1 bg-black">
       <Video
         ref={videoRef}
-        source={{ uri: DEMO_VIDEO_URL }} // Using demo URL as local files are currently mocked
+        source={{ uri: DEMO_VIDEO_URL }}
         style={StyleSheet.absoluteFill}
         resizeMode="contain"
         paused={!isPlaying}

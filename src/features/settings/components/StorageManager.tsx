@@ -5,13 +5,16 @@ import { TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
-import { useCompletedMovies } from "@/hooks/useMovies";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 
 const calculateSizeMB = (runtime: number) => runtime * 15;
 
 const StorageManager = () => {
   const { storageInfo } = useSettings();
-  const downloadedMovies = useCompletedMovies();
+  const { downloads } = useAppStore();
+  const downloadedMovies = Object.values(downloads)
+    .filter((d) => d.state === "complete")
+    .map((d) => d.movie);
 
   const movieSizes = useMemo(
     () =>

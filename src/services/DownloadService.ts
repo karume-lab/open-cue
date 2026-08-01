@@ -5,69 +5,46 @@ import {
   makeDirectoryAsync,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
-import { database } from "@/db";
-import type { Movie } from "@/db/models/Movie";
+import { useAppStore } from "@/features/shared/store/useAppStore";
+import type { YTSMovie } from "@/types/movie";
 
 class DownloadManager {
   private activeIntervals: Record<string, ReturnType<typeof setInterval>> = {};
 
-  private async getMovie(id: string): Promise<Movie | null> {
-    try {
-      const movie = await database.get<Movie>("movies").find(id);
-      return movie;
-    } catch {
-      return null;
-    }
-  }
-
-  async startDownload(movieId: string) {
-    const movie = await this.getMovie(movieId);
-    if (!movie) return;
-
-    await database.write(async () => {
-      await movie.update((m) => {
-        m.downloadState = "downloading";
-        m.downloadProgress = m.downloadProgress || 0;
-        m.downloadSpeed = 2.5 * 1024 * 1024; // Initial mock 2.5MB/s
-      });
+  async startDownload(movie: YTSMovie) {
+    useAppStore.getState().updateDownloadState(movie.id, {
+      movie,
+      state: "downloading",
+      progress: 0,
+      speed: 2.5 * 1024 * 1024,
     });
 
+    this.startMockProgress(movie.id);
+  }
+
+  async pauseDownload(movieIdStr: string) {
+    const movieId = Number(movieIdStr);
+    this.clearInterval(movieId);
+
+    useAppStore.getState().updateDownloadState(movieId, {
+      state: "paused",
+      speed: 0,
+    });
+  }
+
+  async resumeDownload(movieIdStr: string) {
+    const movieId = Number(movieIdStr);
+    useAppStore.getState().updateDownloadState(movieId, {
+      state: "downloading",
+    });
     this.startMockProgress(movieId);
   }
 
-  async pauseDownload(movieId: string) {
+  async cancelDownload(movieIdStr: string) {
+    const movieId = Number(movieIdStr);
     this.clearInterval(movieId);
 
-    const movie = await this.getMovie(movieId);
-    if (movie) {
-      await database.write(async () => {
-        await movie.update((m) => {
-          m.downloadState = "paused";
-          m.downloadSpeed = 0;
-        });
-      });
-    }
-  }
-
-  async resumeDownload(movieId: string) {
-    this.startDownload(movieId);
-  }
-
-  async cancelDownload(movieId: string) {
-    this.clearInterval(movieId);
-
-    const movie = await this.getMovie(movieId);
-    if (movie) {
-      await database.write(async () => {
-        await movie.update((m) => {
-          m.downloadState = "none";
-          m.downloadProgress = 0;
-          m.downloadSpeed = 0;
-          m.localVideoPath = undefined;
-          m.localSubtitlePath = undefined;
-        });
-      });
-    }
+    useAppStore.getState().removeDownload(movieId);
 
     // Clean up mock files
     const dir = `${documentDirectory}downloads/${movieId}`;
@@ -81,68 +58,57 @@ class DownloadManager {
     }
   }
 
-  private clearInterval(movieId: string) {
+  private clearInterval(movieId: number) {
     if (this.activeIntervals[movieId]) {
       clearInterval(this.activeIntervals[movieId]);
       delete this.activeIntervals[movieId];
     }
   }
 
-  private startMockProgress(movieId: string) {
+  private startMockProgress(movieId: number) {
     this.clearInterval(movieId);
 
     this.activeIntervals[movieId] = setInterval(async () => {
-      const movie = await this.getMovie(movieId);
-      if (!movie) {
-        this.clearInterval(movieId);
-        return;
-      }
+      const state = useAppStore.getState();
+      const download = state.downloads[movieId];
 
-      // If somehow it's no longer downloading, stop interval
-      if (movie.downloadState !== "downloading") {
+      if (!download || download.state !== "downloading") {
         this.clearInterval(movieId);
         return;
       }
 
       const increment = 0.05; // 5% per second
-      let newProgress = movie.downloadProgress + increment;
+      let newProgress = download.progress + increment;
 
       if (newProgress >= 1.0) {
         newProgress = 1.0;
         this.clearInterval(movieId);
-        await this.completeDownload(movie);
+        await this.completeDownload(download.movie);
       } else {
-        await database.write(async () => {
-          await movie.update((m) => {
-            m.downloadProgress = newProgress;
-            // Randomize speed a bit for realism between 1.5 and 5.5 MB/s
-            m.downloadSpeed = (1.5 + Math.random() * 4) * 1024 * 1024;
-          });
+        useAppStore.getState().updateDownloadState(movieId, {
+          progress: newProgress,
+          speed: (1.5 + Math.random() * 4) * 1024 * 1024,
         });
       }
     }, 1000);
   }
 
-  private async completeDownload(movie: Movie) {
+  private async completeDownload(movie: YTSMovie) {
     const dir = `${documentDirectory}downloads/${movie.id}`;
     const videoPath = `${dir}/video.mp4`;
     const subPath = `${dir}/sub_en.srt`;
 
     try {
-      // Ensure directory exists
       await makeDirectoryAsync(dir, { intermediates: true });
-      // Write placeholder files
       await writeAsStringAsync(videoPath, "mock video data");
       await writeAsStringAsync(subPath, "mock subtitle data");
 
-      await database.write(async () => {
-        await movie.update((m) => {
-          m.downloadProgress = 1.0;
-          m.downloadState = "complete";
-          m.downloadSpeed = 0;
-          m.localVideoPath = videoPath;
-          m.localSubtitlePath = subPath;
-        });
+      useAppStore.getState().updateDownloadState(movie.id, {
+        progress: 1.0,
+        state: "complete",
+        speed: 0,
+        localVideoPath: videoPath,
+        localSubtitlePath: subPath,
       });
     } catch (error) {
       console.error("Failed to write mock files:", error);
