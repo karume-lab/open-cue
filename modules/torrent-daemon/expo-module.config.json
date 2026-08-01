@@ -1,0 +1,10 @@
+{
+  "name": "TorrentDaemon",
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["TorrentDaemonModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.torrentdaemon.TorrentDaemonModule"]
+  }
+}
