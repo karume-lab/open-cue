@@ -23,6 +23,7 @@ import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useMovie } from "@/hooks/useMovies";
 import { THEME } from "@/lib/theme";
+import { DownloadService } from "@/services/DownloadService";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.62;
@@ -93,9 +94,43 @@ const MoviesDetailScreen = () => {
                 style={{ width: `${movie.downloadProgress * 100}%` }}
               />
             </View>
-            <TouchableOpacity className="flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4">
+            <TouchableOpacity
+              onPress={() => DownloadService.pauseDownload(movie.id)}
+              className="flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4"
+            >
               <Icon as={Pause} size={18} className="text-foreground" />
               <Text className="text-foreground font-bold">Pause</Text>
+            </TouchableOpacity>
+          </View>
+        );
+
+      case "paused":
+        return (
+          <View className="flex-1">
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-xs font-semibold text-foreground">
+                Paused
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                {(movie.downloadProgress * 100).toFixed(0)}%
+              </Text>
+            </View>
+            <View className="h-1 w-full bg-muted rounded-full overflow-hidden mb-3">
+              <View
+                className="h-full bg-muted-foreground/50 rounded-full"
+                style={{ width: `${movie.downloadProgress * 100}%` }}
+              />
+            </View>
+            <TouchableOpacity
+              onPress={() => DownloadService.resumeDownload(movie.id)}
+              className="flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
+            >
+              <Icon
+                as={Play}
+                size={18}
+                className="text-primary-foreground fill-primary-foreground"
+              />
+              <Text className="text-primary-foreground font-bold">Resume</Text>
             </TouchableOpacity>
           </View>
         );
@@ -119,7 +154,10 @@ const MoviesDetailScreen = () => {
 
       default:
         return (
-          <TouchableOpacity className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4">
+          <TouchableOpacity
+            onPress={() => DownloadService.startDownload(movie.id)}
+            className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
+          >
             <Icon as={Download} size={20} className="text-primary-foreground" />
             <Text className="text-primary-foreground font-bold text-base">
               {movie.downloadState === "queued" ? "Queued..." : "Download"}
@@ -303,7 +341,10 @@ const MoviesDetailScreen = () => {
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity className="flex-row items-center gap-1.5 bg-destructive/10 px-3 py-2 rounded-xl">
+                <TouchableOpacity
+                  onPress={() => DownloadService.cancelDownload(movie.id)}
+                  className="flex-row items-center gap-1.5 bg-destructive/10 px-3 py-2 rounded-xl"
+                >
                   <Icon as={Trash2} size={14} className="text-destructive" />
                   <Text className="text-destructive text-xs font-bold">
                     Remove

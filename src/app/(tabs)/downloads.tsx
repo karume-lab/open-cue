@@ -11,15 +11,23 @@ import { Text } from "@/components/ui/text";
 import MovieDownloadCard from "@/features/downloads/components/MovieDownloadCard";
 import ToggleDownloadStatus from "@/features/downloads/components/ToggleDownloadStatus";
 import { useCompletedMovies, useDownloadingMovies } from "@/hooks/useMovies";
+import { DownloadService } from "@/services/DownloadService";
 
-// Stub implementation for now
 const useDownloadActions = () => {
   return {
-    pauseMovie: (_id: string) => {},
-    resumeMovie: (_id: string) => {},
-    removeMovie: (_id: string) => {},
-    pauseAll: (_ids: string[]) => {},
-    resumeAll: (_ids: string[]) => {},
+    pauseMovie: (id: string) => DownloadService.pauseDownload(id),
+    resumeMovie: (id: string) => DownloadService.resumeDownload(id),
+    removeMovie: (id: string) => DownloadService.cancelDownload(id),
+    pauseAll: (ids: string[]) => {
+      ids.forEach((id) => {
+        DownloadService.pauseDownload(id);
+      });
+    },
+    resumeAll: (ids: string[]) => {
+      ids.forEach((id) => {
+        DownloadService.resumeDownload(id);
+      });
+    },
   };
 };
 
