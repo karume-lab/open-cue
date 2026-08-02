@@ -15,13 +15,19 @@ cd torrent-daemon
 
 echo "Downloading dependencies..."
 go mod tidy
+go get -tool golang.org/x/mobile/cmd/gobind
+go get golang.org/x/mobile/bind
 
 echo "Compiling for Android (AAR)..."
 mkdir -p ../modules/torrent-daemon/android/libs
-gomobile bind -target=android -o ../modules/torrent-daemon/android/libs/daemon.aar ./
+gomobile bind -target=android -androidapi 23 -o ../modules/torrent-daemon/android/libs/daemon.aar ./
 
-echo "Compiling for iOS (Framework)..."
-mkdir -p ../modules/torrent-daemon/ios
-gomobile bind -target=ios -o ../modules/torrent-daemon/ios/Daemon.xcframework ./
+if [ "$(uname -s)" = "Darwin" ]; then
+    echo "Compiling for iOS (Framework)..."
+    mkdir -p ../modules/torrent-daemon/ios
+    gomobile bind -target=ios -o ../modules/torrent-daemon/ios/Daemon.xcframework ./
+else
+    echo "Skipping iOS compilation (macOS with Xcode required)"
+fi
 
 echo "Done! The libraries have been copied to the modules/torrent-daemon directory."

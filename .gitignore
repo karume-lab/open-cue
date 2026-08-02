@@ -46,3 +46,8 @@ TODO.md
 uniwind-types.d.ts
 
 migrations/
+
+# Generated Native Binaries (50MB+ each, do not track to avoid repo bloat)
+/modules/torrent-daemon/android/libs/daemon.aar
+/modules/torrent-daemon/android/libs/daemon-sources.jar
+/modules/torrent-daemon/ios/Daemon.xcframework/
