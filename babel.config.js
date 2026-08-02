@@ -13,7 +13,7 @@ module.exports = (api) => {
           },
         },
       ],
-      ["@babel/plugin-proposal-decorators", { legacy: true }],
+      ["@babel/plugin-proposal-decorators", { version: "legacy" }],
       "react-native-reanimated/plugin",
     ],
   };
