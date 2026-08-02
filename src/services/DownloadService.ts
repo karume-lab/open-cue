@@ -1,11 +1,14 @@
 import { Directory, File, Paths } from "expo-file-system";
+import { Platform } from "react-native";
 import {
   type DownloadState,
   useAppStore,
 } from "@/features/shared/store/useAppStore";
-import { magnetFromHash } from "@/services/torrents";
+import { episodeLabel, magnetFromHash } from "@/services/torrents";
 import type { Movie, MovieTorrent } from "@/types/movie";
-import TorrentDaemon from "~/modules/torrent-daemon";
+import TorrentDaemon, {
+  type DownloadNotification,
+} from "~/modules/torrent-daemon";
 
 // A download is keyed by the movie (or show) plus the specific torrent, so the
 // same title can have several concurrent downloads (episodes, qualities, …).
@@ -83,6 +86,38 @@ export const resolveDownloadFileUri = async (
   return resolveLocalVideoPath(download.movie);
 };
 
+// Mirrors the currently active downloads (queued/downloading/paused) to the
+// native foreground service, which keeps downloading after the app is closed
+// and shows one progress notification per download. Android-only.
+const syncDownloadNotifications = async () => {
+  if (Platform.OS !== "android") return;
+
+  const { downloads } = useAppStore.getState();
+  const notifications: DownloadNotification[] = [];
+  for (const download of Object.values(downloads)) {
+    if (download.state === "complete") continue;
+    const torrent = download.movie.torrents?.[0];
+    if (!torrent) continue;
+    notifications.push({
+      id: download.id,
+      hash: torrent.hash,
+      title: download.movie.title,
+      label: episodeLabel(torrent) ?? "",
+      state: download.state,
+    });
+  }
+
+  try {
+    if (notifications.length === 0) {
+      await TorrentDaemon.stopDownloadNotifications();
+    } else {
+      await TorrentDaemon.updateDownloadNotifications(notifications);
+    }
+  } catch (error) {
+    console.error("Failed to sync download notifications:", error);
+  }
+};
+
 class DownloadManager {
   private activeIntervals: Record<string, ReturnType<typeof setInterval>> = {};
   private daemonStarted = false;
@@ -119,9 +154,11 @@ class DownloadManager {
         state: "downloading",
       });
       this.startPollingProgress(key, infoHash);
+      await syncDownloadNotifications();
     } catch (e) {
       console.error("Failed to add magnet:", e);
       useAppStore.getState().removeDownload(key);
+      await syncDownloadNotifications();
       throw e;
     }
   }
@@ -150,6 +187,7 @@ class DownloadManager {
       state: "paused",
       speed: 0,
     });
+    await syncDownloadNotifications();
   }
 
   async resumeDownload(downloadId: string) {
@@ -164,6 +202,7 @@ class DownloadManager {
       });
       this.startPollingProgress(downloadId, torrent.hash);
     }
+    await syncDownloadNotifications();
   }
 
   async cancelDownload(downloadId: string) {
@@ -179,9 +218,69 @@ class DownloadManager {
     }
 
     useAppStore.getState().removeDownload(downloadId);
+    await syncDownloadNotifications();
 
     // Note: In a real app we would want to tell the daemon to delete the files,
     // or manually delete the specific torrent data dir inside the storagePath.
+  }
+
+  // Called when the app returns to the foreground. Downloads can finish (or
+  // keep running) while the app was closed via the native foreground service;
+  // this reconciles persisted state with the daemon's actual progress and
+  // resumes UI polling.
+  async reconcileDownloads() {
+    try {
+      await this.ensureDaemonStarted();
+    } catch {
+      return;
+    }
+
+    const { downloads } = useAppStore.getState();
+    for (const download of Object.values(downloads)) {
+      if (download.state === "complete" || download.state === "paused") {
+        continue;
+      }
+
+      const torrent = download.movie.torrents?.[0];
+      if (!torrent) continue;
+
+      if (download.state === "queued") {
+        // Re-add the magnet — anacrolix dedupes by infohash, so this is
+        // idempotent if the torrent is already in the client.
+        try {
+          const magnet =
+            torrent.magnet ??
+            magnetFromHash(torrent.hash, download.movie.title);
+          const infoHash = await TorrentDaemon.addMagnet(magnet);
+          useAppStore.getState().updateDownloadState(download.id, {
+            state: "downloading",
+          });
+          this.startPollingProgress(download.id, infoHash);
+        } catch (error) {
+          console.error("Reconcile: failed to re-add magnet:", error);
+        }
+        continue;
+      }
+
+      // "downloading" — check whether it finished while the app was closed.
+      const progress = await TorrentDaemon.getProgress(torrent.hash);
+      if (progress >= 1.0) {
+        const localVideoPath = await resolveLocalVideoPath(download.movie);
+        useAppStore.getState().updateDownloadState(download.id, {
+          progress: 1.0,
+          state: "complete",
+          speed: 0,
+          localVideoPath,
+        });
+      } else {
+        useAppStore.getState().updateDownloadState(download.id, {
+          progress,
+        });
+        this.startPollingProgress(download.id, torrent.hash);
+      }
+    }
+
+    await syncDownloadNotifications();
   }
 
   private clearInterval(downloadId: string) {
@@ -216,6 +315,7 @@ class DownloadManager {
           speed: 0,
           localVideoPath,
         });
+        await syncDownloadNotifications();
       } else {
         useAppStore.getState().updateDownloadState(downloadId, {
           progress: progress,

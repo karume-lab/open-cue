@@ -2,7 +2,10 @@ module torrent-daemon
 
 go 1.25.0
 
-require github.com/anacrolix/torrent v1.53.2
+require (
+	github.com/anacrolix/torrent v1.53.2
+	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
+)
 
 require (
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
@@ -72,7 +75,6 @@ require (
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	golang.org/x/tools v0.48.0 // indirect
 	modernc.org/libc v1.22.3 // indirect
 	modernc.org/mathutil v1.5.0 // indirect

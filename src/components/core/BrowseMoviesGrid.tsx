@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -26,6 +27,8 @@ interface BrowseMoviesGridProps {
   onRetry?: () => void;
   onLoadMore?: () => void;
   isFetchingNextPage?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 const BrowseMoviesGrid = ({
@@ -37,6 +40,8 @@ const BrowseMoviesGrid = ({
   onRetry,
   onLoadMore,
   isFetchingNextPage,
+  refreshing,
+  onRefresh,
 }: BrowseMoviesGridProps) => {
   const { isOfflineMode } = useSettings();
   const { downloads } = useAppStore();
@@ -104,6 +109,14 @@ const BrowseMoviesGrid = ({
       showsVerticalScrollIndicator={false}
       onEndReached={onLoadMore}
       onEndReachedThreshold={0.5}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing ?? false}
+            onRefresh={onRefresh}
+          />
+        ) : undefined
+      }
       contentContainerStyle={{ paddingBottom: safeAreaInsets.bottom + 16 }}
       ListHeaderComponent={
         <View>

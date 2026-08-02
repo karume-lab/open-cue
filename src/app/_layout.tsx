@@ -19,7 +19,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter, useSegments } from "expo-router";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { registerBackgroundTasks } from "@/services/BackgroundTasks";
+import { DownloadService } from "@/services/DownloadService";
 import { requestNotificationPermissions } from "@/services/NotificationService";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
@@ -66,6 +68,17 @@ const RootLayout: React.FC = () => {
     requestNotificationPermissions();
     setIsReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        DownloadService.reconcileDownloads();
+      }
+    });
+    return () => subscription.remove();
+  }, [isReady]);
 
   useEffect(() => {
     if (!isReady) return;

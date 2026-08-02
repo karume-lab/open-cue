@@ -30,6 +30,10 @@ public class TorrentDaemonModule: Module {
       return DaemonGetProgress(infoHash)
     }
 
+    Function("getFiles") { (infoHash: String) -> String in
+      return DaemonGetFiles(infoHash)
+    }
+
     AsyncFunction("pause") { (infoHash: String) in
       var error: NSError?
       DaemonPause(infoHash, &error)
@@ -44,6 +48,34 @@ public class TorrentDaemonModule: Module {
       if let err = error {
         throw err
       }
+    }
+
+    AsyncFunction("streamTorrent") { (uri: String) -> String in
+      var error: NSError?
+      let streamUrl = DaemonStreamTorrent(uri, &error)
+      if let err = error {
+        throw err
+      }
+      return streamUrl
+    }
+
+    AsyncFunction("stopStreaming") { (infoHash: String) in
+      var error: NSError?
+      DaemonStopStreaming(infoHash, &error)
+      if let err = error {
+        throw err
+      }
+    }
+
+    // Foreground-service download notifications are Android-only. These no-op
+    // so the JS interface exists cross-platform.
+    AsyncFunction("startDownloadNotifications") { (_: [[String: Any]]) in
+    }
+
+    AsyncFunction("updateDownloadNotifications") { (_: [[String: Any]]) in
+    }
+
+    AsyncFunction("stopDownloadNotifications") {
     }
   }
 }

@@ -27,6 +27,7 @@ const DiscoverScreen = () => {
     isError,
     error,
     refetch,
+    isRefetching,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -52,6 +53,8 @@ const DiscoverScreen = () => {
           }
         }}
         isFetchingNextPage={isFetchingNextPage}
+        refreshing={isRefetching}
+        onRefresh={refetch}
         Header={<ContinueWatchingCarousel />}
       />
     </View>

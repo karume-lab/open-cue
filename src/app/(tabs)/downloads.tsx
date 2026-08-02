@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -50,6 +51,16 @@ const DownloadsScreen = () => {
   const layout = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const [isAllPaused, setIsAllPaused] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await DownloadService.reconcileDownloads();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const routes: Route[] = [
     { key: "active", title: `Active (${activeDownloads.length})` },
@@ -83,7 +94,15 @@ const DownloadsScreen = () => {
       return (
         <View style={styles.page}>
           {activeDownloads.length > 0 ? (
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                />
+              }
+            >
               {activeDownloads.map((d) => (
                 <MovieDownloadCard
                   key={d.id}
@@ -107,7 +126,15 @@ const DownloadsScreen = () => {
     return (
       <View style={styles.page}>
         {completedDownloads.length > 0 ? (
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+              />
+            }
+          >
             {completedDownloads.map((d) => (
               <MovieDownloadCard
                 key={d.id}

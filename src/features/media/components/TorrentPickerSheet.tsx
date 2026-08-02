@@ -4,13 +4,14 @@ import {
   BottomSheetModal,
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
-import { Download } from "lucide-react-native";
+import { Download, Play } from "lucide-react-native";
 import {
   forwardRef,
   useCallback,
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
@@ -96,12 +97,16 @@ const buildGroups = (movie: Movie): Group[] => {
   return groups;
 };
 
+export type TorrentPickerMode = "download" | "stream";
+
 const TorrentRow = ({
   torrent,
+  mode,
   onSelect,
 }: {
   torrent: MovieTorrent;
-  onSelect: (torrent: MovieTorrent) => void;
+  mode: TorrentPickerMode;
+  onSelect: (torrent: MovieTorrent, mode: TorrentPickerMode) => void;
 }) => {
   const meta = [
     torrent.quality,
@@ -111,9 +116,11 @@ const TorrentRow = ({
     .filter(Boolean)
     .join(" • ");
 
+  const isStream = mode === "stream";
+
   return (
     <TouchableOpacity
-      onPress={() => onSelect(torrent)}
+      onPress={() => onSelect(torrent, mode)}
       activeOpacity={0.7}
       className="flex-row items-center justify-between py-3 border-b border-border/40"
     >
@@ -134,19 +141,23 @@ const TorrentRow = ({
         )}
       </View>
       <View className="size-9 rounded-xl bg-primary/10 items-center justify-center">
-        <Icon as={Download} size={16} className="text-primary" />
+        <Icon
+          as={isStream ? Play : Download}
+          size={16}
+          className={isStream ? "text-primary fill-primary" : "text-primary"}
+        />
       </View>
     </TouchableOpacity>
   );
 };
 
 export interface TorrentPickerSheetHandle {
-  present: () => void;
+  present: (mode?: TorrentPickerMode) => void;
 }
 
 interface TorrentPickerSheetProps {
   movie: Movie;
-  onSelect: (torrent: MovieTorrent) => void;
+  onSelect: (torrent: MovieTorrent, mode: TorrentPickerMode) => void;
 }
 
 const TorrentPickerSheet = forwardRef<
@@ -156,9 +167,13 @@ const TorrentPickerSheet = forwardRef<
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["70%"], []);
   const groups = useMemo(() => buildGroups(movie), [movie]);
+  const [mode, setMode] = useState<TorrentPickerMode>("download");
 
   useImperativeHandle(ref, () => ({
-    present: () => bottomSheetRef.current?.present(),
+    present: (nextMode?: TorrentPickerMode) => {
+      if (nextMode) setMode(nextMode);
+      bottomSheetRef.current?.present();
+    },
   }));
 
   const renderBackdrop = useCallback(
@@ -174,8 +189,8 @@ const TorrentPickerSheet = forwardRef<
   );
 
   const handleSelect = useCallback(
-    (torrent: MovieTorrent) => {
-      onSelect(torrent);
+    (torrent: MovieTorrent, selectedMode: TorrentPickerMode) => {
+      onSelect(torrent, selectedMode);
       bottomSheetRef.current?.dismiss();
     },
     [onSelect],
@@ -196,7 +211,7 @@ const TorrentPickerSheet = forwardRef<
         showsVerticalScrollIndicator={false}
       >
         <Text className="text-foreground text-lg font-bold mt-2 mb-1">
-          Choose a torrent
+          {mode === "stream" ? "Choose what to watch" : "Choose a torrent"}
         </Text>
         <Text className="text-muted-foreground text-xs mb-4" numberOfLines={1}>
           {movie.title}
@@ -217,6 +232,7 @@ const TorrentPickerSheet = forwardRef<
               <TorrentRow
                 key={`${torrent.hash}-${torrent.label}`}
                 torrent={torrent}
+                mode={mode}
                 onSelect={handleSelect}
               />
             ))}

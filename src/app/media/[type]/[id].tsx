@@ -14,6 +14,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  RefreshControl,
   ScrollView,
   StatusBar,
   TouchableOpacity,
@@ -24,6 +25,7 @@ import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
 import TorrentPickerSheet, {
+  type TorrentPickerMode,
   type TorrentPickerSheetHandle,
 } from "@/features/media/components/TorrentPickerSheet";
 import {
@@ -32,7 +34,7 @@ import {
 } from "@/features/shared/store/useAppStore";
 import { DownloadService } from "@/services/DownloadService";
 import { ExportService } from "@/services/ExportService";
-import { episodeLabel } from "@/services/torrents";
+import { episodeLabel, magnetFromHash } from "@/services/torrents";
 import type { MediaType } from "@/types/movie";
 
 // Raw hex for LinearGradient — must match --color-background in global.css
@@ -63,7 +65,12 @@ const MediaDetailScreen = () => {
     (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
   const tmdbId = Number(Array.isArray(id) ? id[0] : id);
 
-  const { data: movie, isLoading } = useMovieDetailsQuery(mediaType, tmdbId);
+  const {
+    data: movie,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useMovieDetailsQuery(mediaType, tmdbId);
   const { bookmarks, downloads, watchHistory, toggleBookmark } = useAppStore();
 
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
@@ -107,10 +114,37 @@ const MediaDetailScreen = () => {
       Alert.alert("Download unavailable", "No torrents found for this title.");
       return;
     }
-    pickerRef.current?.present();
+    pickerRef.current?.present("download");
   };
 
-  const handleSelectTorrent = (torrent: (typeof movie.torrents)[number]) => {
+  const handleStreamPress = () => {
+    if (!movie.torrents || movie.torrents.length === 0) {
+      Alert.alert("Playback unavailable", "No torrents found for this title.");
+      return;
+    }
+    pickerRef.current?.present("stream");
+  };
+
+  const handleSelectTorrent = (
+    torrent: (typeof movie.torrents)[number],
+    mode: TorrentPickerMode,
+  ) => {
+    if (mode === "stream") {
+      const magnet =
+        torrent.magnet ?? magnetFromHash(torrent.hash, movie.title);
+      router.push({
+        pathname: "/player/[type]/[id]",
+        params: {
+          type: movie.mediaType,
+          id: movie.tmdbId,
+          mode: "stream",
+          magnet: encodeURIComponent(magnet),
+          hash: torrent.hash,
+        },
+      });
+      return;
+    }
+
     DownloadService.startTorrentDownload(movie, torrent).catch((error) => {
       Alert.alert(
         "Download unavailable",
@@ -197,7 +231,15 @@ const MediaDetailScreen = () => {
         <TouchableOpacity
           className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
           onPress={() =>
-            router.push(`/player/${movie.mediaType}/${movie.tmdbId}`)
+            router.push({
+              pathname: "/player/[type]/[id]",
+              params: {
+                type: movie.mediaType,
+                id: movie.tmdbId,
+                mode: "local",
+                downloadId: completeDownloads[0].id,
+              },
+            })
           }
         >
           <Icon
@@ -213,15 +255,28 @@ const MediaDetailScreen = () => {
     }
 
     return (
-      <TouchableOpacity
-        onPress={handleDownloadPress}
-        className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
-      >
-        <Icon as={Download} size={20} className="text-primary-foreground" />
-        <Text className="text-primary-foreground font-bold text-base">
-          Download
-        </Text>
-      </TouchableOpacity>
+      <View className="flex-1 flex-row gap-3">
+        <TouchableOpacity
+          onPress={handleStreamPress}
+          className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
+        >
+          <Icon
+            as={Play}
+            size={20}
+            className="text-primary-foreground fill-primary-foreground"
+          />
+          <Text className="text-primary-foreground font-bold text-base">
+            Watch Now
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleDownloadPress}
+          className="flex-1 flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4"
+        >
+          <Icon as={Download} size={20} className="text-foreground" />
+          <Text className="text-foreground font-bold text-base">Download</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -232,7 +287,12 @@ const MediaDetailScreen = () => {
         backgroundColor="transparent"
         barStyle="light-content"
       />
-      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
+        }
+      >
         {/* ── HERO ── */}
         <View style={{ height: HERO_HEIGHT }}>
           <Image
