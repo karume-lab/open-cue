@@ -15,6 +15,31 @@ buildscript {
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
+// The gomobile-generated AAR (gitignored, regenerate with `gomobile bind`) cannot be
+// referenced as a direct local .aar dependency: AGP 8.x rejects that when building an AAR.
+// It is instead unpacked at build time: classes.jar becomes a local jar dependency (jars are
+// packaged into library AARs) and the native libs feed the jniLibs source set.
+def daemonAar = file('libs/daemon.aar')
+def daemonExtractDir = file("$buildDir/daemon-aar")
+
+tasks.register('extractDaemonAar') {
+  inputs.files(daemonAar)
+  outputs.dir(daemonExtractDir)
+  doLast {
+    delete daemonExtractDir
+    copy {
+      from zipTree(daemonAar)
+      into daemonExtractDir
+    }
+  }
+}
+
+afterEvaluate {
+  tasks.named('preBuild').configure {
+    dependsOn extractDaemonAar
+  }
+}
+
 android {
   namespace "expo.modules.torrentdaemon"
   compileSdkVersion safeExtGet("compileSdkVersion", 34)
@@ -22,6 +47,7 @@ android {
   defaultConfig {
     minSdkVersion safeExtGet("minSdkVersion", 23)
     targetSdkVersion safeExtGet("targetSdkVersion", 34)
+    consumerProguardFiles "proguard-consumer.pro"
   }
   sourceSets {
     main {
@@ -31,6 +57,9 @@ android {
       res {
         srcDirs += 'src/main/res'
       }
+      jniLibs {
+        srcDirs += file("$daemonExtractDir/jni")
+      }
     }
   }
 }
@@ -38,7 +67,7 @@ android {
 dependencies {
   implementation project(':expo-modules-core')
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${safeExtGet('kotlinVersion', '1.8.10')}"
-  
-  // Link the gomobile generated AAR
-  implementation fileTree(dir: 'libs', include: ['*.aar'])
+
+  // Gomobile bindings (classes only; native libs are wired via the jniLibs source set)
+  implementation files("$daemonExtractDir/classes.jar")
 }

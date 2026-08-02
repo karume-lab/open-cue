@@ -104,10 +104,14 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
                 <Text className="text-foreground/80 text-[10px] font-medium">
                   {releaseYear}
                 </Text>
-                <Text className="text-foreground/40 text-[10px]">•</Text>
-                <Text className="text-foreground/80 text-[10px] font-medium">
-                  {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
-                </Text>
+                {movie.runtime > 0 && (
+                  <>
+                    <Text className="text-foreground/40 text-[10px]">•</Text>
+                    <Text className="text-foreground/80 text-[10px] font-medium">
+                      {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
+                    </Text>
+                  </>
+                )}
               </View>
               <RatingBadge rating={movie.rating} />
             </View>

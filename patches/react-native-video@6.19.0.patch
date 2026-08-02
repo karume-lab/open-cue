@@ -1,0 +1,26 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 748b799554aa0f3432432a73ea93435d60a581dc..e3dab827940ba1af593d79e57a8ac9547485c524 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -240,6 +240,8 @@ dependencies {
+         implementation "androidx.media3:media3-exoplayer:$media3_version"
+     }
+ 
++    implementation "org.jellyfin.media3:media3-ffmpeg-decoder:1.8.0+1"
++
+     if (ExoplayerDependencies["useExoplayerSmoothStreaming"]) {
+         // For Smooth Streaming playback support with ExoPlayer
+         if (media3_buildFromSource) {
+diff --git a/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java b/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
+index e16ac96d8a89055ee6e950777ce73388d22061ee..d098348011928f3bfc51c1f6255a92c30df5402a 100644
+--- a/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
++++ b/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
+@@ -732,7 +732,7 @@ public class ReactExoplayerView extends FrameLayout implements
+ 
+         DefaultRenderersFactory renderersFactory =
+                 new DefaultRenderersFactory(getContext())
+-                        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
++                        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+                         .setEnableDecoderFallback(true)
+                         .forceEnableMediaCodecAsynchronousQueueing();
+ 

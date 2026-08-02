@@ -107,5 +107,8 @@
     "lefthook": "^2.0.15",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "patchedDependencies": {
+    "react-native-video@6.19.0": "patches/react-native-video@6.19.0.patch"
+  }
 }
