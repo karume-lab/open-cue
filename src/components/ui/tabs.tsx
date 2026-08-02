@@ -16,7 +16,7 @@ const TabsList: React.FC<
   return (
     <TabsPrimitive.List
       className={cn(
-        'bg-muted flex h-9 flex-row items-center justify-center rounded-lg p-0.75',
+        'bg-muted flex h-9 flex-row items-center justify-center rounded-lg p-0.5',
         Platform.select({ web: 'inline-flex w-fit', native: 'mr-auto' }),
         className
       )}

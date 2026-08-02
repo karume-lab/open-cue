@@ -56,15 +56,15 @@ const MovieDownloadCard = ({
   const showLabel = !!label && download.movie.torrents?.[0]?.kind !== "movie";
 
   return (
-    <View className="flex-row items-center gap-4 bg-card/50 p-3 rounded-2xl border border-border/50 mb-3 overflow-hidden">
+    <View className="flex-row items-center gap-4 bg-card/50 p-3 rounded-md border border-border/50 mb-3 overflow-hidden">
       <View className="relative">
         <Image
           source={{ uri: movie.medium_cover_image }}
-          className="w-16 h-24 rounded-lg bg-muted"
+          className="w-16 h-24 rounded-md bg-muted"
           resizeMode="cover"
         />
         {isComplete && (
-          <View className="absolute inset-0 bg-background/40 items-center justify-center rounded-lg">
+          <View className="absolute inset-0 bg-background/40 items-center justify-center rounded-md">
             <Icon as={CheckCircle2} size={24} className="text-primary" />
           </View>
         )}
@@ -149,7 +149,7 @@ const MovieDownloadCard = ({
         {isComplete && onExport && (
           <TouchableOpacity
             onPress={onExport}
-            className="p-2.5 rounded-xl bg-primary/10 border border-primary/20"
+            className="p-2.5 rounded-md bg-primary/10 border border-primary/20"
           >
             <Icon as={Save} size={18} className="text-primary" />
           </TouchableOpacity>
@@ -157,7 +157,7 @@ const MovieDownloadCard = ({
         {!isComplete && (
           <TouchableOpacity
             onPress={isPaused ? onResume : onPause}
-            className="p-2.5 rounded-xl bg-background border border-border/50"
+            className="p-2.5 rounded-md bg-background border border-border/50"
           >
             <Icon
               as={isPaused ? Play : Pause}
@@ -170,7 +170,7 @@ const MovieDownloadCard = ({
         )}
         <TouchableOpacity
           onPress={onRemove}
-          className="p-2.5 rounded-xl bg-destructive/10 border border-destructive/20"
+          className="p-2.5 rounded-md bg-destructive/10 border border-destructive/20"
         >
           <Icon as={Trash2} size={18} className="text-destructive" />
         </TouchableOpacity>

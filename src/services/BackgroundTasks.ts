@@ -48,7 +48,6 @@ export const registerBackgroundTasks = async () => {
     await BackgroundTask.registerTaskAsync(BACKGROUND_MOVIE_UPDATER, {
       minimumInterval: 15, // 15 minutes
     });
-    console.log("Background task registered!");
   } catch (err) {
     console.log("Task registration failed:", err);
   }

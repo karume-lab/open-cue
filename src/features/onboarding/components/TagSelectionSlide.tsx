@@ -25,7 +25,7 @@ export const TagSelectionSlide: React.FC<TagSelectionSlideProps> = ({
   onToggleTag,
 }) => {
   return (
-    <View className="h-64 w-full p-4 justify-center items-center border border-border bg-card rounded-xl">
+    <View className="h-64 w-full p-4 justify-center items-center border border-border bg-card rounded-md">
       <View className="flex-row flex-wrap justify-center gap-3 w-full">
         {AVAILABLE_TAGS.map((tag) => {
           const isSelected = selectedTags.includes(tag.id);
@@ -35,7 +35,7 @@ export const TagSelectionSlide: React.FC<TagSelectionSlideProps> = ({
               variant="ghost"
               onPress={() => onToggleTag(tag.id)}
               className={cn(
-                "rounded-lg border-[1.5px] p-0 min-w-0 min-h-0 h-auto w-auto active:bg-transparent bg-transparent",
+                "rounded-md border p-0 min-w-0 min-h-0 h-auto w-auto active:bg-transparent bg-transparent",
                 isSelected
                   ? "bg-primary/15 border-primary"
                   : "bg-muted border-border",

@@ -28,10 +28,10 @@ const SettingsScreen = () => {
           <Text className="text-lg font-bold text-foreground mb-6">
             Settings
           </Text>
-          <View className="bg-card border border-border/50 rounded-3xl overflow-hidden">
+          <View className="bg-card border border-border/50 rounded-md overflow-hidden">
             <View className="flex-row items-center justify-between p-5 border-b border-border/10">
               <View className="flex-row items-center gap-4">
-                <View className="size-10 rounded-2xl bg-primary/10 items-center justify-center">
+                <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
                   <Icon as={Plane} className="text-primary" size={20} />
                 </View>
                 <View>
@@ -55,7 +55,7 @@ const SettingsScreen = () => {
               className="flex-row items-center justify-between p-5"
             >
               <View className="flex-row items-center gap-4">
-                <View className="size-10 rounded-2xl bg-secondary/20 items-center justify-center">
+                <View className="size-10 rounded-md bg-secondary/20 items-center justify-center">
                   <Icon as={Subtitles} className="text-foreground" size={20} />
                 </View>
                 <View>

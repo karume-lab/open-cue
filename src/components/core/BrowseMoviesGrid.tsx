@@ -86,7 +86,7 @@ const BrowseMoviesGrid = ({
           {onRetry && (
             <TouchableOpacity
               onPress={onRetry}
-              className="bg-primary rounded-2xl px-6 py-3 mt-2"
+              className="bg-primary rounded-md px-6 py-3 mt-2"
             >
               <Text className="text-primary-foreground font-bold">Retry</Text>
             </TouchableOpacity>

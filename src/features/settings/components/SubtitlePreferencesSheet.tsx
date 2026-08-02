@@ -55,7 +55,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
           <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
             Font Size
           </Text>
-          <View className="flex-row items-center justify-between bg-muted/30 p-4 rounded-2xl">
+          <View className="flex-row items-center justify-between bg-muted/30 p-4 rounded-md">
             <Button
               onPress={() =>
                 updateSubtitlePrefs({
@@ -121,7 +121,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
         </View>
 
         {/* Preview Section */}
-        <View className="mt-auto items-center justify-center p-6 bg-background/50 border border-border/50 rounded-2xl">
+        <View className="mt-auto items-center justify-center p-6 bg-background/50 border border-border/50 rounded-md">
           <Text
             style={{
               fontSize: subtitlePrefs.fontSize,
@@ -129,7 +129,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               fontFamily: "Inter",
               fontWeight: "500",
               textShadowColor: "rgba(0,0,0,0.75)",
-              textShadowOffset: { width: 1, height: 1 },
+              textShadowOffset: { width: 2, height: 2 },
               textShadowRadius: 2,
             }}
           >

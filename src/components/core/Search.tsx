@@ -10,8 +10,8 @@ interface SearchProps {
 
 const Search = ({ value, onChangeText }: SearchProps) => {
   return (
-    <View className="bg-background px-4 flex-1">
-      <View className="flex-row gap-2 items-center bg-card border border-border rounded-2xl px-4 py-2.5">
+    <View className="bg-background flex-1">
+      <View className="flex-row gap-2 items-center bg-card border border-border rounded-md px-4 h-12">
         <Icon as={SearchIcon} className="text-muted-foreground" size={18} />
         <Input
           className="flex-1 text-base text-foreground bg-transparent border-0 shadow-none h-auto py-0 px-0"

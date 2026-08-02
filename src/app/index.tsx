@@ -219,7 +219,7 @@ const OnboardingScreen: React.FC = () => {
         </View>
 
         <Button
-          className="w-full h-14 rounded-full"
+          className="w-full h-14 rounded-md"
           onPress={() => {
             if (currentIndex < SLIDES.length - 1) {
               flatListRef.current?.scrollToIndex({

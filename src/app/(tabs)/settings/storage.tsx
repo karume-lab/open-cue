@@ -34,7 +34,7 @@ const StorageScreen = () => {
         <View className="flex-row items-center gap-3 px-4 py-3">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="size-10 bg-muted/60 items-center justify-center rounded-full border border-border/10"
+            className="size-10 bg-muted/60 items-center justify-center rounded-md border border-border/10"
           >
             <Icon as={ArrowLeft} size={20} className="text-foreground" />
           </TouchableOpacity>

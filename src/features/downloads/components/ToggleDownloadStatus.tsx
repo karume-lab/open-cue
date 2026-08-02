@@ -17,7 +17,7 @@ const ToggleDownloadStatus = ({
       activeOpacity={0.8}
       onPress={onToggle}
       className={cn(
-        "absolute bottom-8 right-6 w-14 h-14 rounded-full items-center justify-center shadow-lg border",
+        "absolute bottom-8 right-6 w-14 h-14 rounded-md items-center justify-center shadow-lg border",
         isAllPaused ? "bg-primary border-primary" : "bg-card border-border",
       )}
       style={{

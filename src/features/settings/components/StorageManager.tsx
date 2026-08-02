@@ -75,7 +75,7 @@ const StorageManager = () => {
       <Link href="/settings/storage" asChild>
         <TouchableOpacity
           activeOpacity={0.7}
-          className="flex-row items-center justify-between p-4 bg-card border border-border/50 rounded-2xl"
+          className="flex-row items-center justify-between p-4 bg-card border border-border/50 rounded-md"
         >
           <View>
             <Text className="text-sm font-semibold text-foreground">

@@ -21,7 +21,7 @@ interface MovieCardProps {
 
 export const SkeletonCard = () => {
   return (
-    <View className="w-full aspect-2/3 rounded-2xl bg-muted/20 animate-pulse border border-border/5" />
+    <View className="w-full aspect-2/3 rounded-md bg-muted/20 animate-pulse border border-border/5" />
   );
 };
 
@@ -46,7 +46,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
       >
         <ImageBackground
           source={{ uri: movie.medium_cover_image }}
-          className="w-full aspect-2/3 rounded-2xl overflow-hidden justify-end bg-muted"
+          className="w-full aspect-2/3 rounded-md overflow-hidden justify-end bg-muted"
           resizeMode="cover"
         >
           {/* Gradient scrim — must use native LinearGradient, so raw hex values needed */}
@@ -92,7 +92,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
                 // textShadow* are native-only style props, no class equivalent
                 textShadowColor: BG, // --color-background
                 textShadowRadius: 8,
-                textShadowOffset: { width: 0, height: 1 },
+                textShadowOffset: { width: 0, height: 2 },
               }}
               numberOfLines={2}
             >
@@ -101,11 +101,11 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
 
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-1.5">
-                <Text className="text-foreground/80 text-[11px] font-medium">
+                <Text className="text-foreground/80 text-[10px] font-medium">
                   {releaseYear}
                 </Text>
-                <Text className="text-foreground/40 text-[11px]">•</Text>
-                <Text className="text-foreground/80 text-[11px] font-medium">
+                <Text className="text-foreground/40 text-[10px]">•</Text>
+                <Text className="text-foreground/80 text-[10px] font-medium">
                   {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
                 </Text>
               </View>

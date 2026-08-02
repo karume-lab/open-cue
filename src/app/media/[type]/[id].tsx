@@ -185,7 +185,7 @@ const MediaDetailScreen = () => {
           </View>
           <TouchableOpacity
             onPress={() => DownloadService.pauseDownload(activeDownload.id)}
-            className="flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4"
+            className="flex-row items-center justify-center gap-2 bg-muted rounded-md py-4"
           >
             <Icon as={Pause} size={18} className="text-foreground" />
             <Text className="text-foreground font-bold">Pause</Text>
@@ -213,7 +213,7 @@ const MediaDetailScreen = () => {
           </View>
           <TouchableOpacity
             onPress={() => DownloadService.resumeDownload(pausedDownload.id)}
-            className="flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
+            className="flex-row items-center justify-center gap-2 bg-primary rounded-md py-4"
           >
             <Icon
               as={Play}
@@ -317,7 +317,7 @@ const MediaDetailScreen = () => {
 
           <TouchableOpacity
             onPress={() => router.back()}
-            className="absolute top-14 left-4 size-10 bg-background/40 items-center justify-center rounded-full border border-border/10"
+            className="absolute top-14 left-4 size-10 bg-background/40 items-center justify-center rounded-md border border-border/10"
             style={{ zIndex: 10 }}
           >
             <Icon as={ArrowLeft} size={20} className="text-foreground" />
@@ -325,7 +325,7 @@ const MediaDetailScreen = () => {
 
           <TouchableOpacity
             onPress={handleToggleBookmark}
-            className={`absolute top-14 right-4 size-10 items-center justify-center rounded-full border ${
+            className={`absolute top-14 right-4 size-10 items-center justify-center rounded-md border ${
               isBookmarked
                 ? "bg-primary/20 border-primary/40"
                 : "bg-background/40 border-border/10"
@@ -368,7 +368,7 @@ const MediaDetailScreen = () => {
               {genres.map((genre) => (
                 <View
                   key={genre}
-                  className="bg-muted border border-border rounded-full px-3 py-1"
+                  className="bg-muted border border-border rounded-md px-3 py-1"
                 >
                   <Text className="text-muted-foreground text-xs font-medium">
                     {genre}
@@ -424,7 +424,7 @@ const MediaDetailScreen = () => {
           </View>
 
           {isOffline && (
-            <View className="bg-card rounded-2xl border border-border p-4">
+            <View className="bg-card rounded-md border border-border p-4">
               <Text className="text-sm font-bold text-foreground mb-4">
                 Stored on device
               </Text>
@@ -437,7 +437,7 @@ const MediaDetailScreen = () => {
                     className="flex-row items-center justify-between mb-3 last:mb-0"
                   >
                     <View className="flex-row items-center gap-3 flex-1">
-                      <View className="size-10 rounded-xl bg-primary/10 items-center justify-center">
+                      <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
                         <Icon
                           as={Download}
                           size={16}
@@ -461,7 +461,7 @@ const MediaDetailScreen = () => {
                     <View className="flex-row items-center gap-2">
                       <TouchableOpacity
                         onPress={() => handleExportDownload(download.id)}
-                        className="flex-row items-center gap-1.5 bg-primary/10 px-3 py-2 rounded-xl"
+                        className="flex-row items-center gap-1.5 bg-primary/10 px-3 py-2 rounded-md"
                       >
                         <Icon as={Save} size={14} className="text-primary" />
                         <Text className="text-primary text-xs font-bold">
@@ -472,7 +472,7 @@ const MediaDetailScreen = () => {
                         onPress={() =>
                           DownloadService.cancelDownload(download.id)
                         }
-                        className="flex-row items-center gap-1.5 bg-destructive/10 px-3 py-2 rounded-xl"
+                        className="flex-row items-center gap-1.5 bg-destructive/10 px-3 py-2 rounded-md"
                       >
                         <Icon
                           as={Trash2}

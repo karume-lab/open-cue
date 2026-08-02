@@ -136,7 +136,7 @@ const FilterBottomSheetButton = ({
       <View>
         <Button
           onPress={handleOpenPress}
-          className="bg-card size-12 rounded-full border border-border items-center justify-center"
+          className="bg-card size-12 rounded-md border border-border items-center justify-center"
         >
           <Icon as={ListFilterIcon} className="text-foreground" size={18} />
         </Button>
@@ -226,7 +226,7 @@ const FilterBottomSheetButton = ({
 
           <TouchableOpacity
             onPress={handleApply}
-            className="bg-primary rounded-2xl py-4 items-center mt-2"
+            className="bg-primary rounded-md py-4 items-center mt-2"
           >
             <Text className="text-primary-foreground font-bold text-sm">
               {draftFilterCount > 0
