@@ -51,3 +51,9 @@ migrations/
 /modules/torrent-daemon/android/libs/daemon.aar
 /modules/torrent-daemon/android/libs/daemon-sources.jar
 /modules/torrent-daemon/ios/Daemon.xcframework/
+
+# Native Module Build Artifacts
+/modules/*/android/build/
+/modules/*/android/.cxx/
+/modules/*/ios/build/
+.gradle/
