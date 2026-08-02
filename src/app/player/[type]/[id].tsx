@@ -153,20 +153,29 @@ const PlayerDetailScreen = () => {
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
     StatusBar.setHidden(true);
+
+    return () => {
+      ScreenOrientation.unlockAsync();
+      StatusBar.setHidden(false);
+    };
+  }, []);
+
+  const handleBackRef = useRef(handleBack);
+  handleBackRef.current = handleBack;
+
+  useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        handleBack();
+        handleBackRef.current();
         return true;
       },
     );
 
     return () => {
-      ScreenOrientation.unlockAsync();
-      StatusBar.setHidden(false);
       backHandler.remove();
     };
-  }, [handleBack]);
+  }, []);
 
   useEffect(() => {
     if (movie && savedCurrentTime > 0 && currentTime === 0) {
