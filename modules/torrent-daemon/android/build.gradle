@@ -22,7 +22,7 @@ apply plugin: 'kotlin-android'
 def daemonAar = file('libs/daemon.aar')
 def daemonExtractDir = file("$buildDir/daemon-aar")
 
-tasks.register('extractDaemonAar') {
+def extractDaemonAarTask = tasks.register('extractDaemonAar') {
   inputs.files(daemonAar)
   outputs.dir(daemonExtractDir)
   doLast {
@@ -34,11 +34,10 @@ tasks.register('extractDaemonAar') {
   }
 }
 
-afterEvaluate {
-  tasks.named('preBuild').configure {
-    dependsOn extractDaemonAar
-  }
-}
+// Lazy Provider-backed file collections so Gradle can wire the implicit
+// task dependency automatically (fixes Gradle 8 strict validation).
+def daemonClassesJar = extractDaemonAarTask.map { new File(daemonExtractDir, 'classes.jar') }
+def daemonJniDir     = extractDaemonAarTask.map { new File(daemonExtractDir, 'jni') }
 
 android {
   namespace "expo.modules.torrentdaemon"
@@ -58,7 +57,7 @@ android {
         srcDirs += 'src/main/res'
       }
       jniLibs {
-        srcDirs += file("$daemonExtractDir/jni")
+        srcDirs += daemonJniDir
       }
     }
   }
@@ -68,6 +67,8 @@ dependencies {
   implementation project(':expo-modules-core')
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${safeExtGet('kotlinVersion', '1.8.10')}"
 
-  // Gomobile bindings (classes only; native libs are wired via the jniLibs source set)
-  implementation files("$daemonExtractDir/classes.jar")
+  // Gomobile bindings (classes only; native libs are wired via the jniLibs source set).
+  // Using a Provider-backed FileCollection so Gradle tracks the dependency on
+  // extractDaemonAar automatically (no implicit dependency warning in Gradle 8+).
+  implementation files(daemonClassesJar)
 }
