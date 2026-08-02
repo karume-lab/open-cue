@@ -39,6 +39,17 @@ def extractDaemonAarTask = tasks.register('extractDaemonAar') {
 def daemonClassesJar = extractDaemonAarTask.map { new File(daemonExtractDir, 'classes.jar') }
 def daemonJniDir     = extractDaemonAarTask.map { new File(daemonExtractDir, 'jni') }
 
+// AGP does not preserve the producer task relationship for source-set dirs, so also
+// declare an explicit dependency on extraction for every task that consumes its output.
+tasks.configureEach { task ->
+  if (task.name == 'extractDaemonAar') {
+    return
+  }
+  if (task.name.endsWith('JniLibFolders') || task.name.endsWith('Aar') || task.name.startsWith('compile') || task.name.startsWith('process')) {
+    dependsOn extractDaemonAarTask
+  }
+}
+
 android {
   namespace "expo.modules.torrentdaemon"
   compileSdkVersion safeExtGet("compileSdkVersion", 34)
