@@ -58,11 +58,15 @@ const MovieDownloadCard = ({
   return (
     <View className="flex-row items-center gap-4 bg-card/50 p-3 rounded-md border border-border/50 mb-3 overflow-hidden">
       <View className="relative">
-        <Image
-          source={{ uri: movie.medium_cover_image }}
-          className="w-16 h-24 rounded-md bg-muted"
-          resizeMode="cover"
-        />
+        {movie.medium_cover_image ? (
+          <Image
+            source={{ uri: movie.medium_cover_image }}
+            className="w-16 h-24 rounded-md bg-muted"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-16 h-24 rounded-md bg-muted" />
+        )}
         {isComplete && (
           <View className="absolute inset-0 bg-background/40 items-center justify-center rounded-md">
             <Icon as={CheckCircle2} size={24} className="text-primary" />
