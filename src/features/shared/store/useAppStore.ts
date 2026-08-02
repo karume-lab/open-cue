@@ -1,4 +1,4 @@
-import { MMKV } from "react-native-mmkv";
+import { createMMKV } from "react-native-mmkv";
 import { create } from "zustand";
 import {
   createJSONStorage,
@@ -7,8 +7,7 @@ import {
 } from "zustand/middleware";
 import { APP_STORAGE_ID, APP_STORAGE_NAME } from "@/lib/constants";
 
-// @ts-expect-error - MMKV is both a type and a value but TS gets confused
-export const storage = new MMKV({
+export const storage = createMMKV({
   id: APP_STORAGE_ID,
 });
 
@@ -21,7 +20,7 @@ const zustandStorage: StateStorage = {
     return value ?? null;
   },
   removeItem: (name) => {
-    return storage.delete(name);
+    return storage.remove(name);
   },
 };
 

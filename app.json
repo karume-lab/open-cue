@@ -7,14 +7,6 @@
     "icon": "./public/core/icon.png",
     "scheme": "cue",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "public/core/splash-icon.png",
-      "backgroundColor": "#ffffff",
-      "dark": {
-        "image": "public/core/splash-icon-dark.png",
-        "backgroundColor": "#222222"
-      }
-    },
     "assetBundlePatterns": ["**/*"],
     "platforms": ["ios", "android"],
     "ios": {
@@ -31,8 +23,19 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-background-fetch",
-      "expo-task-manager"
+      "expo-background-task",
+      "expo-task-manager",
+      [
+        "expo-splash-screen",
+        {
+          "image": "public/core/splash-icon.png",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "public/core/splash-icon-dark.png",
+            "backgroundColor": "#222222"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

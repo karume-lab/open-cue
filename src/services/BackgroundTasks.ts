@@ -1,4 +1,4 @@
-import * as BackgroundFetch from "expo-background-fetch";
+import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { YTS_API_BASE_URL } from "@/lib/constants";
@@ -14,10 +14,8 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
     const bookmarkedMovies = state.bookmarks;
 
     if (bookmarkedMovies.length === 0) {
-      return BackgroundFetch.BackgroundFetchResult.NoData;
+      return BackgroundTask.BackgroundTaskResult.Success;
     }
-
-    let newDataFound = false;
 
     // 2. Iterate through bookmarked movies and hit YTS API
     for (const movie of bookmarkedMovies) {
@@ -45,27 +43,22 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
             "New Quality Available!",
             `${movie.title} is now available in 4K!`,
           );
-          newDataFound = true;
           break; // Stop after first finding to prevent notification spam
         }
       }
     }
 
-    return newDataFound
-      ? BackgroundFetch.BackgroundFetchResult.NewData
-      : BackgroundFetch.BackgroundFetchResult.NoData;
+    return BackgroundTask.BackgroundTaskResult.Success;
   } catch (error) {
-    console.error("Background fetch failed:", error);
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    console.error("Background task failed:", error);
+    return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
 
 export const registerBackgroundTasks = async () => {
   try {
-    await BackgroundFetch.registerTaskAsync(BACKGROUND_MOVIE_UPDATER, {
-      minimumInterval: 15 * 60, // 15 minutes
-      stopOnTerminate: false,
-      startOnBoot: true,
+    await BackgroundTask.registerTaskAsync(BACKGROUND_MOVIE_UPDATER, {
+      minimumInterval: 15, // 15 minutes
     });
     console.log("Background task registered!");
   } catch (err) {
