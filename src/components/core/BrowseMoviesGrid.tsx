@@ -19,17 +19,14 @@ const BrowseMoviesGrid = ({
   isLoading,
 }: BrowseMoviesGridProps) => {
   const { isOfflineMode } = useSettings();
-  const { watchHistory, downloads } = useAppStore();
+  const { downloads } = useAppStore();
 
   const filteredMovies = movies.filter((movie) => {
-    const isOffline = downloads[movie.id]?.state === "complete";
-    // Global offline mode filter
-    if (isOfflineMode && !isOffline) return false;
-
-    const currentTime = watchHistory[movie.id] || 0;
-    const duration = movie.runtime * 60;
-    const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-    return progress <= 2 || progress >= 95;
+    // In offline mode, only show fully downloaded movies
+    if (isOfflineMode) {
+      return downloads[movie.id]?.state === "complete";
+    }
+    return true;
   });
 
   const safeAreaInsets = useSafeAreaInsets();
