@@ -7,13 +7,13 @@ import {
 import { ListFilterIcon } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
-import { useUniwind } from "uniwind";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
-import { THEME } from "@/lib/theme";
+
+// Raw hex values for native-only props — must match global.css
 
 type SortOption = "rating" | "year" | "title";
 type DownloadFilter = "downloading" | "complete" | "queued";
@@ -131,9 +131,6 @@ const FilterBottomSheetButton = ({
     draft.downloadStates.length +
     (draft.sortBy !== "rating" ? 1 : 0);
 
-  const { theme: mode } = useUniwind();
-  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
-
   return (
     <View>
       <View>
@@ -158,8 +155,10 @@ const FilterBottomSheetButton = ({
         enablePanDownToClose
         index={0}
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: theme.card }}
-        handleIndicatorStyle={{ backgroundColor: theme.muted }}
+        backgroundStyle={{ backgroundColor: "#1c1c1c" /* --color-card */ }}
+        handleIndicatorStyle={{
+          backgroundColor: "#3c3c3c" /* --color-muted */,
+        }}
       >
         <BottomSheetScrollView
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}

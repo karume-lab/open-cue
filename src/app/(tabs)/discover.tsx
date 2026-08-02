@@ -4,7 +4,6 @@ import BrowseMoviesGrid from "@/components/core/BrowseMoviesGrid";
 import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
 import Search from "@/components/core/Search";
 import ContinueWatchingCarousel from "@/features/discover/components/ContinueWatchingCarousel";
-
 import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
 
 const DiscoverScreen = () => {
@@ -18,8 +17,11 @@ const DiscoverScreen = () => {
     return () => clearTimeout(handler);
   }, [query]);
 
-  const { data, isLoading } = useDiscoverMoviesQuery(1, debouncedQuery);
-  const movies = data?.data?.movies || [];
+  const { data, isLoading, isError, error, refetch } = useDiscoverMoviesQuery(
+    1,
+    debouncedQuery,
+  );
+  const movies = data?.data?.movies ?? [];
 
   return (
     <View className="flex-1 bg-background">
@@ -31,6 +33,9 @@ const DiscoverScreen = () => {
       <BrowseMoviesGrid
         movies={movies}
         isLoading={isLoading}
+        isError={isError}
+        errorMessage={(error as Error)?.message}
+        onRetry={refetch}
         Header={<ContinueWatchingCarousel />}
       />
     </View>

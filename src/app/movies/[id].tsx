@@ -17,14 +17,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useUniwind } from "uniwind";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { THEME } from "@/lib/theme";
 import { DownloadService } from "@/services/DownloadService";
+
+// Raw hex for LinearGradient — must match --color-background in global.css
+const BG = "#121212";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.62;
@@ -56,9 +57,6 @@ const MoviesDetailScreen = () => {
   const handleToggleBookmark = useDebounceCallback(() => {
     if (movie) toggleBookmark(movie);
   }, 300);
-
-  const { theme: mode } = useUniwind();
-  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
   if (isLoading || !movie) return <View className="flex-1 bg-background" />;
 
@@ -172,7 +170,7 @@ const MoviesDetailScreen = () => {
       <StatusBar
         translucent
         backgroundColor="transparent"
-        barStyle={mode === "dark" ? "light-content" : "dark-content"}
+        barStyle="light-content"
       />
       <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
         {/* ── HERO ── */}
@@ -186,12 +184,7 @@ const MoviesDetailScreen = () => {
           />
 
           <LinearGradient
-            colors={[
-              "transparent",
-              "transparent",
-              `${theme.background}B3`,
-              theme.background,
-            ]}
+            colors={["transparent", "transparent", `${BG}B3`, BG]}
             locations={[0, 0.6, 0.9, 1]}
             style={{
               position: "absolute",

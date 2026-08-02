@@ -1,14 +1,17 @@
 import "@/styles/global.css";
 
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { ThemeProvider } from "@react-navigation/native";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
 import { PortalHost } from "@rn-primitives/portal";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useUniwind } from "uniwind";
 import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
-import { NAV_THEME } from "@/lib/theme";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -22,13 +25,40 @@ registerBackgroundTasks();
 
 const queryClient = new QueryClient();
 
+// NAV_THEME — colors must match --color-* vars in global.css
+const NAV_THEME = {
+  dark: {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      background: "#121212", // --color-background
+      card: "#1c1c1c", // --color-card
+      text: "#f0f0f0", // --color-foreground
+      border: "#3c3c3c", // --color-border
+      primary: "#facd15", // --color-primary
+      notification: "#e02424",
+    },
+  },
+  light: {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: "#ffffff",
+      card: "#ffffff",
+      text: "#0a0a0a",
+      border: "#e5e5e5",
+      primary: "#0a0a0a",
+      notification: "#ef4444",
+    },
+  },
+};
+
 export default function RootLayout() {
   useEffect(() => {
     requestNotificationPermissions();
   }, []);
 
   const { theme } = useUniwind();
-
   const colorScheme = theme === "dark" ? "dark" : "light";
 
   return (

@@ -2,13 +2,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { CheckCircle, Play } from "lucide-react-native";
 import { ImageBackground, TouchableOpacity, View } from "react-native";
-import { useUniwind } from "uniwind";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { THEME } from "@/lib/theme";
 import type { YTSMovie } from "@/types/movie";
+
+// Raw hex values for native-only props — must match global.css
+const BG = "#121212"; // --color-background
 
 interface MovieCardProps {
   movie: YTSMovie;
@@ -22,15 +23,12 @@ export const SkeletonCard = () => {
 };
 
 const MovieCard = ({ movie, onPress }: MovieCardProps) => {
-  const { theme: mode } = useUniwind();
-  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
-
   const { watchHistory, downloads } = useAppStore();
   const downloadState = downloads[movie.id]?.state;
   const isOffline = downloadState === "complete";
 
   const currentTime = watchHistory[movie.id] || 0;
-  const duration = movie.runtime * 60; // runtime is in minutes
+  const duration = movie.runtime * 60;
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const releaseYear = movie.year ? movie.year.toString() : "";
 
@@ -39,21 +37,26 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
 
   return (
     <Link href={`/movies/${movie.id}`} asChild>
-      <TouchableOpacity activeOpacity={0.75} onPress={onPress} className="w-56">
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={onPress}
+        className="w-full"
+      >
         <ImageBackground
           source={{ uri: movie.medium_cover_image }}
-          className="w-full h-64 rounded-2xl overflow-hidden justify-end bg-muted"
+          className="w-full aspect-2/3 rounded-2xl overflow-hidden justify-end bg-muted"
           resizeMode="cover"
         >
+          {/* Gradient scrim — must use native LinearGradient, so raw hex values needed */}
           <LinearGradient
-            colors={["transparent", "transparent", theme.background]}
-            locations={[0, 0.4, 1]}
+            colors={["transparent", `${BG}CC`, BG]}
+            locations={[0, 0.5, 1]}
             style={{
               position: "absolute",
               left: 0,
               right: 0,
               bottom: 0,
-              height: "50%",
+              height: "60%",
             }}
           />
 
@@ -84,8 +87,10 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
               className="text-foreground font-bold text-sm leading-tight"
               style={{
                 height: 36,
-                textShadowColor: `${theme.background}CC`,
-                textShadowRadius: 4,
+                // textShadow* are native-only style props, no class equivalent
+                textShadowColor: BG, // --color-background
+                textShadowRadius: 8,
+                textShadowOffset: { width: 0, height: 1 },
               }}
               numberOfLines={2}
             >

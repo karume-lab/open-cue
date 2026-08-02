@@ -7,13 +7,11 @@ import {
 import { Minus, Plus } from "lucide-react-native";
 import { forwardRef, useCallback, useMemo } from "react";
 import { TouchableOpacity, View } from "react-native";
-import { useUniwind } from "uniwind";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
-import { THEME } from "@/lib/theme";
 
-const COLORS = [
+const SUBTITLE_COLORS = [
   { name: "White", hex: "#FFFFFF" },
   { name: "Yellow", hex: "#FFEB3B" },
   { name: "Cyan", hex: "#00BCD4" },
@@ -23,8 +21,6 @@ const COLORS = [
 
 const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
   const { subtitlePrefs, updateSubtitlePrefs } = useSettings();
-  const { theme: mode } = useUniwind();
-  const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
   const snapPoints = useMemo(() => ["60%"], []);
 
@@ -45,8 +41,8 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
       ref={ref}
       snapPoints={snapPoints}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: theme.card }}
-      handleIndicatorStyle={{ backgroundColor: theme.muted }}
+      backgroundStyle={{ backgroundColor: "#1c1c1c" /* --color-card */ }}
+      handleIndicatorStyle={{ backgroundColor: "#3c3c3c" /* --color-muted */ }}
       enablePanDownToClose
     >
       <BottomSheetView className="flex-1 px-6 pt-4 pb-8">
@@ -70,7 +66,8 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               size="icon"
               className="size-10 border-border/50"
             >
-              <Minus size={16} color={theme.foreground} />
+              {/* Minus/Plus from lucide-react-native require a raw color prop */}
+              <Minus size={16} color="#f0f0f0" />
             </Button>
 
             <View className="items-center">
@@ -92,7 +89,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               size="icon"
               className="size-10 border-border/50"
             >
-              <Plus size={16} color={theme.foreground} />
+              <Plus size={16} color="#f0f0f0" />
             </Button>
           </View>
         </View>
@@ -103,7 +100,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
             Subtitle Color
           </Text>
           <View className="flex-row gap-4 flex-wrap">
-            {COLORS.map((color) => (
+            {SUBTITLE_COLORS.map((color) => (
               <TouchableOpacity
                 key={color.hex}
                 onPress={() => updateSubtitlePrefs({ color: color.hex })}
