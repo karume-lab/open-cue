@@ -15,42 +15,37 @@
 
   --color-rating: #ddaa7b;
   --color-placeholder: #8b9299;
-}
 
-@layer theme {
-  :root,
-  .dark {
-    /* Cue Theme - Deep Charcoal and Burnt Orange */
-    --color-background: #0f1114;
-    --color-foreground: #eceff1;
-    --color-card: #1b1f24;
-    --color-card-foreground: #eceff1;
-    --color-popover: #23282e;
-    --color-popover-foreground: #eceff1;
-    --color-primary: #c97742; /* Burnt Orange */
-    --color-primary-foreground: #15181c;
-    --color-secondary: #2a3036;
-    --color-secondary-foreground: #eceff1;
-    --color-muted: #2a3036;
-    --color-muted-foreground: #9aa3ad;
-    --color-accent: #ddaa7b; /* Sand Tan */
-    --color-accent-foreground: #15181c;
-    --color-destructive: #e5484d;
-    --color-border: #333a41;
-    --color-input: #333a41;
-    --color-ring: #c97742;
-    --color-chart-1: #c97742;
-    --color-chart-2: #ddaa7b;
-    --color-chart-3: #eceff1;
-    --color-chart-4: #9aa3ad;
-    --color-chart-5: #2a3036;
-    --color-sidebar: #0f1114;
-    --color-sidebar-foreground: #eceff1;
-    --color-sidebar-primary: #c97742;
-    --color-sidebar-primary-foreground: #15181c;
-    --color-sidebar-accent: #2a3036;
-    --color-sidebar-accent-foreground: #eceff1;
-    --color-sidebar-border: #333a41;
-    --color-sidebar-ring: #c97742;
-  }
+  /* Cue Theme - Deep Charcoal and Burnt Orange */
+  --color-background: #0f1114;
+  --color-foreground: #eceff1;
+  --color-card: #1b1f24;
+  --color-card-foreground: #eceff1;
+  --color-popover: #23282e;
+  --color-popover-foreground: #eceff1;
+  --color-primary: #c97742;
+  --color-primary-foreground: #15181c;
+  --color-secondary: #2a3036;
+  --color-secondary-foreground: #eceff1;
+  --color-muted: #2a3036;
+  --color-muted-foreground: #9aa3ad;
+  --color-accent: #ddaa7b;
+  --color-accent-foreground: #15181c;
+  --color-destructive: #e5484d;
+  --color-border: #333a41;
+  --color-input: #333a41;
+  --color-ring: #c97742;
+  --color-chart-1: #c97742;
+  --color-chart-2: #ddaa7b;
+  --color-chart-3: #eceff1;
+  --color-chart-4: #9aa3ad;
+  --color-chart-5: #2a3036;
+  --color-sidebar: #0f1114;
+  --color-sidebar-foreground: #eceff1;
+  --color-sidebar-primary: #c97742;
+  --color-sidebar-primary-foreground: #15181c;
+  --color-sidebar-accent: #2a3036;
+  --color-sidebar-accent-foreground: #eceff1;
+  --color-sidebar-border: #333a41;
+  --color-sidebar-ring: #c97742;
 }
