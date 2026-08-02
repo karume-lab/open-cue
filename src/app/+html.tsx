@@ -1,11 +1,12 @@
 import { ScrollViewStyleReset } from "expo-router/html";
+import type React from "react";
 import type { PropsWithChildren } from "react";
 
 // This file is web-only and used to configure the root HTML for every
 // web page during static rendering.
 // The contents of this function only run in Node.js environments and
 // do not have access to the DOM or browser APIs.
-export default function Root({ children }: PropsWithChildren) {
+const Root: React.FC<PropsWithChildren> = ({ children }) => {
   return (
     <html lang="en" className="bg-background">
       <head>
@@ -27,4 +28,6 @@ export default function Root({ children }: PropsWithChildren) {
       <body>{children}</body>
     </html>
   );
-}
+};
+
+export default Root;

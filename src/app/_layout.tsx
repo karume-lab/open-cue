@@ -17,6 +17,7 @@ export { ErrorBoundary } from "expo-router";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter, useSegments } from "expo-router";
+import type React from "react";
 import { useEffect, useState } from "react";
 import { registerBackgroundTasks } from "@/services/BackgroundTasks";
 import { requestNotificationPermissions } from "@/services/NotificationService";
@@ -55,7 +56,7 @@ const NAV_THEME = {
   },
 };
 
-export default function RootLayout() {
+const RootLayout: React.FC = () => {
   const router = useRouter();
   const segments = useSegments();
   const { hasSeenOnboarding } = useOnboardingStore();
@@ -119,4 +120,6 @@ export default function RootLayout() {
       </QueryClientProvider>
     </GestureHandlerRootView>
   );
-}
+};
+
+export default RootLayout;

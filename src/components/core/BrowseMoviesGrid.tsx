@@ -1,6 +1,11 @@
 import { AlertCircle } from "lucide-react-native";
 import type { ReactNode } from "react";
-import { FlatList, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MovieCard, { SkeletonCard } from "@/components/core/MovieCard";
 import { Icon } from "@/components/ui/icon";
@@ -16,6 +21,8 @@ interface BrowseMoviesGridProps {
   isError?: boolean;
   errorMessage?: string;
   onRetry?: () => void;
+  onLoadMore?: () => void;
+  isFetchingNextPage?: boolean;
 }
 
 const BrowseMoviesGrid = ({
@@ -25,6 +32,8 @@ const BrowseMoviesGrid = ({
   isError,
   errorMessage,
   onRetry,
+  onLoadMore,
+  isFetchingNextPage,
 }: BrowseMoviesGridProps) => {
   const { isOfflineMode } = useSettings();
   const { downloads } = useAppStore();
@@ -90,6 +99,8 @@ const BrowseMoviesGrid = ({
         </View>
       )}
       showsVerticalScrollIndicator={false}
+      onEndReached={onLoadMore}
+      onEndReachedThreshold={0.5}
       contentContainerStyle={{ paddingBottom: safeAreaInsets.bottom + 16 }}
       ListHeaderComponent={
         <View>
@@ -98,6 +109,11 @@ const BrowseMoviesGrid = ({
             Explore
           </Text>
         </View>
+      }
+      ListFooterComponent={
+        isFetchingNextPage ? (
+          <ActivityIndicator size="small" className="my-4" />
+        ) : null
       }
       ListEmptyComponent={
         <View className="items-center justify-center pt-16 gap-3">

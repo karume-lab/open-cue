@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
+import type React from "react";
 
-export default function SettingsLayout() {
+const SettingsLayout: React.FC = () => {
   return (
     <Stack>
       <Stack.Screen
@@ -17,4 +18,6 @@ export default function SettingsLayout() {
       />
     </Stack>
   );
-}
+};
+
+export default SettingsLayout;

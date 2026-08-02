@@ -1,3 +1,4 @@
+import type React from "react";
 import { View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -19,10 +20,10 @@ interface TagSelectionSlideProps {
   onToggleTag: (tagId: string) => void;
 }
 
-export function TagSelectionSlide({
+export const TagSelectionSlide: React.FC<TagSelectionSlideProps> = ({
   selectedTags,
   onToggleTag,
-}: TagSelectionSlideProps) {
+}) => {
   return (
     <View className="h-64 w-full p-4 justify-center items-center border border-border bg-card rounded-xl">
       <View className="flex-row flex-wrap justify-center gap-3 w-full">
@@ -58,4 +59,4 @@ export function TagSelectionSlide({
       </View>
     </View>
   );
-}
+};

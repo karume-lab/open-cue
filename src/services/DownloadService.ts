@@ -1,10 +1,10 @@
-import { documentDirectory } from "expo-file-system/legacy";
+import { Directory, File, Paths } from "expo-file-system";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import type { Movie } from "@/types/movie";
-import TorrentDaemon from "../../modules/torrent-daemon";
+import TorrentDaemon from "~/modules/torrent-daemon";
 
 // A utility to construct a magnet link from a movie torrent hash
-function getMagnetLink(hash: string, title: string) {
+const getMagnetLink = (hash: string, title: string): string => {
   const trackers = [
     "udp://open.demonii.com:1337/announce",
     "udp://tracker.openbittorrent.com:80",
@@ -13,7 +13,7 @@ function getMagnetLink(hash: string, title: string) {
   ];
   const tr = trackers.map((t) => `&tr=${encodeURIComponent(t)}`).join("");
   return `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(title)}${tr}`;
-}
+};
 
 class DownloadManager {
   private activeIntervals: Record<string, ReturnType<typeof setInterval>> = {};
@@ -21,7 +21,11 @@ class DownloadManager {
 
   private async ensureDaemonStarted() {
     if (!this.daemonStarted) {
-      const storagePath = `${documentDirectory}downloads`;
+      const downloadsDir = new Directory(Paths.document, "downloads");
+      if (!downloadsDir.exists) {
+        downloadsDir.create();
+      }
+      const storagePath = downloadsDir.uri.replace("file://", "");
       await TorrentDaemon.startDaemon(storagePath);
       this.daemonStarted = true;
     }
@@ -142,8 +146,9 @@ class DownloadManager {
         this.clearInterval(movieId);
 
         // Find where the file was saved
-        const dir = `${documentDirectory}downloads`;
-        const videoPath = `${dir}/${download.movie.title}.mp4`; // Example path, assuming anacrolix saves it as such.
+        const downloadsDir = new Directory(Paths.document, "downloads");
+        const videoFile = new File(downloadsDir, `${download.movie.title}.mp4`);
+        const videoPath = videoFile.uri;
         // Actually, it usually creates a directory named after the torrent.
         // We'll mock the exact path for now for the player.
 

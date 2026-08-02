@@ -30,10 +30,10 @@ const BG = "#121212";
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.62;
 
-function useDebounceCallback<T extends (...args: unknown[]) => void>(
+const useDebounceCallback = <T extends (...args: unknown[]) => void>(
   callback: T,
   delay: number,
-) {
+) => {
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -44,7 +44,7 @@ function useDebounceCallback<T extends (...args: unknown[]) => void>(
     },
     [callback, delay],
   );
-}
+};
 
 const MoviesDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();

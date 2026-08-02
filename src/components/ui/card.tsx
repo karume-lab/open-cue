@@ -1,8 +1,9 @@
+import type React from 'react';
 import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { View, type ViewProps } from 'react-native';
 
-function Card({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+const Card: React.FC<ViewProps & React.RefAttributes<View>> = ({ className, ...props }) => {
   return (
     <TextClassContext.Provider value="text-card-foreground">
       <View
@@ -14,16 +15,15 @@ function Card({ className, ...props }: ViewProps & React.RefAttributes<View>) {
       />
     </TextClassContext.Provider>
   );
-}
+};
 
-function CardHeader({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+const CardHeader: React.FC<ViewProps & React.RefAttributes<View>> = ({ className, ...props }) => {
   return <View className={cn('flex flex-col gap-1.5 px-6', className)} {...props} />;
-}
+};
 
-function CardTitle({
-  className,
-  ...props
-}: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
+const CardTitle: React.FC<
+  React.ComponentProps<typeof Text> & React.RefAttributes<Text>
+> = ({ className, ...props }) => {
   return (
     <Text
       role="heading"
@@ -32,21 +32,20 @@ function CardTitle({
       {...props}
     />
   );
-}
+};
 
-function CardDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
+const CardDescription: React.FC<
+  React.ComponentProps<typeof Text> & React.RefAttributes<Text>
+> = ({ className, ...props }) => {
   return <Text className={cn('text-muted-foreground text-sm', className)} {...props} />;
-}
+};
 
-function CardContent({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+const CardContent: React.FC<ViewProps & React.RefAttributes<View>> = ({ className, ...props }) => {
   return <View className={cn('px-6', className)} {...props} />;
-}
+};
 
-function CardFooter({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+const CardFooter: React.FC<ViewProps & React.RefAttributes<View>> = ({ className, ...props }) => {
   return <View className={cn('flex flex-row items-center px-6', className)} {...props} />;
-}
+};
 
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };

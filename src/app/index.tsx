@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { Clapperboard, Download, Film, Sparkles } from "lucide-react-native";
+import type React from "react";
 import { useRef, useState } from "react";
 import {
   type FlatList,
@@ -63,7 +64,11 @@ interface PaginatorDotProps {
   width: number;
 }
 
-function PaginatorDot({ index, scrollX, width }: PaginatorDotProps) {
+const PaginatorDot: React.FC<PaginatorDotProps> = ({
+  index,
+  scrollX,
+  width,
+}) => {
   const { theme } = useUniwind();
   const isDark = theme === "dark";
   const primaryColor = isDark ? "#facd15" : "#0a0a0a";
@@ -101,9 +106,9 @@ function PaginatorDot({ index, scrollX, width }: PaginatorDotProps) {
       className="h-2.5 rounded-full"
     />
   );
-}
+};
 
-export default function OnboardingScreen() {
+const OnboardingScreen: React.FC = () => {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -241,4 +246,6 @@ export default function OnboardingScreen() {
       </View>
     </View>
   );
-}
+};
+
+export default OnboardingScreen;

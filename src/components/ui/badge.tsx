@@ -1,3 +1,4 @@
+import type React from 'react';
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import * as Slot from '@rn-primitives/slot';
@@ -54,14 +55,14 @@ type BadgeProps = ViewProps &
     asChild?: boolean;
   } & VariantProps<typeof badgeVariants>;
 
-function Badge({ className, variant, asChild, ...props }: BadgeProps) {
+const Badge: React.FC<BadgeProps> = ({ className, variant, asChild, ...props }) => {
   const Component = asChild ? Slot.View : View;
   return (
     <TextClassContext.Provider value={badgeTextVariants({ variant })}>
       <Component className={cn(badgeVariants({ variant }), className)} {...props} />
     </TextClassContext.Provider>
   );
-}
+};
 
 export { Badge, badgeTextVariants, badgeVariants };
 export type { BadgeProps };

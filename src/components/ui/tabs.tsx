@@ -1,19 +1,18 @@
+import type React from 'react';
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import * as TabsPrimitive from '@rn-primitives/tabs';
 import { Platform } from 'react-native';
 
-function Tabs({
-  className,
-  ...props
-}: TabsPrimitive.RootProps & React.RefAttributes<TabsPrimitive.RootRef>) {
+const Tabs: React.FC<
+  TabsPrimitive.RootProps & React.RefAttributes<TabsPrimitive.RootRef>
+> = ({ className, ...props }) => {
   return <TabsPrimitive.Root className={cn('flex flex-col gap-2', className)} {...props} />;
-}
+};
 
-function TabsList({
-  className,
-  ...props
-}: TabsPrimitive.ListProps & React.RefAttributes<TabsPrimitive.ListRef>) {
+const TabsList: React.FC<
+  TabsPrimitive.ListProps & React.RefAttributes<TabsPrimitive.ListRef>
+> = ({ className, ...props }) => {
   return (
     <TabsPrimitive.List
       className={cn(
@@ -24,12 +23,11 @@ function TabsList({
       {...props}
     />
   );
-}
+};
 
-function TabsTrigger({
-  className,
-  ...props
-}: TabsPrimitive.TriggerProps & React.RefAttributes<TabsPrimitive.TriggerRef>) {
+const TabsTrigger: React.FC<
+  TabsPrimitive.TriggerProps & React.RefAttributes<TabsPrimitive.TriggerRef>
+> = ({ className, ...props }) => {
   const { value } = TabsPrimitive.useRootContext();
   return (
     <TextClassContext.Provider
@@ -51,18 +49,17 @@ function TabsTrigger({
       />
     </TextClassContext.Provider>
   );
-}
+};
 
-function TabsContent({
-  className,
-  ...props
-}: TabsPrimitive.ContentProps & React.RefAttributes<TabsPrimitive.ContentRef>) {
+const TabsContent: React.FC<
+  TabsPrimitive.ContentProps & React.RefAttributes<TabsPrimitive.ContentRef>
+> = ({ className, ...props }) => {
   return (
     <TabsPrimitive.Content
       className={cn(Platform.select({ web: 'flex-1 outline-none' }), className)}
       {...props}
     />
   );
-}
+};
 
 export { Tabs, TabsContent, TabsList, TabsTrigger };

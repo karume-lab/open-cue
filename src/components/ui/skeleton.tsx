@@ -10,10 +10,9 @@ import * as React from 'react';
 
 const duration = 1000;
 
-function Skeleton({
-  className,
-  ...props
-}: React.ComponentProps<typeof View> & React.RefAttributes<View>) {
+const Skeleton: React.FC<
+  React.ComponentProps<typeof View> & React.RefAttributes<View>
+> = ({ className, ...props }) => {
   const sv = useSharedValue(1);
 
   React.useEffect(() => {

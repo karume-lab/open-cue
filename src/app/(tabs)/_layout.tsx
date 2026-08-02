@@ -1,8 +1,9 @@
 import { Tabs } from "expo-router";
 import { Compass, Download, Library, Settings } from "lucide-react-native";
+import type React from "react";
 import { Icon } from "@/components/ui/icon";
 
-export default function TabLayout() {
+const TabLayout: React.FC = () => {
   return (
     <Tabs screenOptions={{ tabBarShowLabel: false }}>
       <Tabs.Screen
@@ -36,4 +37,6 @@ export default function TabLayout() {
       />
     </Tabs>
   );
-}
+};
+
+export default TabLayout;

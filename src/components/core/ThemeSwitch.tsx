@@ -1,4 +1,5 @@
 import { MoonStarIcon, SunIcon } from "lucide-react-native";
+import type React from "react";
 import { Uniwind, useUniwind } from "uniwind";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -8,13 +9,13 @@ const THEME_ICONS = {
   dark: MoonStarIcon,
 };
 
-function ThemeSwitch() {
+const ThemeSwitch: React.FC = () => {
   const { theme } = useUniwind();
 
-  function toggleTheme() {
+  const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
     Uniwind.setTheme(newTheme);
-  }
+  };
 
   return (
     <Button
@@ -29,6 +30,6 @@ function ThemeSwitch() {
       />
     </Button>
   );
-}
+};
 
 export default ThemeSwitch;

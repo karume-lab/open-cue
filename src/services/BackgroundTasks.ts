@@ -1,8 +1,8 @@
 import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { MOVIE_SOURCE_API_BASE_URL } from "@/lib/constants";
-import { scheduleLocalNotification } from "./NotificationService";
+import { MOVIES_SOURCE_API_BASE_URL } from "@/lib/constants";
+import { scheduleLocalNotification } from "@/services/NotificationService";
 
 const BACKGROUND_MOVIE_UPDATER = "BACKGROUND_MOVIE_UPDATER";
 
@@ -19,7 +19,7 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
 
     // 2. Iterate through bookmarked movies and hit movies API
     for (const movie of bookmarkedMovies) {
-      const queryUrl = `${MOVIE_SOURCE_API_BASE_URL}/list_movies.json?query_term=${encodeURIComponent(
+      const queryUrl = `${MOVIES_SOURCE_API_BASE_URL}/list_movies.json?query_term=${encodeURIComponent(
         movie.title,
       )}`;
 
