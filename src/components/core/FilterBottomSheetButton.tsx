@@ -155,9 +155,9 @@ const FilterBottomSheetButton = ({
         enablePanDownToClose
         index={0}
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "#1c1c1c" /* --color-card */ }}
+        backgroundStyle={{ backgroundColor: "#23282e" /* --color-popover */ }}
         handleIndicatorStyle={{
-          backgroundColor: "#3c3c3c" /* --color-muted */,
+          backgroundColor: "#333a41" /* --color-border */,
         }}
       >
         <BottomSheetScrollView

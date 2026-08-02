@@ -17,7 +17,6 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useUniwind } from "uniwind";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { TagSelectionSlide } from "@/features/onboarding/components/TagSelectionSlide";
@@ -69,9 +68,7 @@ const PaginatorDot: React.FC<PaginatorDotProps> = ({
   scrollX,
   width,
 }) => {
-  const { theme } = useUniwind();
-  const isDark = theme === "dark";
-  const primaryColor = isDark ? "#facd15" : "#0a0a0a";
+  const primaryColor = "#c97742";
 
   const dotStyle = useAnimatedStyle(() => {
     const inputRange = [
@@ -117,8 +114,6 @@ const OnboardingScreen: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const { completeOnboarding } = useOnboardingStore();
-  const { theme } = useUniwind();
-  const isDark = theme === "dark";
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -186,10 +181,7 @@ const OnboardingScreen: React.FC = () => {
               <View className="mb-12 items-center justify-center min-h-50">
                 {item.type !== "interests" && (
                   <View className="w-32 h-32 rounded-full bg-primary/20 items-center justify-center mb-6">
-                    <IconComponent
-                      size={64}
-                      color={isDark ? "#facd15" : "#0a0a0a"}
-                    />
+                    <IconComponent size={64} color="#c97742" />
                   </View>
                 )}
                 {item.type === "interests" && (

@@ -5,7 +5,17 @@ import { Icon } from "@/components/ui/icon";
 
 const TabLayout: React.FC = () => {
   return (
-    <Tabs screenOptions={{ tabBarShowLabel: false }}>
+    <Tabs
+      screenOptions={{
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: "#c97742", // --color-primary
+        tabBarInactiveTintColor: "#9aa3ad", // --color-muted-foreground
+        tabBarStyle: {
+          backgroundColor: "#0f1114", // --color-background
+          borderTopColor: "#333a41", // --color-border
+        },
+      }}
+    >
       <Tabs.Screen
         name="discover"
         options={{

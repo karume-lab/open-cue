@@ -1,16 +1,11 @@
 import "@/styles/global.css";
 
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { PortalHost } from "@rn-primitives/portal";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useUniwind } from "uniwind";
 import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 
 export { ErrorBoundary } from "expo-router";
@@ -30,31 +25,18 @@ registerBackgroundTasks();
 
 const queryClient = new QueryClient();
 
-// NAV_THEME — colors must match --color-* vars in global.css
+// NAV_THEME — colors must match --color-* vars in global.css.
+// The app is dark-only, so a single theme is used regardless of OS scheme.
 const NAV_THEME = {
-  dark: {
-    ...DarkTheme,
-    colors: {
-      ...DarkTheme.colors,
-      background: "#121212", // --color-background
-      card: "#1c1c1c", // --color-card
-      text: "#f0f0f0", // --color-foreground
-      border: "#3c3c3c", // --color-border
-      primary: "#facd15", // --color-primary
-      notification: "#e02424",
-    },
-  },
-  light: {
-    ...DefaultTheme,
-    colors: {
-      ...DefaultTheme.colors,
-      background: "#ffffff",
-      card: "#ffffff",
-      text: "#0a0a0a",
-      border: "#e5e5e5",
-      primary: "#0a0a0a",
-      notification: "#ef4444",
-    },
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: "#0f1114", // --color-background
+    card: "#1b1f24", // --color-card
+    text: "#eceff1", // --color-foreground
+    border: "#333a41", // --color-border
+    primary: "#c97742", // --color-primary
+    notification: "#e5484d",
   },
 };
 
@@ -92,15 +74,12 @@ const RootLayout: React.FC = () => {
     }
   }, [isReady, hasSeenOnboarding, segments, router]);
 
-  const { theme } = useUniwind();
-  const colorScheme = theme === "dark" ? "dark" : "light";
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <SettingsProvider>
-          <ThemeProvider value={NAV_THEME[colorScheme]}>
-            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+          <ThemeProvider value={NAV_THEME}>
+            <StatusBar style="light" />
             <BottomSheetModalProvider>
               <Stack>
                 <Stack.Screen name="index" options={{ headerShown: false }} />

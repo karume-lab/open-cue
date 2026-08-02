@@ -8,10 +8,15 @@ import type { PropsWithChildren } from "react";
 // do not have access to the DOM or browser APIs.
 const Root: React.FC<PropsWithChildren> = ({ children }) => {
   return (
-    <html lang="en" className="bg-background">
+    <html
+      lang="en"
+      className="dark bg-background"
+      style={{ colorScheme: "dark" }}
+    >
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="color-scheme" content="dark" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
@@ -25,7 +30,7 @@ const Root: React.FC<PropsWithChildren> = ({ children }) => {
 
         {/* Add any additional <head> elements that you want globally available on web... */}
       </head>
-      <body>{children}</body>
+      <body style={{ backgroundColor: "#0f1114" }}>{children}</body>
     </html>
   );
 };

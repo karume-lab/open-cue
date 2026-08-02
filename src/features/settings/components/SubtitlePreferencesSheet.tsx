@@ -41,8 +41,8 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
       ref={ref}
       snapPoints={snapPoints}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: "#1c1c1c" /* --color-card */ }}
-      handleIndicatorStyle={{ backgroundColor: "#3c3c3c" /* --color-muted */ }}
+      backgroundStyle={{ backgroundColor: "#23282e" /* --color-popover */ }}
+      handleIndicatorStyle={{ backgroundColor: "#333a41" /* --color-border */ }}
       enablePanDownToClose
     >
       <BottomSheetView className="flex-1 px-6 pt-4 pb-8">
@@ -67,7 +67,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               className="size-10 border-border/50"
             >
               {/* Minus/Plus from lucide-react-native require a raw color prop */}
-              <Minus size={16} color="#f0f0f0" />
+              <Minus size={16} color="#eceff1" />
             </Button>
 
             <View className="items-center">
@@ -89,7 +89,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               size="icon"
               className="size-10 border-border/50"
             >
-              <Plus size={16} color="#f0f0f0" />
+              <Plus size={16} color="#eceff1" />
             </Button>
           </View>
         </View>

@@ -7,11 +7,13 @@ const NotFoundScreen: React.FC = () => {
   return (
     <>
       <Stack.Screen options={{ title: "Oops!" }} />
-      <View>
-        <Text>This screen doesn't exist.</Text>
+      <View className="flex-1 items-center justify-center gap-4 bg-background p-8">
+        <Text className="text-foreground text-lg font-semibold text-center">
+          This screen doesn't exist.
+        </Text>
 
         <Link href="/">
-          <Text>Go to home screen!</Text>
+          <Text className="text-primary font-medium">Go to home screen!</Text>
         </Link>
       </View>
     </>

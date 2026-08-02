@@ -19,8 +19,8 @@ import { Text } from "@/components/ui/text";
 import type { Movie, MovieTorrent } from "@/types/movie";
 
 // Raw hex values for native-only props — must match global.css
-const CARD = "#1c1c1c"; // --color-card
-const MUTED = "#3c3c3c"; // --color-muted
+const CARD = "#23282e"; // --color-popover
+const MUTED = "#333a41"; // --color-border
 
 const QUALITY_RANK = ["2160p", "1080p", "720p", "480p"];
 const qualityRank = (quality: string): number => {

@@ -157,7 +157,7 @@ const DownloadsScreen = () => {
   };
 
   return (
-    <View style={styles.root}>
+    <View className="flex-1 bg-background">
       <TabView
         navigationState={{ index, routes }}
         renderScene={renderScene}
@@ -194,10 +194,6 @@ const DownloadsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
   page: {
     flex: 1,
     paddingHorizontal: 20,

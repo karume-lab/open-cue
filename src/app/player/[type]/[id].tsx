@@ -240,7 +240,7 @@ const PlayerDetailScreen = () => {
           className="absolute inset-0 items-center justify-center bg-black/60"
           pointerEvents="none"
         >
-          <ActivityIndicator size="large" color="#EAB308" />
+          <ActivityIndicator size="large" color="#c97742" />
           <Text className="text-white/70 text-sm mt-3">
             {isPreparing ? "Preparing stream..." : "Buffering..."}
           </Text>

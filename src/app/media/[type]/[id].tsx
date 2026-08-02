@@ -38,7 +38,7 @@ import { episodeLabel, magnetFromHash } from "@/services/torrents";
 import type { MediaType } from "@/types/movie";
 
 // Raw hex for LinearGradient — must match --color-background in global.css
-const BG = "#121212";
+const BG = "#0f1114";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.62;

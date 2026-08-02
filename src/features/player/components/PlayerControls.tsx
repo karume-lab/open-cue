@@ -128,9 +128,9 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
             onSeek(val);
             onControlsInteract();
           }}
-          minimumTrackTintColor="#EAB308" // Kernel Gold
+          minimumTrackTintColor="#c97742" // Burnt Orange
           maximumTrackTintColor="rgba(255, 255, 255, 0.3)"
-          thumbTintColor="#EAB308"
+          thumbTintColor="#c97742"
         />
       </View>
     </Animated.View>

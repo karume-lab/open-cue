@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./public/core/icon.png",
     "scheme": "cue",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "assetBundlePatterns": ["**/*"],
     "platforms": ["ios", "android"],
     "ios": {

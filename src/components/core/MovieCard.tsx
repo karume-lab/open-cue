@@ -12,7 +12,7 @@ import {
 import type { Movie } from "@/types/movie";
 
 // Raw hex values for native-only props — must match global.css
-const BG = "#121212"; // --color-background
+const BG = "#0f1114"; // --color-background
 
 interface MovieCardProps {
   movie: Movie;
@@ -101,11 +101,11 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
 
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-1.5">
-                <Text className="text-foreground/70 text-[11px] font-medium">
+                <Text className="text-foreground/80 text-[11px] font-medium">
                   {releaseYear}
                 </Text>
-                <Text className="text-foreground/30 text-[11px]">•</Text>
-                <Text className="text-foreground/70 text-[11px] font-medium">
+                <Text className="text-foreground/40 text-[11px]">•</Text>
+                <Text className="text-foreground/80 text-[11px] font-medium">
                   {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
                 </Text>
               </View>
