@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import BrowseMoviesGrid from "@/components/core/BrowseMoviesGrid";
 import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
@@ -7,13 +8,23 @@ import ContinueWatchingCarousel from "@/features/discover/components/ContinueWat
 import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
 
 const DiscoverScreen = () => {
-  const { data, isLoading } = useDiscoverMoviesQuery(1);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  const { data, isLoading } = useDiscoverMoviesQuery(1, debouncedQuery);
   const movies = data?.data?.movies || [];
 
   return (
     <View className="flex-1 bg-background">
       <View className="flex-row items-center mr-2">
-        <Search />
+        <Search value={query} onChangeText={setQuery} />
         <FilterBottomSheetButton />
       </View>
 

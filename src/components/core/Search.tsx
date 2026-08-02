@@ -5,7 +5,12 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { THEME } from "@/lib/theme";
 
-const Search = () => {
+interface SearchProps {
+  value?: string;
+  onChangeText?: (text: string) => void;
+}
+
+const Search = ({ value, onChangeText }: SearchProps) => {
   const { theme: mode } = useUniwind();
   const theme = THEME[(mode ?? "dark") as keyof typeof THEME];
 
@@ -18,6 +23,8 @@ const Search = () => {
           className="flex-1 text-base text-foreground bg-transparent"
           placeholder="Search movies..."
           placeholderTextColor={theme.placeholder}
+          value={value}
+          onChangeText={onChangeText}
         />
       </View>
     </View>
