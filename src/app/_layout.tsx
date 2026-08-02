@@ -16,9 +16,11 @@ import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 export { ErrorBoundary } from "expo-router";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useRouter, useSegments } from "expo-router";
+import { useEffect, useState } from "react";
 import { registerBackgroundTasks } from "@/services/BackgroundTasks";
 import { requestNotificationPermissions } from "@/services/NotificationService";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 
 // Register background task in the global scope
 registerBackgroundTasks();
@@ -54,9 +56,27 @@ const NAV_THEME = {
 };
 
 export default function RootLayout() {
+  const router = useRouter();
+  const segments = useSegments();
+  const { hasSeenOnboarding } = useOnboardingStore();
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
     requestNotificationPermissions();
+    setIsReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const isIndex = segments.length === (0 as number);
+
+    if (!hasSeenOnboarding && !isIndex) {
+      router.replace("/");
+    } else if (hasSeenOnboarding && isIndex) {
+      router.replace("/(tabs)/discover");
+    }
+  }, [isReady, hasSeenOnboarding, segments, router]);
 
   const { theme } = useUniwind();
   const colorScheme = theme === "dark" ? "dark" : "light";

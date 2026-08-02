@@ -4,16 +4,20 @@ import { fetchMovie, fetchMovies } from "./api";
 export const discoverKeys = {
   all: ["discover"] as const,
   lists: () => [...discoverKeys.all, "list"] as const,
-  list: (page: number, query?: string) =>
-    [...discoverKeys.lists(), { page, query }] as const,
+  list: (page: number, query?: string, genre?: string) =>
+    [...discoverKeys.lists(), { page, query, genre }] as const,
   details: () => [...discoverKeys.all, "detail"] as const,
   detail: (id: number) => [...discoverKeys.details(), id] as const,
 };
 
-export const useDiscoverMoviesQuery = (page: number = 1, query?: string) => {
+export const useDiscoverMoviesQuery = (
+  page: number = 1,
+  query?: string,
+  genre?: string,
+) => {
   return useQuery({
-    queryKey: discoverKeys.list(page, query),
-    queryFn: () => fetchMovies(page, 20, query),
+    queryKey: discoverKeys.list(page, query, genre),
+    queryFn: () => fetchMovies(page, 20, query, genre),
   });
 };
 

@@ -5,10 +5,14 @@ export const fetchMovies = async (
   page: number = 1,
   limit: number = 20,
   query?: string,
+  genre?: string,
 ): Promise<YTSResponse> => {
   let url = `${YTS_API_BASE_URL}/list_movies.json?page=${page}&limit=${limit}`;
   if (query) {
     url += `&query_term=${encodeURIComponent(query)}`;
+  }
+  if (genre) {
+    url += `&genre=${encodeURIComponent(genre)}`;
   }
   const response = await fetch(url);
   if (!response.ok) {

@@ -5,6 +5,7 @@ import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
 import Search from "@/components/core/Search";
 import ContinueWatchingCarousel from "@/features/discover/components/ContinueWatchingCarousel";
 import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 
 const DiscoverScreen = () => {
   const [query, setQuery] = useState("");
@@ -17,9 +18,13 @@ const DiscoverScreen = () => {
     return () => clearTimeout(handler);
   }, [query]);
 
+  const { preferences } = useOnboardingStore();
+  const genre = preferences.length > 0 ? preferences[0] : undefined;
+
   const { data, isLoading, isError, error, refetch } = useDiscoverMoviesQuery(
     1,
     debouncedQuery,
+    genre,
   );
   const movies = data?.data?.movies ?? [];
 
