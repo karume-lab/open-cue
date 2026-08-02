@@ -20,7 +20,7 @@ go get golang.org/x/mobile/bind
 
 echo "Compiling for Android (AAR)..."
 mkdir -p ../modules/torrent-daemon/android/libs
-gomobile bind -target=android -androidapi 23 -o ../modules/torrent-daemon/android/libs/daemon.aar ./
+gomobile bind -target=android/arm64 -androidapi 23 -ldflags "-s -w" -o ../modules/torrent-daemon/android/libs/daemon.aar ./
 
 if [ "$(uname -s)" = "Darwin" ]; then
     echo "Compiling for iOS (Framework)..."
