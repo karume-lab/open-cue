@@ -6,19 +6,21 @@
     "orientation": "portrait",
     "icon": "./public/core/icon.png",
     "scheme": "cue",
-    "userInterfaceStyle": "dark",
+
     "assetBundlePatterns": ["**/*"],
     "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.karume-lab.cue"
+      "bundleIdentifier": "com.karume-lab.cue",
+      "userInterfaceStyle": "automatic"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "public/core/adaptive-icon.png"
       },
-      "package": "com.karume_lab.cue"
+      "package": "com.karume_lab.cue",
+      "userInterfaceStyle": "dark"
     },
     "plugins": [
       "expo-router",
