@@ -70,7 +70,7 @@ const BrowseMoviesGrid = ({
         <View className="flex-1 items-center justify-center gap-4 px-8">
           <Icon as={AlertCircle} size={40} className="text-destructive" />
           <Text className="text-foreground font-bold text-lg text-center">
-            Could not load movies
+            Could not load titles
           </Text>
           <Text className="text-muted-foreground text-sm text-center">
             {errorMessage ?? "Check your connection and try again."}
@@ -117,7 +117,7 @@ const BrowseMoviesGrid = ({
       }
       ListEmptyComponent={
         <View className="items-center justify-center pt-16 gap-3">
-          <Text className="text-muted-foreground text-sm">No movies found</Text>
+          <Text className="text-muted-foreground text-sm">No titles found</Text>
         </View>
       }
     />

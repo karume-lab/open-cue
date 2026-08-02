@@ -100,13 +100,13 @@ const RootLayout: React.FC = () => {
                   }}
                 />
                 <Stack.Screen
-                  name="movies/[id]"
+                  name="media/[type]/[id]"
                   options={{
                     headerShown: false,
                   }}
                 />
                 <Stack.Screen
-                  name="player/[id]"
+                  name="player/[type]/[id]"
                   options={{
                     headerShown: false,
                     presentation: "fullScreenModal",

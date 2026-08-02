@@ -13,15 +13,19 @@ import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
 import SubtitlePreferencesSheet from "@/features/settings/components/SubtitlePreferencesSheet";
 import { useAppStore } from "@/features/shared/store/useAppStore";
+import type { MediaType } from "@/types/movie";
 
 const DEMO_VIDEO_URL =
   "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
 const PlayerDetailScreen = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const movieId = Number(Array.isArray(id) ? id[0] : id);
+  const { type, id } = useLocalSearchParams<{ type: string; id: string }>();
+  const mediaType: MediaType =
+    (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
+  const tmdbId = Number(Array.isArray(id) ? id[0] : id);
+  const mediaId = `${mediaType}:${tmdbId}`;
 
-  const { data: movie, isLoading } = useMovieDetailsQuery(movieId);
+  const { data: movie, isLoading } = useMovieDetailsQuery(mediaType, tmdbId);
   const { watchHistory, updateWatchHistory } = useAppStore();
 
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
@@ -30,7 +34,7 @@ const PlayerDetailScreen = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
 
-  const savedCurrentTime = watchHistory[movieId] || 0;
+  const savedCurrentTime = watchHistory[mediaId] || 0;
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -41,10 +45,10 @@ const PlayerDetailScreen = () => {
 
   const saveProgress = useCallback(
     (time: number) => {
-      updateWatchHistory(movieId, time);
+      updateWatchHistory(mediaId, time);
       lastSavedTime.current = time;
     },
-    [movieId, updateWatchHistory],
+    [mediaId, updateWatchHistory],
   );
 
   const handleBack = useCallback(() => {

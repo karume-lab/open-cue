@@ -1,5 +1,8 @@
+export type MediaType = "movie" | "tv";
+
 export interface MovieTorrent {
   url: string;
+  magnet?: string;
   hash: string;
   quality: string;
   type: string;
@@ -12,32 +15,26 @@ export interface MovieTorrent {
 }
 
 export interface Movie {
-  id: number;
-  url: string;
-  imdb_code: string;
+  // Composite, collision-safe id: `${mediaType}:${tmdbId}`
+  id: string;
+  mediaType: MediaType;
+  tmdbId: number;
+  imdb_id?: string;
   title: string;
   title_english: string;
-  title_long: string;
-  slug: string;
   year: number;
-  rating: number;
-  runtime: number;
+  rating: number; // 0–10
+  runtime: number; // minutes (movie runtime / avg episode runtime for TV)
   genres: string[];
   summary: string;
   description_full: string;
-  synopsis: string;
-  yt_trailer_code: string;
   language: string;
-  mpa_rating: string;
-  background_image: string;
-  background_image_original: string;
+  status?: string;
   small_cover_image: string;
   medium_cover_image: string;
   large_cover_image: string;
-  state: string;
+  background_image: string;
   torrents: MovieTorrent[];
-  date_uploaded: string;
-  date_uploaded_unix: number;
 }
 
 export interface MovieResponse {

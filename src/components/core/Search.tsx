@@ -15,7 +15,7 @@ const Search = ({ value, onChangeText }: SearchProps) => {
         <Icon as={SearchIcon} className="text-muted-foreground" size={18} />
         <Input
           className="flex-1 text-base text-foreground bg-transparent border-0 shadow-none h-auto py-0 px-0"
-          placeholder="Search movies..."
+          placeholder="Search movies, shows, anime..."
           placeholderTextColor="#666666" // --color-placeholder
           value={value}
           onChangeText={onChangeText}

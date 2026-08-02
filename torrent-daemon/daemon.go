@@ -3,9 +3,13 @@ package daemon
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/anacrolix/torrent"
 )
+
+// metainfoTimeout is how long to wait for a magnet's metadata before giving up.
+const metainfoTimeout = 60 * time.Second
 
 var (
 	client *torrent.Client
@@ -56,7 +60,18 @@ func AddMagnet(uri string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
+	// A fresh magnet has no metainfo yet. Calling DownloadAll (and NumPieces)
+	// before it resolves panics on a nil Info, crashing the process. Wait for
+	// the metadata to be fetched from peers/DHT/trackers before requesting all
+	// pieces.
+	select {
+	case <-t.GotInfo():
+	case <-time.After(metainfoTimeout):
+		t.Drop()
+		return "", errors.New("timed out waiting for torrent metadata")
+	}
+
 	// Start downloading immediately
 	t.DownloadAll()
 
@@ -107,6 +122,9 @@ func Pause(infoHashHex string) error {
 
 	for _, t := range client.Torrents() {
 		if t.InfoHash().HexString() == infoHashHex {
+			if t.Info() == nil {
+				return errors.New("torrent metadata not resolved yet")
+			}
 			// cancel pieces
 			t.CancelPieces(0, t.NumPieces())
 			return nil
@@ -126,6 +144,9 @@ func Resume(infoHashHex string) error {
 
 	for _, t := range client.Torrents() {
 		if t.InfoHash().HexString() == infoHashHex {
+			if t.Info() == nil {
+				return errors.New("torrent metadata not resolved yet")
+			}
 			t.DownloadAll()
 			return nil
 		}

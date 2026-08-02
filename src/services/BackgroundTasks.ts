@@ -1,8 +1,8 @@
 import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { MOVIES_SOURCE_API_BASE_URL } from "@/lib/constants";
 import { scheduleLocalNotification } from "@/services/NotificationService";
+import { searchTorrents } from "@/services/torrents";
 
 const BACKGROUND_MOVIE_UPDATER = "BACKGROUND_MOVIE_UPDATER";
 
@@ -17,34 +17,22 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
       return BackgroundTask.BackgroundTaskResult.Success;
     }
 
-    // 2. Iterate through bookmarked movies and hit movies API
+    // 2. Iterate through bookmarked movies and check for 4K releases
     for (const movie of bookmarkedMovies) {
-      const queryUrl = `${MOVIES_SOURCE_API_BASE_URL}/list_movies.json?query_term=${encodeURIComponent(
-        movie.title,
-      )}`;
-
-      const response = await fetch(queryUrl);
-
-      if (!response.ok) {
+      // 4K detection is only reliable for movies (YTS exposes quality metadata)
+      if (movie.mediaType !== "movie") {
         continue;
       }
 
-      const data = await response.json();
+      const torrents = await searchTorrents(movie);
+      const has4K = torrents.some((t) => t.quality === "2160p");
 
-      if (data.data?.movies && data.data.movies.length > 0) {
-        // Find if this movie has a 2160p (4K) torrent
-        const fetchedMovie = data.data.movies[0];
-        const has4K = fetchedMovie.torrents?.some(
-          (t: { quality: string }) => t.quality === "2160p",
+      if (has4K) {
+        await scheduleLocalNotification(
+          "New Quality Available!",
+          `${movie.title} is now available in 4K!`,
         );
-
-        if (has4K) {
-          await scheduleLocalNotification(
-            "New Quality Available!",
-            `${movie.title} is now available in 4K!`,
-          );
-          break; // Stop after first finding to prevent notification spam
-        }
+        break; // Stop after first finding to prevent notification spam
       }
     }
 

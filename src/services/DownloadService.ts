@@ -1,19 +1,11 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import type { Movie } from "@/types/movie";
+import { magnetFromHash } from "@/services/torrents";
+import type { Movie, MovieTorrent } from "@/types/movie";
 import TorrentDaemon from "~/modules/torrent-daemon";
 
-// A utility to construct a magnet link from a movie torrent hash
-const getMagnetLink = (hash: string, title: string): string => {
-  const trackers = [
-    "udp://open.demonii.com:1337/announce",
-    "udp://tracker.openbittorrent.com:80",
-    "udp://tracker.coppersurfer.tk:6969",
-    "udp://glotorrents.pw:6969/announce",
-  ];
-  const tr = trackers.map((t) => `&tr=${encodeURIComponent(t)}`).join("");
-  return `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(title)}${tr}`;
-};
+const pickTorrent = (movie: Movie): MovieTorrent | undefined =>
+  movie.torrents?.find((t) => t.quality === "1080p") || movie.torrents?.[0];
 
 class DownloadManager {
   private activeIntervals: Record<string, ReturnType<typeof setInterval>> = {};
@@ -34,14 +26,12 @@ class DownloadManager {
   async startDownload(movie: Movie) {
     await this.ensureDaemonStarted();
 
-    // Default to downloading the 1080p version if available, otherwise first
-    const torrent =
-      movie.torrents?.find((t) => t.quality === "1080p") || movie.torrents?.[0];
+    const torrent = pickTorrent(movie);
     if (!torrent) {
-      throw new Error("No torrents found for this movie");
+      throw new Error("No torrents found for this title");
     }
 
-    const magnet = getMagnetLink(torrent.hash, movie.title);
+    const magnet = torrent.magnet ?? magnetFromHash(torrent.hash, movie.title);
 
     useAppStore.getState().updateDownloadState(movie.id, {
       movie,
@@ -62,17 +52,13 @@ class DownloadManager {
     }
   }
 
-  async pauseDownload(movieIdStr: string) {
-    const movieId = Number(movieIdStr);
+  async pauseDownload(movieId: string) {
     this.clearInterval(movieId);
 
     const download = useAppStore.getState().downloads[movieId];
     if (!download) return;
 
-    // We don't have the infoHash saved in state explicitly, but we could find it via movie torrent hash
-    const torrent =
-      download.movie.torrents?.find((t) => t.quality === "1080p") ||
-      download.movie.torrents?.[0];
+    const torrent = pickTorrent(download.movie);
     if (torrent) {
       await TorrentDaemon.pause(torrent.hash);
     }
@@ -83,14 +69,11 @@ class DownloadManager {
     });
   }
 
-  async resumeDownload(movieIdStr: string) {
-    const movieId = Number(movieIdStr);
+  async resumeDownload(movieId: string) {
     const download = useAppStore.getState().downloads[movieId];
     if (!download) return;
 
-    const torrent =
-      download.movie.torrents?.find((t) => t.quality === "1080p") ||
-      download.movie.torrents?.[0];
+    const torrent = pickTorrent(download.movie);
     if (torrent) {
       await TorrentDaemon.resume(torrent.hash);
       useAppStore.getState().updateDownloadState(movieId, {
@@ -100,16 +83,13 @@ class DownloadManager {
     }
   }
 
-  async cancelDownload(movieIdStr: string) {
-    const movieId = Number(movieIdStr);
+  async cancelDownload(movieId: string) {
     this.clearInterval(movieId);
 
     // Attempt to pause/cancel it in the daemon
     const download = useAppStore.getState().downloads[movieId];
     if (download) {
-      const torrent =
-        download.movie.torrents?.find((t) => t.quality === "1080p") ||
-        download.movie.torrents?.[0];
+      const torrent = pickTorrent(download.movie);
       if (torrent) {
         await TorrentDaemon.pause(torrent.hash).catch(() => {});
       }
@@ -121,14 +101,14 @@ class DownloadManager {
     // or manually delete the specific torrent data dir inside the storagePath.
   }
 
-  private clearInterval(movieId: number) {
+  private clearInterval(movieId: string) {
     if (this.activeIntervals[movieId]) {
       clearInterval(this.activeIntervals[movieId]);
       delete this.activeIntervals[movieId];
     }
   }
 
-  private startPollingProgress(movieId: number, infoHash: string) {
+  private startPollingProgress(movieId: string, infoHash: string) {
     this.clearInterval(movieId);
 
     this.activeIntervals[movieId] = setInterval(async () => {

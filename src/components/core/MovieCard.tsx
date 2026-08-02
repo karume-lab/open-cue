@@ -36,7 +36,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
   const isWatched = progress >= 95;
 
   return (
-    <Link href={`/movies/${movie.id}`} asChild>
+    <Link href={`/media/${movie.mediaType}/${movie.tmdbId}`} asChild>
       <TouchableOpacity
         activeOpacity={0.75}
         onPress={onPress}

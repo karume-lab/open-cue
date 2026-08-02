@@ -10,6 +10,7 @@ import {
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
+  Alert,
   Dimensions,
   Image,
   ScrollView,
@@ -23,6 +24,7 @@ import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { DownloadService } from "@/services/DownloadService";
+import type { MediaType } from "@/types/movie";
 
 // Raw hex for LinearGradient — must match --color-background in global.css
 const BG = "#121212";
@@ -46,11 +48,13 @@ const useDebounceCallback = <T extends (...args: unknown[]) => void>(
   );
 };
 
-const MoviesDetailScreen = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const movieIdNum = Number(Array.isArray(id) ? id[0] : id);
+const MediaDetailScreen = () => {
+  const { type, id } = useLocalSearchParams<{ type: string; id: string }>();
+  const mediaType: MediaType =
+    (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
+  const tmdbId = Number(Array.isArray(id) ? id[0] : id);
 
-  const { data: movie, isLoading } = useMovieDetailsQuery(movieIdNum);
+  const { data: movie, isLoading } = useMovieDetailsQuery(mediaType, tmdbId);
   const { bookmarks, downloads, watchHistory, toggleBookmark } = useAppStore();
 
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
@@ -66,7 +70,14 @@ const MoviesDetailScreen = () => {
   const currentTime = watchHistory[movie.id] || 0;
 
   const releaseYear = movie.year ? movie.year.toString() : "";
-  const runtimeFormatted = `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`;
+  const runtimeFormatted =
+    movie.runtime >= 60
+      ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`
+      : movie.runtime > 0
+        ? `${movie.runtime}m`
+        : movie.mediaType === "tv"
+          ? "Series"
+          : "";
   const genres = movie.genres || [];
   const duration = movie.runtime * 60;
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -137,7 +148,9 @@ const MoviesDetailScreen = () => {
         return (
           <TouchableOpacity
             className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
-            onPress={() => router.push(`/player/${movie.id}`)}
+            onPress={() =>
+              router.push(`/player/${movie.mediaType}/${movie.tmdbId}`)
+            }
           >
             <Icon
               as={Play}
@@ -145,7 +158,7 @@ const MoviesDetailScreen = () => {
               className="text-primary-foreground fill-primary-foreground"
             />
             <Text className="text-primary-foreground font-bold text-base">
-              {progress > 2 ? "Continue Watching" : "Play Movie"}
+              {progress > 2 ? "Continue Watching" : "Play"}
             </Text>
           </TouchableOpacity>
         );
@@ -153,7 +166,16 @@ const MoviesDetailScreen = () => {
       default:
         return (
           <TouchableOpacity
-            onPress={() => DownloadService.startDownload(movie)}
+            onPress={() => {
+              DownloadService.startDownload(movie).catch((error) => {
+                Alert.alert(
+                  "Download unavailable",
+                  error instanceof Error
+                    ? error.message
+                    : "No torrents found for this title.",
+                );
+              });
+            }}
             className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
           >
             <Icon as={Download} size={20} className="text-primary-foreground" />
@@ -344,4 +366,4 @@ const MoviesDetailScreen = () => {
   );
 };
 
-export default MoviesDetailScreen;
+export default MediaDetailScreen;

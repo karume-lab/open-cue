@@ -1,35 +1,71 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { MOVIES_SOURCE_API_BASE_URL } from "@/lib/constants";
-import type { Movie, MovieResponse } from "@/types/movie";
+import {
+  discoverMovies,
+  discoverTv,
+  fetchMediaDetail,
+  normalizeGenre,
+  searchMulti,
+} from "@/services/tmdb";
+import { searchTorrents } from "@/services/torrents";
+import type { MediaType, Movie, MovieResponse } from "@/types/movie";
 
-export const fetchMovies = async (
+const LIMIT = 40;
+
+const interleave = <T>(a: T[], b: T[]): T[] => {
+  const result: T[] = [];
+  const max = Math.max(a.length, b.length);
+  for (let i = 0; i < max; i++) {
+    if (i < a.length) result.push(a[i]);
+    if (i < b.length) result.push(b[i]);
+  }
+  return result;
+};
+
+export const fetchDiscoverPage = async (
   page: number = 1,
-  limit: number = 20,
   query?: string,
   genre?: string,
 ): Promise<MovieResponse> => {
-  let url = `${MOVIES_SOURCE_API_BASE_URL}/list_movies.json?page=${page}&limit=${limit}`;
+  let items: Movie[] = [];
+  let totalPages = 1;
+
   if (query) {
-    url += `&query_term=${encodeURIComponent(query)}`;
+    const search = await searchMulti(query, page);
+    items = search.items;
+    totalPages = search.totalPages;
+  } else {
+    const [movieRes, tvRes] = await Promise.all([
+      discoverMovies(page, normalizeGenre(genre)),
+      discoverTv(page, normalizeGenre(genre)),
+    ]);
+    items = interleave(movieRes.items, tvRes.items);
+    totalPages = Math.max(movieRes.totalPages, tvRes.totalPages);
   }
-  if (genre) {
-    url += `&genre=${encodeURIComponent(genre)}`;
-  }
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Network response was not ok");
-  }
-  return response.json();
+
+  return {
+    status: "ok",
+    status_message: "",
+    data: {
+      movie_count: totalPages * LIMIT,
+      limit: LIMIT,
+      page_number: page,
+      movies: items,
+    },
+  };
 };
 
-export const fetchMovie = async (id: number): Promise<Movie> => {
-  const url = `${MOVIES_SOURCE_API_BASE_URL}/movie_details.json?movie_id=${id}&with_images=true&with_cast=true`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Network response was not ok");
+export const fetchMediaDetailWithTorrents = async (
+  mediaType: MediaType,
+  id: number,
+): Promise<Movie> => {
+  const movie = await fetchMediaDetail(mediaType, id);
+  try {
+    const torrents = await searchTorrents(movie);
+    return { ...movie, torrents };
+  } catch (error) {
+    console.error("Failed to fetch torrents:", error);
+    return movie;
   }
-  const data = await response.json();
-  return data.data.movie;
 };
 
 export const discoverKeys = {
@@ -38,7 +74,8 @@ export const discoverKeys = {
   list: (page: number, query?: string, genre?: string) =>
     [...discoverKeys.lists(), { page, query, genre }] as const,
   details: () => [...discoverKeys.all, "detail"] as const,
-  detail: (id: number) => [...discoverKeys.details(), id] as const,
+  detail: (mediaType: MediaType, id: number) =>
+    [...discoverKeys.details(), mediaType, id] as const,
 };
 
 export const useDiscoverMoviesQuery = (
@@ -48,7 +85,7 @@ export const useDiscoverMoviesQuery = (
 ) => {
   return useQuery({
     queryKey: discoverKeys.list(page, query, genre),
-    queryFn: () => fetchMovies(page, 20, query, genre),
+    queryFn: () => fetchDiscoverPage(page, query, genre),
   });
 };
 
@@ -61,7 +98,7 @@ export const useDiscoverMoviesInfiniteQuery = (
       ...discoverKeys.lists(),
       { query, genre, infinite: true },
     ] as const,
-    queryFn: ({ pageParam = 1 }) => fetchMovies(pageParam, 20, query, genre),
+    queryFn: ({ pageParam = 1 }) => fetchDiscoverPage(pageParam, query, genre),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       const { movie_count, limit, page_number } = lastPage.data;
@@ -74,10 +111,10 @@ export const useDiscoverMoviesInfiniteQuery = (
   });
 };
 
-export const useMovieDetailsQuery = (id: number) => {
+export const useMovieDetailsQuery = (mediaType: MediaType, id: number) => {
   return useQuery({
-    queryKey: discoverKeys.detail(id),
-    queryFn: () => fetchMovie(id),
-    enabled: !!id,
+    queryKey: discoverKeys.detail(mediaType, id),
+    queryFn: () => fetchMediaDetailWithTorrents(mediaType, id),
+    enabled: Boolean(mediaType && id),
   });
 };

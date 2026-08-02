@@ -47,14 +47,14 @@ export interface AppSettings {
 
 export interface AppState {
   bookmarks: Movie[];
-  watchHistory: Record<number, number>;
-  downloads: Record<number, DownloadState>;
+  watchHistory: Record<string, number>;
+  downloads: Record<string, DownloadState>;
   settings: AppSettings;
 
   toggleBookmark: (movie: Movie) => void;
-  updateWatchHistory: (movieId: number, currentTime: number) => void;
-  updateDownloadState: (movieId: number, state: Partial<DownloadState>) => void;
-  removeDownload: (movieId: number) => void;
+  updateWatchHistory: (movieId: string, currentTime: number) => void;
+  updateDownloadState: (movieId: string, state: Partial<DownloadState>) => void;
+  removeDownload: (movieId: string) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   updateSubtitlePrefs: (prefs: Partial<SubtitlePreferences>) => void;
 }
@@ -83,7 +83,7 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
-      updateWatchHistory: (movieId: number, currentTime: number) =>
+      updateWatchHistory: (movieId: string, currentTime: number) =>
         set((state) => ({
           watchHistory: {
             ...state.watchHistory,
@@ -92,7 +92,7 @@ export const useAppStore = create<AppState>()(
         })),
 
       updateDownloadState: (
-        movieId: number,
+        movieId: string,
         downloadState: Partial<DownloadState>,
       ) =>
         set((state) => ({
@@ -105,7 +105,7 @@ export const useAppStore = create<AppState>()(
           },
         })),
 
-      removeDownload: (movieId: number) =>
+      removeDownload: (movieId: string) =>
         set((state) => {
           const { [movieId]: _, ...rest } = state.downloads;
           return { downloads: rest };

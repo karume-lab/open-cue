@@ -55,7 +55,7 @@ const DownloadsScreen = () => {
   ];
 
   const handleToggleAll = async () => {
-    const ids = activeDownloads.map((d) => d.movie.id.toString());
+    const ids = activeDownloads.map((d) => d.movie.id);
     if (isAllPaused) {
       await resumeAll(ids);
     } else {
@@ -64,8 +64,8 @@ const DownloadsScreen = () => {
     setIsAllPaused(!isAllPaused);
   };
 
-  const handleRemove = async (id: number) => {
-    await removeMovie(id.toString());
+  const handleRemove = async (id: string) => {
+    await removeMovie(id);
   };
 
   const renderScene = ({ route }: { route: Route }) => {
@@ -78,8 +78,8 @@ const DownloadsScreen = () => {
                 <MovieDownloadCard
                   key={d.movie.id}
                   download={d}
-                  onPause={() => pauseMovie(d.movie.id.toString())}
-                  onResume={() => resumeMovie(d.movie.id.toString())}
+                  onPause={() => pauseMovie(d.movie.id)}
+                  onResume={() => resumeMovie(d.movie.id)}
                   onRemove={() => handleRemove(d.movie.id)}
                 />
               ))}

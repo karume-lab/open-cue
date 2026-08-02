@@ -14,7 +14,7 @@ const ContinueWatchingCarousel = () => {
   // This is a naive implementation: check history against currently fetched movies.
   // In a real app, you would probably just store the full movie in watchHistory instead of fetching it here,
   // or use the bookmarks/downloads to find it. But since we store full movies in bookmarks/downloads, let's use them!
-  const allKnownMovies: Record<number, Movie> = {};
+  const allKnownMovies: Record<string, Movie> = {};
 
   // Combine all movies we have full objects for
   useAppStore.getState().bookmarks.forEach((m) => {
@@ -28,7 +28,7 @@ const ContinueWatchingCarousel = () => {
   });
 
   const inProgressMovies = Object.entries(watchHistory)
-    .map(([id, time]) => ({ id: Number(id), time }))
+    .map(([id, time]) => ({ id, time }))
     .filter(({ id, time }) => {
       const movie = allKnownMovies[id];
       if (!movie) return false;
