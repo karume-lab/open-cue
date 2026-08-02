@@ -3,8 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "dev": "expo start --dev-client",
-    "start": "expo start",
+    "dev": "NODE_NO_WARNINGS=1 expo start --dev-client",
+    "start": "NODE_NO_WARNINGS=1 expo start",
     "android": "expo prebuild --clean && expo run:android",
     "build": "expo prebuild --clean && ./android/gradlew -p android assembleRelease",
     "install-apk": "adb install ./android/app/build/outputs/apk/release/app-release.apk",
