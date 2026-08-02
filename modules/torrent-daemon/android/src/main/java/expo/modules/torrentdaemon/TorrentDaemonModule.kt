@@ -26,6 +26,10 @@ class TorrentDaemonModule : Module() {
       Daemon.getProgress(infoHash)
     }
 
+    Function("getFiles") { infoHash: String ->
+      Daemon.getFiles(infoHash)
+    }
+
     AsyncFunction("pause") { infoHash: String ->
       Daemon.pause(infoHash)
     }

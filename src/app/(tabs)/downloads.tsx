@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -12,6 +13,7 @@ import MovieDownloadCard from "@/features/downloads/components/MovieDownloadCard
 import ToggleDownloadStatus from "@/features/downloads/components/ToggleDownloadStatus";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { DownloadService } from "@/services/DownloadService";
+import { ExportService } from "@/services/ExportService";
 
 const useDownloadActions = () => {
   return {
@@ -55,7 +57,7 @@ const DownloadsScreen = () => {
   ];
 
   const handleToggleAll = async () => {
-    const ids = activeDownloads.map((d) => d.movie.id);
+    const ids = activeDownloads.map((d) => d.id);
     if (isAllPaused) {
       await resumeAll(ids);
     } else {
@@ -68,6 +70,14 @@ const DownloadsScreen = () => {
     await removeMovie(id);
   };
 
+  const handleExport = async (id: string) => {
+    const result = await ExportService.exportDownload(id);
+    Alert.alert(
+      result.ok ? "Saved to device" : "Could not save",
+      result.message,
+    );
+  };
+
   const renderScene = ({ route }: { route: Route }) => {
     if (route.key === "active") {
       return (
@@ -76,11 +86,11 @@ const DownloadsScreen = () => {
             <ScrollView showsVerticalScrollIndicator={false}>
               {activeDownloads.map((d) => (
                 <MovieDownloadCard
-                  key={d.movie.id}
+                  key={d.id}
                   download={d}
-                  onPause={() => pauseMovie(d.movie.id)}
-                  onResume={() => resumeMovie(d.movie.id)}
-                  onRemove={() => handleRemove(d.movie.id)}
+                  onPause={() => pauseMovie(d.id)}
+                  onResume={() => resumeMovie(d.id)}
+                  onRemove={() => handleRemove(d.id)}
                 />
               ))}
               <View style={styles.bottomPad} />
@@ -100,9 +110,10 @@ const DownloadsScreen = () => {
           <ScrollView showsVerticalScrollIndicator={false}>
             {completedDownloads.map((d) => (
               <MovieDownloadCard
-                key={d.movie.id}
+                key={d.id}
                 download={d}
-                onRemove={() => handleRemove(d.movie.id)}
+                onExport={() => handleExport(d.id)}
+                onRemove={() => handleRemove(d.id)}
               />
             ))}
             <View style={styles.bottomPad} />

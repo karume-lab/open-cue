@@ -12,4 +12,5 @@ export const NYAA_RSS_BASE_URL = "https://nyaa.si";
 export const APP_STORAGE_ID = "cue-app-storage";
 // v2: bookmarks/downloads/watchHistory switched to composite string ids
 // (`movie:<tmdbId>` / `tv:<tmdbId>`) with the TMDB-based unified media model.
-export const APP_STORAGE_NAME = "cue-storage-v2";
+// v3: downloads keyed per-torrent (`<mediaId>:<torrentHash>`) with DownloadState.id.
+export const APP_STORAGE_NAME = "cue-storage-v3";

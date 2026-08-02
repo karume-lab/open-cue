@@ -11,7 +11,10 @@ import MovieCard, { SkeletonCard } from "@/components/core/MovieCard";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
-import { useAppStore } from "@/features/shared/store/useAppStore";
+import {
+  isMediaDownloaded,
+  useAppStore,
+} from "@/features/shared/store/useAppStore";
 import type { Movie } from "@/types/movie";
 
 interface BrowseMoviesGridProps {
@@ -39,7 +42,7 @@ const BrowseMoviesGrid = ({
   const { downloads } = useAppStore();
 
   const filteredMovies = movies.filter((movie) => {
-    if (isOfflineMode) return downloads[movie.id]?.state === "complete";
+    if (isOfflineMode) return isMediaDownloaded(downloads, movie.id);
     return true;
   });
 

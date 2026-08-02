@@ -5,7 +5,10 @@ import { ImageBackground, TouchableOpacity, View } from "react-native";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { useAppStore } from "@/features/shared/store/useAppStore";
+import {
+  isMediaDownloaded,
+  useAppStore,
+} from "@/features/shared/store/useAppStore";
 import type { Movie } from "@/types/movie";
 
 // Raw hex values for native-only props — must match global.css
@@ -24,8 +27,7 @@ export const SkeletonCard = () => {
 
 const MovieCard = ({ movie, onPress }: MovieCardProps) => {
   const { watchHistory, downloads } = useAppStore();
-  const downloadState = downloads[movie.id]?.state;
-  const isOffline = downloadState === "complete";
+  const isOffline = isMediaDownloaded(downloads, movie.id);
 
   const currentTime = watchHistory[movie.id] || 0;
   const duration = movie.runtime * 60;

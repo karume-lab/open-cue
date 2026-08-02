@@ -1,5 +1,7 @@
 export type MediaType = "movie" | "tv";
 
+export type TorrentKind = "movie" | "series" | "season" | "episode";
+
 export interface MovieTorrent {
   url: string;
   magnet?: string;
@@ -12,6 +14,12 @@ export interface MovieTorrent {
   size_bytes: number;
   date_uploaded: string;
   date_uploaded_unix: number;
+  // Structured metadata, populated by structureTorrents in services/torrents.ts
+  kind?: TorrentKind;
+  season?: number;
+  episode?: number;
+  episodeEnd?: number;
+  label?: string;
 }
 
 export interface Movie {

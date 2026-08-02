@@ -5,6 +5,7 @@ interface TorrentDaemonInterface {
   stopDaemon(): Promise<void>;
   addMagnet(uri: string): Promise<string>;
   getProgress(infoHash: string): number;
+  getFiles(infoHash: string): string;
   pause(infoHash: string): Promise<void>;
   resume(infoHash: string): Promise<void>;
 }

@@ -35,6 +35,14 @@
             "backgroundColor": "#222222"
           }
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Cue to access your photos so it can save downloaded videos.",
+          "savePhotosPermission": "Allow Cue to save downloaded videos to your photo library.",
+          "granularPermissions": ["photo", "video"]
+        }
       ]
     ],
     "experiments": {

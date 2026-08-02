@@ -3,7 +3,10 @@ import MovieCard from "@/components/core/MovieCard";
 import { Text } from "@/components/ui/text";
 import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
-import { useAppStore } from "@/features/shared/store/useAppStore";
+import {
+  isMediaDownloaded,
+  useAppStore,
+} from "@/features/shared/store/useAppStore";
 import type { Movie } from "@/types/movie";
 
 const ContinueWatchingCarousel = () => {
@@ -39,8 +42,7 @@ const ContinueWatchingCarousel = () => {
     .filter(Boolean);
 
   const movies = inProgressMovies.filter((movie) => {
-    if (isOfflineMode && downloads[movie.id]?.state !== "complete")
-      return false;
+    if (isOfflineMode && !isMediaDownloaded(downloads, movie.id)) return false;
     return true;
   });
 

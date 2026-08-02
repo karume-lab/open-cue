@@ -1,16 +1,25 @@
-import { CheckCircle2, Clock, Pause, Play, Trash2 } from "lucide-react-native";
+import {
+  CheckCircle2,
+  Clock,
+  Pause,
+  Play,
+  Save,
+  Trash2,
+} from "lucide-react-native";
 import { useEffect, useRef } from "react";
 import { Animated, Image, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import type { DownloadState } from "@/features/shared/store/useAppStore";
 import { cn } from "@/lib/utils";
+import { episodeLabel } from "@/services/torrents";
 
 interface MovieDownloadCardProps {
   download: DownloadState;
   onPause?: () => void;
   onResume?: () => void;
   onRemove?: () => void;
+  onExport?: () => void;
 }
 
 const MovieDownloadCard = ({
@@ -18,6 +27,7 @@ const MovieDownloadCard = ({
   onPause,
   onResume,
   onRemove,
+  onExport,
 }: MovieDownloadCardProps) => {
   const { movie, state, progress, speed } = download;
   const progressAnim = useRef(new Animated.Value(progress)).current;
@@ -42,6 +52,9 @@ const MovieDownloadCard = ({
   const isQueued = state === "queued";
   const isComplete = state === "complete";
 
+  const label = episodeLabel(download.movie.torrents?.[0]);
+  const showLabel = !!label && download.movie.torrents?.[0]?.kind !== "movie";
+
   return (
     <View className="flex-row items-center gap-4 bg-card/50 p-3 rounded-2xl border border-border/50 mb-3 overflow-hidden">
       <View className="relative">
@@ -59,11 +72,17 @@ const MovieDownloadCard = ({
 
       <View className="flex-1 justify-center py-1">
         <Text
-          className="text-base font-bold text-foreground mb-1"
+          className="text-base font-bold text-foreground mb-0.5"
           numberOfLines={1}
         >
           {movie.title}
         </Text>
+
+        {showLabel && (
+          <Text className="text-xs text-primary mb-1" numberOfLines={1}>
+            {label}
+          </Text>
+        )}
 
         <View className="flex-row items-center gap-2 mb-2">
           {isQueued && (
@@ -127,6 +146,14 @@ const MovieDownloadCard = ({
       </View>
 
       <View className="flex-row items-center gap-1">
+        {isComplete && onExport && (
+          <TouchableOpacity
+            onPress={onExport}
+            className="p-2.5 rounded-xl bg-primary/10 border border-primary/20"
+          >
+            <Icon as={Save} size={18} className="text-primary" />
+          </TouchableOpacity>
+        )}
         {!isComplete && (
           <TouchableOpacity
             onPress={isPaused ? onResume : onPause}

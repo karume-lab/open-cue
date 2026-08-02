@@ -2,6 +2,8 @@ package daemon
 
 import (
 	"errors"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,8 +14,9 @@ import (
 const metainfoTimeout = 60 * time.Second
 
 var (
-	client *torrent.Client
-	mu     sync.RWMutex
+	client  *torrent.Client
+	dataDir string
+	mu      sync.RWMutex
 )
 
 // Start initializes the torrent client.
@@ -25,6 +28,7 @@ func Start(storagePath string) error {
 		return nil // already started
 	}
 
+	dataDir = storagePath
 	config := torrent.NewDefaultClientConfig()
 	config.DataDir = storagePath
 	// Optimize for fast startup and sequential downloading
@@ -109,6 +113,37 @@ func GetDownloadSpeed(infoHashHex string) float64 {
     // For this prototype, we'll return a mock value or rely on the JS side
     // to calculate the derivative of progress over time, which is simpler!
     return 0.0
+}
+
+// GetFiles returns the absolute on-disk paths of a torrent's files as a
+// newline-joined string. (gomobile cannot bind a []string return type.)
+// Requires that the torrent's metadata is resolved.
+func GetFiles(infoHashHex string) string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	if client == nil {
+		return ""
+	}
+
+	for _, t := range client.Torrents() {
+		if t.InfoHash().HexString() == infoHashHex {
+			if t.Info() == nil {
+				return ""
+			}
+			files := t.Files()
+			var builder strings.Builder
+			for i, f := range files {
+				if i > 0 {
+					builder.WriteString("\n")
+				}
+				builder.WriteString(filepath.Join(dataDir, f.Path()))
+			}
+			return builder.String()
+		}
+	}
+
+	return ""
 }
 
 // Pause pauses the download.
