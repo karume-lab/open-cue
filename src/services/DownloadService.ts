@@ -1,9 +1,9 @@
 import { documentDirectory } from "expo-file-system/legacy";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import type { YTSMovie } from "@/types/movie";
+import type { Movie } from "@/types/movie";
 import TorrentDaemon from "../../modules/torrent-daemon";
 
-// A utility to construct a magnet link from a YTS torrent hash
+// A utility to construct a magnet link from a movie torrent hash
 function getMagnetLink(hash: string, title: string) {
   const trackers = [
     "udp://open.demonii.com:1337/announce",
@@ -27,7 +27,7 @@ class DownloadManager {
     }
   }
 
-  async startDownload(movie: YTSMovie) {
+  async startDownload(movie: Movie) {
     await this.ensureDaemonStarted();
 
     // Default to downloading the 1080p version if available, otherwise first

@@ -24,10 +24,10 @@ const zustandStorage: StateStorage = {
   },
 };
 
-import type { YTSMovie } from "@/types/movie";
+import type { Movie } from "@/types/movie";
 
 export interface DownloadState {
-  movie: YTSMovie;
+  movie: Movie;
   state: "queued" | "downloading" | "complete" | "paused";
   progress: number;
   speed: number;
@@ -46,12 +46,12 @@ export interface AppSettings {
 }
 
 export interface AppState {
-  bookmarks: YTSMovie[];
+  bookmarks: Movie[];
   watchHistory: Record<number, number>;
   downloads: Record<number, DownloadState>;
   settings: AppSettings;
 
-  toggleBookmark: (movie: YTSMovie) => void;
+  toggleBookmark: (movie: Movie) => void;
   updateWatchHistory: (movieId: number, currentTime: number) => void;
   updateDownloadState: (movieId: number, state: Partial<DownloadState>) => void;
   removeDownload: (movieId: number) => void;
@@ -73,7 +73,7 @@ export const useAppStore = create<AppState>()(
         },
       },
 
-      toggleBookmark: (movie: YTSMovie) =>
+      toggleBookmark: (movie: Movie) =>
         set((state) => {
           const isBookmarked = state.bookmarks.some((m) => m.id === movie.id);
           return {

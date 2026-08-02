@@ -1,7 +1,7 @@
 import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { YTS_API_BASE_URL } from "@/lib/constants";
+import { MOVIE_SOURCE_API_BASE_URL } from "@/lib/constants";
 import { scheduleLocalNotification } from "./NotificationService";
 
 const BACKGROUND_MOVIE_UPDATER = "BACKGROUND_MOVIE_UPDATER";
@@ -17,9 +17,9 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
       return BackgroundTask.BackgroundTaskResult.Success;
     }
 
-    // 2. Iterate through bookmarked movies and hit YTS API
+    // 2. Iterate through bookmarked movies and hit movies API
     for (const movie of bookmarkedMovies) {
-      const queryUrl = `${YTS_API_BASE_URL}/list_movies.json?query_term=${encodeURIComponent(
+      const queryUrl = `${MOVIE_SOURCE_API_BASE_URL}/list_movies.json?query_term=${encodeURIComponent(
         movie.title,
       )}`;
 
@@ -33,8 +33,8 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
 
       if (data.data?.movies && data.data.movies.length > 0) {
         // Find if this movie has a 2160p (4K) torrent
-        const ytsMovie = data.data.movies[0];
-        const has4K = ytsMovie.torrents?.some(
+        const fetchedMovie = data.data.movies[0];
+        const has4K = fetchedMovie.torrents?.some(
           (t: { quality: string }) => t.quality === "2160p",
         );
 

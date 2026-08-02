@@ -1,4 +1,4 @@
-export interface YTSTorrent {
+export interface MovieTorrent {
   url: string;
   hash: string;
   quality: string;
@@ -11,7 +11,7 @@ export interface YTSTorrent {
   date_uploaded_unix: number;
 }
 
-export interface YTSMovie {
+export interface Movie {
   id: number;
   url: string;
   imdb_code: string;
@@ -35,18 +35,18 @@ export interface YTSMovie {
   medium_cover_image: string;
   large_cover_image: string;
   state: string;
-  torrents: YTSTorrent[];
+  torrents: MovieTorrent[];
   date_uploaded: string;
   date_uploaded_unix: number;
 }
 
-export interface YTSResponse {
+export interface MovieResponse {
   status: string;
   status_message: string;
   data: {
     movie_count: number;
     limit: number;
     page_number: number;
-    movies: YTSMovie[];
+    movies: Movie[];
   };
 }

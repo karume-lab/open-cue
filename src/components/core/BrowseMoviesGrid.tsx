@@ -7,11 +7,11 @@ import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import type { YTSMovie } from "@/types/movie";
+import type { Movie } from "@/types/movie";
 
 interface BrowseMoviesGridProps {
   Header?: ReactNode;
-  movies?: YTSMovie[];
+  movies?: Movie[];
   isLoading?: boolean;
   isError?: boolean;
   errorMessage?: string;

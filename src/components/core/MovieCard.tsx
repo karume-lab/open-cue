@@ -6,13 +6,13 @@ import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import type { YTSMovie } from "@/types/movie";
+import type { Movie } from "@/types/movie";
 
 // Raw hex values for native-only props — must match global.css
 const BG = "#121212"; // --color-background
 
 interface MovieCardProps {
-  movie: YTSMovie;
+  movie: Movie;
   onPress?: () => void;
 }
 

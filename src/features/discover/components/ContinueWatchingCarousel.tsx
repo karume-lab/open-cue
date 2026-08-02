@@ -4,7 +4,7 @@ import { Text } from "@/components/ui/text";
 import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import type { YTSMovie } from "@/types/movie";
+import type { Movie } from "@/types/movie";
 
 const ContinueWatchingCarousel = () => {
   const { isOfflineMode } = useSettings();
@@ -14,7 +14,7 @@ const ContinueWatchingCarousel = () => {
   // This is a naive implementation: check history against currently fetched movies.
   // In a real app, you would probably just store the full movie in watchHistory instead of fetching it here,
   // or use the bookmarks/downloads to find it. But since we store full movies in bookmarks/downloads, let's use them!
-  const allKnownMovies: Record<number, YTSMovie> = {};
+  const allKnownMovies: Record<number, Movie> = {};
 
   // Combine all movies we have full objects for
   useAppStore.getState().bookmarks.forEach((m) => {
