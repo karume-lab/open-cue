@@ -28,7 +28,12 @@
       },
       "package": "com.karume_lab.cue"
     },
-    "plugins": ["expo-router", "expo-asset"],
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-background-fetch",
+      "expo-task-manager"
+    ],
     "experiments": {
       "typedRoutes": true
     }

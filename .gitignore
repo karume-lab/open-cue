@@ -41,8 +41,8 @@ expo-env.d.ts
 # @end expo-cli
 
 TODO.md
-android
-ios
+/android
+/ios
 uniwind-types.d.ts
 
 migrations/
