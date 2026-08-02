@@ -1,3 +1,8 @@
+// Suppress Node.js DEP0205 ("module.register() is deprecated") noise from
+// Metro worker processes. Metro loads this file before forking workers, so the
+// env var propagates to them regardless of how `expo start` was launched.
+process.env.NODE_NO_WARNINGS = "1";
+
 const { getDefaultConfig } = require("expo/metro-config");
 const { withUniwindConfig } = require("uniwind/metro");
 const _path = require("node:path");
