@@ -1,5 +1,6 @@
 package expo.modules.settingspermission
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -7,7 +8,11 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
+private const val REQUEST_CODE_WRITE_SETTINGS = 7291
+
 class SettingsPermissionModule : Module() {
+  private var pendingPromise: Promise? = null
+
   override fun definition() = ModuleDefinition {
     Name("SettingsPermission")
 
@@ -16,9 +21,9 @@ class SettingsPermissionModule : Module() {
       Settings.System.canWrite(context)
     }
 
-    // Opens the system "draw over / modify system settings" screen for this
-    // app. Resolves false if the prompt was launched (grant is granted later
-    // on the system screen and detected via isWriteSettingsGranted).
+    // Opens the system "modify system settings" screen for this app and
+    // resolves when the user returns (via startActivityForResult), so the
+    // app is brought back to the foreground automatically.
     AsyncFunction("requestWriteSettings") { promise: Promise ->
       val context = appContext.reactContext
       val activity = appContext.currentActivity
@@ -30,12 +35,21 @@ class SettingsPermissionModule : Module() {
         promise.resolve(true)
         return@AsyncFunction
       }
+      pendingPromise = promise
       val intent = Intent(
         Settings.ACTION_MANAGE_WRITE_SETTINGS,
         Uri.parse("package:${context.packageName}"),
       )
-      activity.startActivity(intent)
-      promise.resolve(false)
+      activity.startActivityForResult(intent, REQUEST_CODE_WRITE_SETTINGS)
+    }
+
+    OnActivityResult { _, payload ->
+      if (payload.requestCode == REQUEST_CODE_WRITE_SETTINGS) {
+        val context = appContext.reactContext
+        val granted = context != null && Settings.System.canWrite(context)
+        pendingPromise?.resolve(granted)
+        pendingPromise = null
+      }
     }
   }
 }

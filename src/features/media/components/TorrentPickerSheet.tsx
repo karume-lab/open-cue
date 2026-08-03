@@ -42,9 +42,9 @@ interface Group {
   torrents: MovieTorrent[];
 }
 
-const buildGroups = (movie: Movie): Group[] => {
-  const torrents = movie.torrents ?? [];
-  if (movie.mediaType === "movie") {
+const buildGroups = (movie: Movie | null): Group[] => {
+  const torrents = movie?.torrents ?? [];
+  if (movie?.mediaType === "movie") {
     return [
       {
         title: "Available",
@@ -173,7 +173,7 @@ export interface TorrentPickerSheetHandle {
 }
 
 interface TorrentPickerSheetProps {
-  movie: Movie;
+  movie: Movie | null;
   isLoading?: boolean;
   onSelect: (torrent: MovieTorrent, mode: TorrentPickerMode) => void;
   onRetry?: () => Promise<unknown>;
@@ -189,12 +189,15 @@ const TorrentPickerSheet = forwardRef<
   const [mode, setMode] = useState<TorrentPickerMode>("download");
   const [query, setQuery] = useState("");
 
-  const hasTorrents = useMemo(() => (movie.torrents?.length ?? 0) > 0, [movie]);
+  const hasTorrents = useMemo(
+    () => (movie?.torrents?.length ?? 0) > 0,
+    [movie],
+  );
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return (movie.torrents ?? [])
+    return (movie?.torrents ?? [])
       .filter((torrent) => torrentSearchText(torrent).includes(q))
       .sort((a, b) => b.seeds - a.seeds);
   }, [query, movie]);
@@ -249,10 +252,10 @@ const TorrentPickerSheet = forwardRef<
           {mode === "stream" ? "Choose what to watch" : "Choose a torrent"}
         </Text>
         <Text className="text-muted-foreground text-xs mb-4" numberOfLines={1}>
-          {movie.title}
+          {movie?.title ?? ""}
         </Text>
 
-        {!isLoading && hasTorrents && (
+        {movie && !isLoading && hasTorrents && (
           <View className="flex-row items-center gap-3 bg-muted/50 border border-border/60 rounded-md px-4 mb-4">
             <Icon as={Search} size={15} className="text-muted-foreground/70" />
             <TextInput

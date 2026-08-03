@@ -80,18 +80,16 @@ export const PermissionSlide: React.FC<PermissionSlideProps> = ({ type }) => {
     <View className="w-full">
       <View className="bg-card border border-border rounded-md p-4 mb-4">
         <Text className="text-sm leading-5">
-          <Text className="text-foreground font-semibold">
-            Why we need it:{" "}
-          </Text>
+          <Text className="text-primary font-semibold">Why we need it: </Text>
           <Text className="text-muted-foreground">{content.why}</Text>
         </Text>
         <Text className="text-sm leading-5 mt-3">
-          <Text className="text-destructive font-semibold">Without it: </Text>
+          <Text className="text-primary font-semibold">Without it: </Text>
           <Text className="text-muted-foreground">{content.without}</Text>
         </Text>
       </View>
       <Button
-        variant={granted ? "secondary" : "default"}
+        variant={granted ? "secondary" : "outline"}
         onPress={handleRequest}
         disabled={granted}
         className="w-full h-14 rounded-md"

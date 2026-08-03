@@ -99,8 +99,6 @@ const MediaTorrentPicker = () => {
     [],
   );
 
-  if (!movie) return null;
-
   return (
     <>
       <TorrentPickerSheet

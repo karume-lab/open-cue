@@ -309,8 +309,12 @@ const OnboardingScreen: React.FC = () => {
             }
           }}
         >
-          <Text className="font-bold text-lg text-center text-primary-foreground">
-            {currentIndex === slides.length - 1 ? "Enter Cue" : "Next"}
+          <Text
+            className="font-bold text-lg text-center text-primary-foreground"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {currentIndex === slides.length - 1 ? "Let's go golfing" : "Next"}
           </Text>
         </Button>
       </View>
