@@ -114,14 +114,17 @@ const PlayerDetailScreen = () => {
         setShowControls(false);
         return;
       }
-      // Exiting PIP. If the app isn't foregrounded shortly after, the PIP
-      // window was dismissed — stop playback and the daemon stream.
+      // PIP was dismissed — always stop playback and the daemon stream.
+      saveProgress(currentTimeRef.current);
+      setIsPlaying(false);
+      if (mode === "stream" && hash) {
+        StreamService.stopStreaming(hash).catch(() => {});
+      }
+      // If the app came back to the foreground, leave the player screen so
+      // playback is fully stopped instead of continuing in the app.
       setTimeout(() => {
-        if (AppState.currentState === "active") return;
-        saveProgress(currentTimeRef.current);
-        setIsPlaying(false);
-        if (mode === "stream" && hash) {
-          StreamService.stopStreaming(hash).catch(() => {});
+        if (AppState.currentState === "active") {
+          router.back();
         }
       }, 400);
     },
