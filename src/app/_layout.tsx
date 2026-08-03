@@ -70,10 +70,15 @@ const RootLayout: React.FC = () => {
 
   // Lift the splash as soon as a screen is focused. The Protected guards below
   // make the correct screen the initial route, so there is no redirect
-  // round-trip to wait for in the common case.
+  // round-trip to wait for in the common case. Note: useSegments() reports an
+  // empty array for the root index route (the onboarding screen), so for users
+  // who haven't onboarded yet we hide immediately.
   useEffect(() => {
+    if (!hasSeenOnboarding) {
+      SplashScreen.hideAsync().catch(() => {});
+      return;
+    }
     if (segments.length === 0) return;
-    if (!hasSeenOnboarding && segments[0] !== "index") return;
     SplashScreen.hideAsync().catch(() => {});
   }, [hasSeenOnboarding, segments]);
 
