@@ -6,20 +6,27 @@ import { useSettings } from "@/features/settings/contexts/SettingsContext";
 import {
   isMediaDownloaded,
   useAppStore,
+  type WatchHistoryEntry,
 } from "@/features/shared/store/useAppStore";
+import {
+  CONTINUE_WATCHING_MAX_PERCENT,
+  CONTINUE_WATCHING_MIN_PERCENT,
+} from "@/lib/constants";
 import type { Movie } from "@/types/movie";
+
+const progressPercent = (entry: WatchHistoryEntry, movie: Movie) => {
+  const duration = movie.runtime * 60;
+  return duration > 0 ? (entry.currentTime / duration) * 100 : 0;
+};
 
 const ContinueWatchingCarousel = () => {
   const { isOfflineMode } = useSettings();
   const { watchHistory, downloads } = useAppStore();
   const { data } = useDiscoverMoviesQuery(1);
 
-  // This is a naive implementation: check history against currently fetched movies.
-  // In a real app, you would probably just store the full movie in watchHistory instead of fetching it here,
-  // or use the bookmarks/downloads to find it. But since we store full movies in bookmarks/downloads, let's use them!
+  // Fallback lookup for legacy history entries migrated without a stored movie.
   const allKnownMovies: Record<string, Movie> = {};
 
-  // Combine all movies we have full objects for
   useAppStore.getState().bookmarks.forEach((m) => {
     allKnownMovies[m.id] = m;
   });
@@ -31,15 +38,19 @@ const ContinueWatchingCarousel = () => {
   });
 
   const inProgressMovies = Object.entries(watchHistory)
-    .map(([id, time]) => ({ id, time }))
-    .filter(({ id, time }) => {
-      const movie = allKnownMovies[id];
-      if (!movie) return false;
-      const progress = (time / (movie.runtime * 60)) * 100;
-      return progress > 2 && progress < 95;
+    .map(([id, entry]) => {
+      const movie = entry.movie ?? allKnownMovies[id];
+      if (!movie) return undefined;
+      const progress = progressPercent(entry, movie);
+      if (
+        progress <= CONTINUE_WATCHING_MIN_PERCENT ||
+        progress >= CONTINUE_WATCHING_MAX_PERCENT
+      ) {
+        return undefined;
+      }
+      return movie;
     })
-    .map(({ id }) => allKnownMovies[id])
-    .filter(Boolean);
+    .filter((movie): movie is Movie => movie !== undefined);
 
   const movies = inProgressMovies.filter((movie) => {
     if (isOfflineMode && !isMediaDownloaded(downloads, movie.id)) return false;

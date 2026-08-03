@@ -6,15 +6,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   BackHandler,
+  Platform,
   StatusBar,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import Video, {
   type OnBufferData,
   type OnLoadData,
+  type OnPictureInPictureStatusChangedData,
   type OnProgressData,
   type OnVideoErrorData,
 } from "react-native-video";
@@ -67,28 +69,60 @@ const PlayerDetailScreen = () => {
   const [isBuffering, setIsBuffering] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
+  const [isInPip, setIsInPip] = useState(false);
 
-  const savedCurrentTime = watchHistory[mediaId] || 0;
+  const savedCurrentTime = watchHistory[mediaId]?.currentTime || 0;
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playableDuration, setPlayableDuration] = useState(0);
 
   const controlsTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
   const lastSavedTime = useRef<number>(0);
+  const currentTimeRef = useRef<number>(0);
+  const hasEnteredPipRef = useRef(false);
 
   const saveProgress = useCallback(
     (time: number) => {
-      updateWatchHistory(mediaId, time);
+      if (movie) updateWatchHistory(mediaId, time, movie);
       lastSavedTime.current = time;
     },
-    [mediaId, updateWatchHistory],
+    [mediaId, movie, updateWatchHistory],
   );
 
   const handleBack = useCallback(() => {
-    saveProgress(currentTime);
+    saveProgress(currentTimeRef.current);
     router.back();
-  }, [saveProgress, currentTime]);
+  }, [saveProgress]);
+
+  const enterPictureInPicture = useCallback(() => {
+    if (Platform.OS !== "android") return;
+    hasEnteredPipRef.current = true;
+    videoRef.current?.enterPictureInPicture();
+  }, []);
+
+  const handlePiPStatusChanged = useCallback(
+    (data: OnPictureInPictureStatusChangedData) => {
+      setIsInPip(data.isActive);
+      if (data.isActive) {
+        hasEnteredPipRef.current = true;
+        setShowControls(false);
+        return;
+      }
+      // Exiting PIP. If the app isn't foregrounded shortly after, the PIP
+      // window was dismissed — stop playback and the daemon stream.
+      setTimeout(() => {
+        if (AppState.currentState === "active") return;
+        saveProgress(currentTimeRef.current);
+        setIsPlaying(false);
+        if (mode === "stream" && hash) {
+          StreamService.stopStreaming(hash).catch(() => {});
+        }
+      }, 400);
+    },
+    [mode, hash, saveProgress],
+  );
 
   const interactControls = useCallback(() => {
     setShowControls(true);
@@ -96,6 +130,18 @@ const PlayerDetailScreen = () => {
     controlsTimeout.current = setTimeout(() => {
       setShowControls(false);
     }, 3000);
+  }, []);
+
+  const toggleControls = useCallback(() => {
+    setShowControls((prev) => {
+      if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
+      if (!prev) {
+        controlsTimeout.current = setTimeout(() => {
+          setShowControls(false);
+        }, 3000);
+      }
+      return !prev;
+    });
   }, []);
 
   // Resolve the video source: a live stream URL, a completed local download,
@@ -163,11 +209,27 @@ const PlayerDetailScreen = () => {
   const handleBackRef = useRef(handleBack);
   handleBackRef.current = handleBack;
 
+  const handleHardwareBackRef = useRef<() => boolean>(() => false);
+  handleHardwareBackRef.current = () => {
+    if (Platform.OS === "android" && isPlaying && !isInPip) {
+      // First back enters PIP while the video keeps playing; the next back
+      // (after the PIP window is dismissed) exits the screen normally.
+      if (hasEnteredPipRef.current) {
+        handleBackRef.current();
+      } else {
+        enterPictureInPicture();
+      }
+      return true;
+    }
+    handleBackRef.current();
+    return true;
+  };
+
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        handleBackRef.current();
+        handleHardwareBackRef.current();
         return true;
       },
     );
@@ -193,7 +255,9 @@ const PlayerDetailScreen = () => {
   }, [interactControls]);
 
   const handleProgress = (data: OnProgressData) => {
+    currentTimeRef.current = data.currentTime;
     setCurrentTime(data.currentTime);
+    setPlayableDuration(data.playableDuration);
     if (Math.abs(data.currentTime - lastSavedTime.current) >= 10) {
       saveProgress(data.currentTime);
     }
@@ -235,6 +299,9 @@ const PlayerDetailScreen = () => {
           style={StyleSheet.absoluteFill}
           resizeMode="contain"
           paused={!isPlaying || isPreparing}
+          playInBackground
+          enterPictureInPictureOnLeave
+          onPictureInPictureStatusChanged={handlePiPStatusChanged}
           onProgress={handleProgress}
           onLoad={handleLoad}
           onBuffer={handleBuffer}
@@ -246,18 +313,15 @@ const PlayerDetailScreen = () => {
 
       {(isPreparing || isBuffering) && (
         <View
-          className="absolute inset-0 items-center justify-center bg-black/60"
+          className="absolute inset-0 items-center justify-center"
           pointerEvents="none"
         >
           <ActivityIndicator size="large" color="#c97742" />
-          <Text className="text-white/70 text-sm mt-3">
-            {isPreparing ? "Preparing stream..." : "Buffering..."}
-          </Text>
         </View>
       )}
 
       <GestureLayer
-        onSingleTap={() => setShowControls((prev) => !prev)}
+        onSingleTap={toggleControls}
         onDoubleTapLeft={seekBackward}
         onDoubleTapRight={seekForward}
         onControlsInteract={interactControls}
@@ -268,6 +332,7 @@ const PlayerDetailScreen = () => {
         isPlaying={isPlaying}
         currentTime={currentTime}
         duration={duration}
+        playableDuration={playableDuration}
         showControls={showControls}
         onPlayPause={() => setIsPlaying(!isPlaying)}
         onSeek={(time) => {
@@ -279,6 +344,7 @@ const PlayerDetailScreen = () => {
           setIsPlaying(false);
           subtitleSheetRef.current?.present();
         }}
+        onPip={enterPictureInPicture}
         onControlsInteract={interactControls}
       />
 

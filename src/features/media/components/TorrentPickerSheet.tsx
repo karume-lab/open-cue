@@ -4,7 +4,7 @@ import {
   BottomSheetModal,
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
-import { Download, Play } from "lucide-react-native";
+import { Download, Inbox, Play, RefreshCw } from "lucide-react-native";
 import {
   forwardRef,
   useCallback,
@@ -122,7 +122,7 @@ const TorrentRow = ({
     <TouchableOpacity
       onPress={() => onSelect(torrent, mode)}
       activeOpacity={0.7}
-      className="flex-row items-center justify-between py-3 border-b border-border/40"
+      className="flex-row items-center justify-between py-4 border-b border-border/40"
     >
       <View className="flex-1 pr-3">
         <Text
@@ -140,10 +140,10 @@ const TorrentRow = ({
           </Text>
         )}
       </View>
-      <View className="size-9 rounded-xl bg-primary/10 items-center justify-center">
+      <View className="size-11 rounded-xl bg-primary/10 items-center justify-center">
         <Icon
           as={isStream ? Play : Download}
-          size={16}
+          size={18}
           className={isStream ? "text-primary fill-primary" : "text-primary"}
         />
       </View>
@@ -153,19 +153,21 @@ const TorrentRow = ({
 
 export interface TorrentPickerSheetHandle {
   present: (mode?: TorrentPickerMode) => void;
+  dismiss: () => void;
 }
 
 interface TorrentPickerSheetProps {
   movie: Movie;
   onSelect: (torrent: MovieTorrent, mode: TorrentPickerMode) => void;
+  onRetry?: () => Promise<unknown>;
 }
 
 const TorrentPickerSheet = forwardRef<
   TorrentPickerSheetHandle,
   TorrentPickerSheetProps
->(({ movie, onSelect }, ref) => {
+>(({ movie, onSelect, onRetry }, ref) => {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["70%"], []);
+  const snapPoints = useMemo(() => ["50%"], []);
   const groups = useMemo(() => buildGroups(movie), [movie]);
   const [mode, setMode] = useState<TorrentPickerMode>("download");
 
@@ -173,6 +175,9 @@ const TorrentPickerSheet = forwardRef<
     present: (nextMode?: TorrentPickerMode) => {
       if (nextMode) setMode(nextMode);
       bottomSheetRef.current?.present();
+    },
+    dismiss: () => {
+      bottomSheetRef.current?.dismiss();
     },
   }));
 
@@ -218,9 +223,31 @@ const TorrentPickerSheet = forwardRef<
         </Text>
 
         {groups.length === 0 && (
-          <Text className="text-muted-foreground text-sm py-10 text-center">
-            No torrents available
-          </Text>
+          <View className="items-center justify-center py-12 px-6 gap-4">
+            <View className="size-16 rounded-full bg-muted/40 items-center justify-center">
+              <Icon as={Inbox} size={28} className="text-muted-foreground" />
+            </View>
+            <Text className="text-muted-foreground text-sm text-center">
+              No torrents found for this title. Try again in a moment or
+              double-check the search filters.
+            </Text>
+            {onRetry && (
+              <TouchableOpacity
+                onPress={() => onRetry()}
+                activeOpacity={0.7}
+                className="flex-row items-center justify-center gap-2 bg-primary rounded-md px-6 py-3.5"
+              >
+                <Icon
+                  as={RefreshCw}
+                  size={16}
+                  className="text-primary-foreground"
+                />
+                <Text className="text-primary-foreground font-bold text-sm">
+                  Try again
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {groups.map((group) => (

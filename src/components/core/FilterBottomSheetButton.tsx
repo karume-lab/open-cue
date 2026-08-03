@@ -67,7 +67,7 @@ const FilterBottomSheetButton = ({
   onFilterChange,
 }: FilterBottomSheetButtonProps) => {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["75%"], []);
+  const snapPoints = useMemo(() => ["50%"], []);
 
   const [applied, setApplied] = useState<FilterState>(DEFAULT_FILTERS);
   const [draft, setDraft] = useState<FilterState>(DEFAULT_FILTERS);
@@ -226,7 +226,7 @@ const FilterBottomSheetButton = ({
 
           <TouchableOpacity
             onPress={handleApply}
-            className="bg-primary rounded-md py-4 items-center mt-2"
+            className="bg-primary rounded-md py-5 items-center mt-2"
           >
             <Text className="text-primary-foreground font-bold text-sm">
               {draftFilterCount > 0
@@ -264,12 +264,12 @@ const Chip = ({
   selected: boolean;
   onPress: () => void;
 }) => (
-  <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="mb-1">
+  <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="py-1">
     <Badge
       variant={selected ? "default" : "outline"}
-      className={selected ? "" : "border-border/50"}
+      className={selected ? "py-2 px-3" : "py-2 px-3 border-border/50"}
     >
-      <Text className="py-0.5">{label}</Text>
+      <Text className="text-sm">{label}</Text>
     </Badge>
   </TouchableOpacity>
 );

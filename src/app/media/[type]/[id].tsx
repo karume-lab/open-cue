@@ -9,7 +9,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react-native";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -24,17 +24,18 @@ import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
-import TorrentPickerSheet, {
-  type TorrentPickerMode,
-  type TorrentPickerSheetHandle,
-} from "@/features/media/components/TorrentPickerSheet";
 import {
   downloadsForMedia,
   useAppStore,
 } from "@/features/shared/store/useAppStore";
+import { useMediaActions } from "@/features/shared/store/useMediaActions";
+import {
+  CONTINUE_WATCHING_MAX_PERCENT,
+  CONTINUE_WATCHING_MIN_PERCENT,
+} from "@/lib/constants";
 import { DownloadService } from "@/services/DownloadService";
 import { ExportService } from "@/services/ExportService";
-import { episodeLabel, magnetFromHash } from "@/services/torrents";
+import { episodeLabel } from "@/services/torrents";
 import type { MediaType } from "@/types/movie";
 
 // Raw hex for LinearGradient — must match --color-background in global.css
@@ -74,7 +75,7 @@ const MediaDetailScreen = () => {
   const { bookmarks, downloads, watchHistory, toggleBookmark } = useAppStore();
 
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
-  const pickerRef = useRef<TorrentPickerSheetHandle>(null);
+  const { present: presentTorrentPicker } = useMediaActions();
   const handleToggleBookmark = useDebounceCallback(() => {
     if (movie) toggleBookmark(movie);
   }, 300);
@@ -94,7 +95,7 @@ const MediaDetailScreen = () => {
     (download) => download.state === "complete",
   );
   const isOffline = completeDownloads.length > 0;
-  const currentTime = watchHistory[movie.id] || 0;
+  const currentTime = watchHistory[movie.id]?.currentTime || 0;
 
   const releaseYear = movie.year ? movie.year.toString() : "";
   const runtimeFormatted =
@@ -110,49 +111,11 @@ const MediaDetailScreen = () => {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const handleDownloadPress = () => {
-    if (!movie.torrents || movie.torrents.length === 0) {
-      Alert.alert("Download unavailable", "No torrents found for this title.");
-      return;
-    }
-    pickerRef.current?.present("download");
+    if (movie) presentTorrentPicker(movie, "download", { onRetry: refetch });
   };
 
   const handleStreamPress = () => {
-    if (!movie.torrents || movie.torrents.length === 0) {
-      Alert.alert("Playback unavailable", "No torrents found for this title.");
-      return;
-    }
-    pickerRef.current?.present("stream");
-  };
-
-  const handleSelectTorrent = (
-    torrent: (typeof movie.torrents)[number],
-    mode: TorrentPickerMode,
-  ) => {
-    if (mode === "stream") {
-      const magnet =
-        torrent.magnet ?? magnetFromHash(torrent.hash, movie.title);
-      router.push({
-        pathname: "/player/[type]/[id]",
-        params: {
-          type: movie.mediaType,
-          id: movie.tmdbId,
-          mode: "stream",
-          magnet: encodeURIComponent(magnet),
-          hash: torrent.hash,
-        },
-      });
-      return;
-    }
-
-    DownloadService.startTorrentDownload(movie, torrent).catch((error) => {
-      Alert.alert(
-        "Download unavailable",
-        error instanceof Error
-          ? error.message
-          : "No torrents found for this title.",
-      );
-    });
+    if (movie) presentTorrentPicker(movie, "stream", { onRetry: refetch });
   };
 
   const handleExportDownload = async (downloadId: string) => {
@@ -248,7 +211,9 @@ const MediaDetailScreen = () => {
             className="text-primary-foreground fill-primary-foreground"
           />
           <Text className="text-primary-foreground font-bold text-base">
-            {progress > 2 ? "Continue Watching" : "Play"}
+            {progress > CONTINUE_WATCHING_MIN_PERCENT
+              ? "Continue Watching"
+              : "Play"}
           </Text>
         </TouchableOpacity>
       );
@@ -383,22 +348,25 @@ const MediaDetailScreen = () => {
         <View className="px-5 pt-6 pb-16">
           <View className="flex-row gap-3 mb-8">{renderPrimaryAction()}</View>
 
-          {progress > 2 && progress < 95 && (
-            <View className="mb-8">
-              <View className="flex-row justify-between mb-1.5">
-                <Text className="text-xs text-muted-foreground">Progress</Text>
-                <Text className="text-xs text-muted-foreground">
-                  {Math.round(progress)}%
-                </Text>
+          {progress > CONTINUE_WATCHING_MIN_PERCENT &&
+            progress < CONTINUE_WATCHING_MAX_PERCENT && (
+              <View className="mb-8">
+                <View className="flex-row justify-between mb-1.5">
+                  <Text className="text-xs text-muted-foreground">
+                    Progress
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {Math.round(progress)}%
+                  </Text>
+                </View>
+                <View className="h-1 bg-muted rounded-full">
+                  <View
+                    className="h-full bg-primary rounded-full"
+                    style={{ width: `${progress}%` }}
+                  />
+                </View>
               </View>
-              <View className="h-1 bg-muted rounded-full">
-                <View
-                  className="h-full bg-primary rounded-full"
-                  style={{ width: `${progress}%` }}
-                />
-              </View>
-            </View>
-          )}
+            )}
 
           <View className="mb-8">
             <Text className="text-base font-bold text-foreground mb-2">
@@ -491,12 +459,6 @@ const MediaDetailScreen = () => {
           )}
         </View>
       </ScrollView>
-
-      <TorrentPickerSheet
-        ref={pickerRef}
-        movie={movie}
-        onSelect={handleSelectTorrent}
-      />
     </View>
   );
 };

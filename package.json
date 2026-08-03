@@ -19,11 +19,7 @@
     "check": "biome check",
     "clean": "biome check --write",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "db:migrate": "drizzle-kit migrate"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.8",

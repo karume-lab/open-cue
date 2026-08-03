@@ -22,7 +22,7 @@ const SUBTITLE_COLORS = [
 const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
   const { subtitlePrefs, updateSubtitlePrefs } = useSettings();
 
-  const snapPoints = useMemo(() => ["60%"], []);
+  const snapPoints = useMemo(() => ["50%"], []);
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -64,10 +64,10 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               }
               variant="outline"
               size="icon"
-              className="size-10 border-border/50"
+              className="size-12 border-border/50"
             >
               {/* Minus/Plus from lucide-react-native require a raw color prop */}
-              <Minus size={16} color="#eceff1" />
+              <Minus size={20} color="#eceff1" />
             </Button>
 
             <View className="items-center">
@@ -87,9 +87,9 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               }
               variant="outline"
               size="icon"
-              className="size-10 border-border/50"
+              className="size-12 border-border/50"
             >
-              <Plus size={16} color="#eceff1" />
+              <Plus size={20} color="#eceff1" />
             </Button>
           </View>
         </View>
@@ -113,7 +113,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               >
                 <View
                   style={{ backgroundColor: color.hex }}
-                  className="size-10 rounded-full shadow-sm"
+                  className="size-12 rounded-full shadow-sm"
                 />
               </TouchableOpacity>
             ))}

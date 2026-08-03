@@ -1,8 +1,14 @@
 import Slider from "@react-native-community/slider";
-import { ArrowLeft, Pause, Play, Subtitles } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Pause,
+  PictureInPicture2,
+  Play,
+  Subtitles,
+} from "lucide-react-native";
 import type React from "react";
 import { useEffect, useRef } from "react";
-import { Animated, TouchableOpacity, View } from "react-native";
+import { Animated, Platform, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
@@ -12,11 +18,13 @@ export interface PlayerControlsProps {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  playableDuration: number;
   showControls: boolean;
   onPlayPause: () => void;
   onSeek: (time: number) => void;
   onBack: () => void;
   onOpenSubtitles: () => void;
+  onPip?: () => void;
   onControlsInteract: () => void;
 }
 
@@ -35,11 +43,13 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
   isPlaying,
   currentTime,
   duration,
+  playableDuration,
   showControls,
   onPlayPause,
   onSeek,
   onBack,
   onOpenSubtitles,
+  onPip,
   onControlsInteract,
 }) => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -76,21 +86,28 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
         >
           {title}
         </Text>
-        <TouchableOpacity
-          onPress={onOpenSubtitles}
-          className="size-10 rounded-full bg-black/40 items-center justify-center border border-white/10"
-        >
-          <Icon as={Subtitles} size={20} className="text-white" />
-        </TouchableOpacity>
+        <View className="flex-row items-center gap-3">
+          {onPip && Platform.OS === "android" && (
+            <TouchableOpacity
+              onPress={onPip}
+              className="size-10 rounded-full bg-black/40 items-center justify-center border border-white/10"
+            >
+              <Icon as={PictureInPicture2} size={20} className="text-white" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={onOpenSubtitles}
+            className="size-10 rounded-full bg-black/40 items-center justify-center border border-white/10"
+          >
+            <Icon as={Subtitles} size={20} className="text-white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Center Play/Pause */}
       <View className="flex-1 items-center justify-center pointer-events-box-none">
         <TouchableOpacity
-          onPress={() => {
-            onControlsInteract();
-            onPlayPause();
-          }}
+          onPress={onPlayPause}
           disabled={!showControls}
           className="size-20 rounded-full bg-black/50 items-center justify-center border border-white/20"
         >
@@ -117,21 +134,35 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
             {formatTime(duration)}
           </Text>
         </View>
-        <Slider
-          style={{ width: "100%", height: 40 }}
-          minimumValue={0}
-          maximumValue={duration > 0 ? duration : 1}
-          value={currentTime}
-          onSlidingStart={onControlsInteract}
-          onValueChange={onControlsInteract}
-          onSlidingComplete={(val) => {
-            onSeek(val);
-            onControlsInteract();
-          }}
-          minimumTrackTintColor="#c97742" // Burnt Orange
-          maximumTrackTintColor="rgba(255, 255, 255, 0.3)"
-          thumbTintColor="#c97742"
-        />
+        <View className="relative" style={{ height: 40 }}>
+          <View
+            className="absolute rounded-full bg-white/25"
+            style={{
+              left: 0,
+              top: 18,
+              height: 4,
+              width: `${Math.min(
+                100,
+                (playableDuration / (duration > 0 ? duration : 1)) * 100,
+              )}%`,
+            }}
+          />
+          <Slider
+            style={{ width: "100%", height: 40 }}
+            minimumValue={0}
+            maximumValue={duration > 0 ? duration : 1}
+            value={currentTime}
+            onSlidingStart={onControlsInteract}
+            onValueChange={onControlsInteract}
+            onSlidingComplete={(val) => {
+              onSeek(val);
+              onControlsInteract();
+            }}
+            minimumTrackTintColor="#c97742" // Burnt Orange
+            maximumTrackTintColor="transparent"
+            thumbTintColor="#c97742"
+          />
+        </View>
       </View>
     </Animated.View>
   );

@@ -1,11 +1,15 @@
 import * as Brightness from "expo-brightness";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { VolumeManager } from "react-native-volume-manager";
 
 const { width, height } = Dimensions.get("window");
+
+// Two taps inside this window at the same spot are treated as a double-tap, so
+// the second tap must not toggle the controls on top of the first one.
+const DOUBLE_TAP_WINDOW_MS = 250;
 
 interface GestureLayerProps {
   onSingleTap: () => void;
@@ -22,6 +26,7 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
 }) => {
   const [startBrightness, setStartBrightness] = useState(0.5);
   const [startVolume, setStartVolume] = useState(0.5);
+  const lastSingleTapAt = useRef(0);
 
   useEffect(() => {
     (async () => {
@@ -78,6 +83,14 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
   const singleTap = Gesture.Tap()
     .numberOfTaps(1)
     .onEnd(() => {
+      // Fire immediately. If the previous tap was inside the double-tap window,
+      // this is the second tap of a double-tap (which the doubleTap gesture also
+      // handles), so skip it to avoid toggling twice.
+      const now = Date.now();
+      const isSecondTapOfDouble =
+        now - lastSingleTapAt.current < DOUBLE_TAP_WINDOW_MS;
+      lastSingleTapAt.current = now;
+      if (isSecondTapOfDouble) return;
       onSingleTap();
     })
     .runOnJS(true);
@@ -94,13 +107,10 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
     })
     .runOnJS(true);
 
-  // Exclusivity: double tap takes precedence over single tap
-  singleTap.requireExternalGestureToFail(doubleTap);
-
-  const composed = Gesture.Simultaneous(
-    pan,
-    Gesture.Exclusive(doubleTap, singleTap),
-  );
+  // Simultaneous (not exclusive) so the single tap fires immediately instead of
+  // waiting ~300ms for the double tap to fail. The timestamp guard above keeps a
+  // double-tap's second tap from also toggling the controls.
+  const composed = Gesture.Simultaneous(pan, doubleTap, singleTap);
 
   return (
     <GestureDetector gesture={composed}>

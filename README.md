@@ -189,7 +189,6 @@ bun run build:install-apk   # build + install in one go
 | `reinstall-packages` | Wipe `node_modules`/`bun.lock` and reinstall |
 | `lint` / `format` / `check` / `clean` | Biome lint/format (`clean` auto-fixes) |
 | `typecheck` | TypeScript check (`tsc --noEmit`) |
-| `db:generate` / `db:push` / `db:studio` / `db:migrate` | Legacy Drizzle scripts (drizzle-kit is not installed; unused) |
 
 ---
 

@@ -1,0 +1,7 @@
+{
+  "name": "SettingsPermission",
+  "platforms": ["android"],
+  "android": {
+    "modules": ["expo.modules.settingspermission.SettingsPermissionModule"]
+  }
+}

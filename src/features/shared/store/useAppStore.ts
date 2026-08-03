@@ -47,14 +47,23 @@ export interface AppSettings {
   subtitlePrefs: SubtitlePreferences;
 }
 
+export interface WatchHistoryEntry {
+  currentTime: number;
+  movie?: Movie;
+}
+
 export interface AppState {
   bookmarks: Movie[];
-  watchHistory: Record<string, number>;
+  watchHistory: Record<string, WatchHistoryEntry>;
   downloads: Record<string, DownloadState>;
   settings: AppSettings;
 
   toggleBookmark: (movie: Movie) => void;
-  updateWatchHistory: (movieId: string, currentTime: number) => void;
+  updateWatchHistory: (
+    movieId: string,
+    currentTime: number,
+    movie?: Movie,
+  ) => void;
   updateDownloadState: (movieId: string, state: Partial<DownloadState>) => void;
   removeDownload: (movieId: string) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
@@ -85,11 +94,18 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
-      updateWatchHistory: (movieId: string, currentTime: number) =>
+      updateWatchHistory: (
+        movieId: string,
+        currentTime: number,
+        movie?: Movie,
+      ) =>
         set((state) => ({
           watchHistory: {
             ...state.watchHistory,
-            [movieId]: currentTime,
+            [movieId]: {
+              currentTime,
+              movie: movie ?? state.watchHistory[movieId]?.movie,
+            },
           },
         })),
 
@@ -129,6 +145,19 @@ export const useAppStore = create<AppState>()(
     {
       name: APP_STORAGE_NAME,
       storage: createJSONStorage(() => zustandStorage),
+      version: 1,
+      migrate: (persistedState, version) => {
+        if (version >= 1) return persistedState as AppState;
+        const state = (persistedState ?? {}) as Partial<AppState> & {
+          watchHistory?: Record<string, number>;
+        };
+        const legacy = state.watchHistory ?? {};
+        const watchHistory: Record<string, WatchHistoryEntry> = {};
+        for (const [id, currentTime] of Object.entries(legacy)) {
+          watchHistory[id] = { currentTime };
+        }
+        return { ...state, watchHistory } as AppState;
+      },
     },
   ),
 );

@@ -14,7 +14,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter, useSegments } from "expo-router";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { AppState } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
+import MediaTorrentPicker from "@/features/media/components/MediaTorrentPicker";
 import { registerBackgroundTasks } from "@/services/BackgroundTasks";
 import { DownloadService } from "@/services/DownloadService";
 import { requestNotificationPermissions } from "@/services/NotificationService";
@@ -22,6 +23,33 @@ import { useOnboardingStore } from "@/stores/onboardingStore";
 
 // Register background task in the global scope
 registerBackgroundTasks();
+
+// WRITE_SETTINGS is a special Android permission that must be granted from the
+// system settings screen. It lets the player keep the screen awake and control
+// brightness while streaming. The native module only exists on Android, so it
+// is required lazily to keep iOS builds working.
+const requestWriteSettingsPermission = async () => {
+  if (Platform.OS !== "android") return;
+  try {
+    const SettingsPermission = require("~/modules/settings-permission").default;
+    if (SettingsPermission.isWriteSettingsGranted()) return;
+    Alert.alert(
+      "Modify system settings",
+      "Allow Cue to modify system settings so it can keep the screen on and control brightness while streaming.",
+      [
+        { text: "Not now", style: "cancel" },
+        {
+          text: "Open settings",
+          onPress: () => {
+            SettingsPermission.requestWriteSettings().catch(() => {});
+          },
+        },
+      ],
+    );
+  } catch {
+    // Module unavailable (non-Android or dev build) — nothing to request.
+  }
+};
 
 const queryClient = new QueryClient();
 
@@ -48,6 +76,7 @@ const RootLayout: React.FC = () => {
 
   useEffect(() => {
     requestNotificationPermissions();
+    requestWriteSettingsPermission();
     setIsReady(true);
   }, []);
 
@@ -105,6 +134,7 @@ const RootLayout: React.FC = () => {
                   }}
                 />
               </Stack>
+              <MediaTorrentPicker />
             </BottomSheetModalProvider>
             <PortalHost />
           </ThemeProvider>

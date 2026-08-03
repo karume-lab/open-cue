@@ -135,6 +135,7 @@ interface TMDBMovieDetail {
   backdrop_path?: string | null;
   status?: string;
   original_language?: string;
+  number_of_seasons?: number;
   external_ids?: { imdb_id?: string | null };
 }
 
@@ -279,6 +280,7 @@ const detailToMovie = (
     description_full: detail.overview ?? "",
     language: detail.original_language ?? "",
     status: detail.status,
+    numberOfSeasons: isMovie ? undefined : detail.number_of_seasons,
     small_cover_image: posterUrl(detail.poster_path, "small"),
     medium_cover_image: posterUrl(detail.poster_path, "medium"),
     large_cover_image: posterUrl(detail.poster_path, "large"),

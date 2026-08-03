@@ -68,6 +68,18 @@ export const fetchMediaDetailWithTorrents = async (
   }
 };
 
+// Re-runs the torrent search for a single title (used by the empty-state
+// "Try again" action in the torrent picker).
+export const refetchTorrents = async (movie: Movie): Promise<Movie> => {
+  try {
+    const torrents = await searchTorrents(movie);
+    return { ...movie, torrents };
+  } catch (error) {
+    console.error("Failed to refetch torrents:", error);
+    return movie;
+  }
+};
+
 export const discoverKeys = {
   all: ["discover"] as const,
   lists: () => [...discoverKeys.all, "list"] as const,

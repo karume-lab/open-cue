@@ -1,4 +1,5 @@
 import {
+  EZTV_API_BASE_URLS,
   NYAA_RSS_BASE_URL,
   THEPIRATEBAY_API_BASE_URL,
   YTS_API_BASE_URL,
@@ -97,13 +98,16 @@ interface TpbResult {
 const fetchTpbTorrents = async (
   movie: Movie,
   category?: number,
+  season?: number,
 ): Promise<MovieTorrent[]> => {
   // Appending the year helps movies (YTS-style releases); TV/anime torrents
-  // are titled by season/episode, so keep those searches lean.
+  // are titled by season/episode, so keep those searches lean. An explicit
+  // season narrows the query to that season's packs/episodes.
   const yearSuffix =
     movie.mediaType === "movie" && movie.year > 0 ? ` ${movie.year}` : "";
+  const seasonSuffix = season != null ? ` S${pad2(season)}` : "";
   let url = `${THEPIRATEBAY_API_BASE_URL}/q.php?q=${encodeURIComponent(
-    `${movie.title}${yearSuffix}`,
+    `${movie.title}${seasonSuffix}${yearSuffix}`,
   )}`;
   if (category) url += `&cat=${category}`;
 
@@ -202,6 +206,66 @@ const fetchNyaaTorrents = async (movie: Movie): Promise<MovieTorrent[]> => {
     }));
 };
 
+// ── TV episodes: EZTV (queried by imdb id) ───────────────────
+interface EztvResult {
+  hash: string;
+  filename: string;
+  seeds: number | string;
+  peers: number | string;
+  size_bytes: number | string;
+}
+
+const fetchEztvTorrents = async (movie: Movie): Promise<MovieTorrent[]> => {
+  if (!movie.imdb_id) return [];
+
+  for (const base of EZTV_API_BASE_URLS) {
+    try {
+      const url = `${base}/get-torrents?imdb_id=${encodeURIComponent(
+        movie.imdb_id,
+      )}`;
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const data = await response.json();
+      const results = (
+        Array.isArray(data?.torrents) ? data.torrents : []
+      ) as EztvResult[];
+      if (results.length === 0) continue;
+
+      return results.slice(0, 80).map((torrent) => {
+        const magnet = magnetFromHash(torrent.hash, torrent.filename);
+        return {
+          url: magnet,
+          magnet,
+          hash: torrent.hash,
+          quality: parseQuality(torrent.filename),
+          type: "video",
+          seeds: Number(torrent.seeds) || 0,
+          peers: Number(torrent.peers) || 0,
+          size: formatSize(parseSizeBytes(torrent.size_bytes)),
+          size_bytes: parseSizeBytes(torrent.size_bytes),
+          date_uploaded: "",
+          date_uploaded_unix: 0,
+        };
+      });
+    } catch {
+      // try the next mirror
+    }
+  }
+  return [];
+};
+
+const dedupeTorrents = (torrents: MovieTorrent[]): MovieTorrent[] => {
+  const byHash = new Map<string, MovieTorrent>();
+  for (const torrent of torrents) {
+    if (!torrent.hash) continue;
+    const existing = byHash.get(torrent.hash);
+    if (!existing || torrent.seeds > existing.seeds) {
+      byHash.set(torrent.hash, torrent);
+    }
+  }
+  return [...byHash.values()].sort((a, b) => b.seeds - a.seeds);
+};
+
 // ── Dispatcher ───────────────────────────────────────────────
 export const isAnime = (movie: Movie): boolean =>
   movie.mediaType === "tv" &&
@@ -217,12 +281,31 @@ export const searchTorrents = async (movie: Movie): Promise<MovieTorrent[]> => {
 
   if (movie.mediaType === "movie") {
     const yts = await fetchYtsTorrents(movie);
-    torrents = yts.length > 0 ? yts : await fetchTpbTorrents(movie, 200);
+    const tpb = yts.length > 0 ? [] : await fetchTpbTorrents(movie, 200);
+    torrents = dedupeTorrents([...yts, ...tpb]);
   } else if (isAnime(movie)) {
     const nyaa = await fetchNyaaTorrents(movie);
-    torrents = nyaa.length > 0 ? nyaa : await fetchTpbTorrents(movie, 214);
+    const tpb = nyaa.length > 0 ? [] : await fetchTpbTorrents(movie, 214);
+    torrents = dedupeTorrents([...nyaa, ...tpb]);
   } else {
-    torrents = await fetchTpbTorrents(movie, 208);
+    const [eztv, tpb] = await Promise.all([
+      fetchEztvTorrents(movie),
+      fetchTpbTorrents(movie, 208),
+    ]);
+    torrents = [...eztv, ...tpb];
+
+    // Per-season searches fill in seasons the broad query missed so every
+    // season of a series is discoverable.
+    const maxSeasons = movie.numberOfSeasons ?? 0;
+    if (maxSeasons > 0) {
+      const seasonResults = await Promise.all(
+        Array.from({ length: maxSeasons }, (_, i) =>
+          fetchTpbTorrents(movie, 208, i + 1),
+        ),
+      );
+      torrents = [...torrents, ...seasonResults.flat()];
+    }
+    torrents = dedupeTorrents(torrents);
   }
 
   return structureTorrents(torrents, movie);

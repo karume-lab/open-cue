@@ -29,6 +29,12 @@
       "expo-background-task",
       "expo-task-manager",
       [
+        "react-native-video",
+        {
+          "enableAndroidPictureInPicture": true
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

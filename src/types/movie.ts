@@ -38,6 +38,7 @@ export interface Movie {
   description_full: string;
   language: string;
   status?: string;
+  numberOfSeasons?: number;
   small_cover_image: string;
   medium_cover_image: string;
   large_cover_image: string;
