@@ -10,15 +10,18 @@ interface SearchProps {
 
 const Search = ({ value, onChangeText }: SearchProps) => {
   return (
-    <View className="bg-background flex-1">
-      <View className="flex-row gap-2 items-center bg-card border border-border rounded-md px-4 h-12">
-        <Icon as={SearchIcon} className="text-muted-foreground" size={18} />
+    <View className="flex-1">
+      <View className="flex-row gap-3 items-center bg-muted/50 border border-border/60 rounded-md px-4 h-12">
+        <Icon as={SearchIcon} className="text-muted-foreground/70" size={16} />
         <Input
-          className="flex-1 text-base text-foreground bg-transparent border-0 shadow-none h-auto py-0 px-0"
+          className="flex-1 text-sm text-foreground border-0 shadow-none h-auto py-0 px-0"
+          style={{ backgroundColor: "transparent" }}
           placeholder="Search movies, shows, anime..."
-          placeholderTextColor="#8b9299" // --color-placeholder
+          placeholderTextColor="#6b7280"
           value={value}
           onChangeText={onChangeText}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
       </View>
     </View>

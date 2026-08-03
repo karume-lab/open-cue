@@ -51,7 +51,7 @@ const BrowseMoviesGrid = ({
     return (
       <View className="flex-1">
         {Header}
-        <Text className="text-xl font-bold text-foreground mb-4 px-4">
+        <Text className="text-xl font-bold text-foreground my-4 px-4">
           Explore
         </Text>
         <View className="flex-row flex-wrap px-2">
@@ -115,7 +115,7 @@ const BrowseMoviesGrid = ({
       ListHeaderComponent={
         <View>
           {Header}
-          <Text className="text-xl font-bold text-foreground mb-4 px-4">
+          <Text className="text-xl font-bold text-foreground my-4 px-4">
             Explore
           </Text>
         </View>

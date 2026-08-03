@@ -253,8 +253,8 @@ const TorrentPickerSheet = forwardRef<
         </Text>
 
         {!isLoading && hasTorrents && (
-          <View className="flex-row items-center gap-2 bg-muted/40 rounded-lg px-3 mb-4">
-            <Icon as={Search} size={16} className="text-muted-foreground" />
+          <View className="flex-row items-center gap-3 bg-muted/50 border border-border/60 rounded-md px-4 mb-4">
+            <Icon as={Search} size={15} className="text-muted-foreground/70" />
             <TextInput
               value={query}
               onChangeText={setQuery}
@@ -270,7 +270,7 @@ const TorrentPickerSheet = forwardRef<
                 hitSlop={8}
                 className="p-1"
               >
-                <Icon as={X} size={16} className="text-muted-foreground" />
+                <Icon as={X} size={15} className="text-muted-foreground/70" />
               </TouchableOpacity>
             )}
           </View>

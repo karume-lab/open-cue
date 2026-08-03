@@ -2,7 +2,6 @@ import type { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { ChevronRight, Plane, Subtitles } from "lucide-react-native";
 import { useRef } from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
@@ -19,15 +18,12 @@ const SettingsScreen = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        <View className="mt-6 px-5">
-          <Text className="text-lg font-bold text-foreground mb-6">
-            Settings
-          </Text>
+        <View className="mt-2 px-5">
           <View className="bg-card border border-border/50 rounded-md overflow-hidden">
             <View className="flex-row items-center justify-between p-5 border-b border-border/10">
               <View className="flex-row items-center gap-4">
@@ -82,7 +78,7 @@ const SettingsScreen = () => {
       </ScrollView>
 
       <SubtitlePreferencesSheet ref={subtitleSheetRef} />
-    </SafeAreaView>
+    </View>
   );
 };
 

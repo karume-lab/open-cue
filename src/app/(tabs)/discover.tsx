@@ -36,7 +36,7 @@ const DiscoverScreen = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="flex-row items-center gap-3 pt-4 px-4">
+      <View className="flex-row items-center gap-3 pt-6 px-4">
         <Search value={query} onChangeText={setQuery} />
         <FilterBottomSheetButton />
       </View>

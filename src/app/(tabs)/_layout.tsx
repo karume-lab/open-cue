@@ -14,6 +14,11 @@ const TabLayout: React.FC = () => {
           backgroundColor: "#0f1114", // --color-background
           borderTopColor: "#333a41", // --color-border
         },
+        headerStyle: {
+          backgroundColor: "#0f1114",
+        },
+        headerShadowVisible: false,
+        headerTintColor: "#eceff1",
       }}
     >
       <Tabs.Screen
@@ -41,7 +46,6 @@ const TabLayout: React.FC = () => {
         name="settings"
         options={{
           title: "Settings",
-          headerShown: false,
           tabBarIcon: ({ color }) => <Icon as={Settings} color={color} />,
         }}
       />
