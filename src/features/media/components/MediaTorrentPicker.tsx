@@ -1,7 +1,10 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
-import { refetchTorrents } from "@/features/discover/services/queries";
+import {
+  fetchMediaDetailWithTorrents,
+  refetchTorrents,
+} from "@/features/discover/services/queries";
 import TorrentPickerSheet, {
   type TorrentPickerMode,
   type TorrentPickerSheetHandle,
@@ -16,6 +19,8 @@ import type { MovieTorrent } from "@/types/movie";
 const MediaTorrentPicker = () => {
   const bottomSheetRef = useRef<TorrentPickerSheetHandle>(null);
   const { movie, mode, onRetry } = useMediaActions();
+  const [isFetchingTorrents, setIsFetchingTorrents] = useState(false);
+  const fetchingForRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (movie) {
@@ -24,6 +29,26 @@ const MediaTorrentPicker = () => {
       bottomSheetRef.current?.dismiss();
     }
   }, [movie, mode]);
+
+  // Card quick actions present a lightweight discover Movie with no torrents
+  // loaded (torrents, imdb_id and numberOfSeasons only come from the detail
+  // fetch). Fetch the full detail + torrents on demand so the sheet is never
+  // shown empty just because the search hadn't run yet.
+  useEffect(() => {
+    if (!movie || (movie.torrents?.length ?? 0) > 0) return;
+    if (fetchingForRef.current === movie.id) return;
+
+    fetchingForRef.current = movie.id;
+    setIsFetchingTorrents(true);
+    fetchMediaDetailWithTorrents(movie.mediaType, movie.tmdbId)
+      .then((updated) => {
+        useMediaActions.getState().updateMovie(updated);
+      })
+      .finally(() => {
+        fetchingForRef.current = null;
+        setIsFetchingTorrents(false);
+      });
+  }, [movie]);
 
   const handleRetry = useCallback(async () => {
     if (onRetry) {
@@ -75,6 +100,7 @@ const MediaTorrentPicker = () => {
     <TorrentPickerSheet
       ref={bottomSheetRef}
       movie={movie}
+      isLoading={isFetchingTorrents}
       onSelect={handleSelect}
       onRetry={handleRetry}
     />

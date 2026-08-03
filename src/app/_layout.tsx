@@ -4,6 +4,7 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { PortalHost } from "@rn-primitives/portal";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
@@ -19,10 +20,14 @@ import MediaTorrentPicker from "@/features/media/components/MediaTorrentPicker";
 import { registerBackgroundTasks } from "@/services/BackgroundTasks";
 import { DownloadService } from "@/services/DownloadService";
 import { requestNotificationPermissions } from "@/services/NotificationService";
-import { useOnboardingStore } from "@/stores/onboardingStore";
+import { isOnboarded } from "@/stores/onboardingStore";
 
 // Register background task in the global scope
 registerBackgroundTasks();
+
+// Keep the native splash visible until the initial route has been decided,
+// so an already-onboarded user never sees the onboarding screen flash.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // WRITE_SETTINGS is a special Android permission that must be granted from the
 // system settings screen. It lets the player keep the screen awake and control
@@ -71,7 +76,6 @@ const NAV_THEME = {
 const RootLayout: React.FC = () => {
   const router = useRouter();
   const segments = useSegments();
-  const { hasSeenOnboarding } = useOnboardingStore();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -95,13 +99,24 @@ const RootLayout: React.FC = () => {
     if (!isReady) return;
 
     const isIndex = segments.length === (0 as number);
+    const onboarded = isOnboarded();
 
-    if (!hasSeenOnboarding && !isIndex) {
+    if (!onboarded && !isIndex) {
       router.replace("/");
-    } else if (hasSeenOnboarding && isIndex) {
+    } else if (onboarded && isIndex) {
       router.replace("/(tabs)/discover");
     }
-  }, [isReady, hasSeenOnboarding, segments, router]);
+  }, [isReady, segments, router]);
+
+  // Only lift the splash once the router has settled on the correct screen.
+  useEffect(() => {
+    if (!isReady) return;
+
+    const isIndex = segments.length === (0 as number);
+    if (isOnboarded() ? !isIndex : isIndex) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isReady, segments]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

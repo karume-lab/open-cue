@@ -1,12 +1,6 @@
 import { AlertCircle } from "lucide-react-native";
 import type { ReactNode } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { FlatList, RefreshControl, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MovieCard, { SkeletonCard } from "@/components/core/MovieCard";
 import { Icon } from "@/components/ui/icon";
@@ -128,7 +122,13 @@ const BrowseMoviesGrid = ({
       }
       ListFooterComponent={
         isFetchingNextPage ? (
-          <ActivityIndicator size="small" className="my-4" />
+          <View className="flex-row flex-wrap px-2 my-2">
+            {Array.from({ length: 2 }, (_, i) => i.toString()).map((id) => (
+              <View key={`skf-${id}`} className="w-1/2 p-2">
+                <SkeletonCard />
+              </View>
+            ))}
+          </View>
         ) : null
       }
       ListEmptyComponent={

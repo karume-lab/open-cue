@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import {
   downloadsForMedia,
@@ -32,7 +33,9 @@ interface MovieCardProps {
 
 export const SkeletonCard = () => {
   return (
-    <View className="w-full aspect-2/3 rounded-md bg-muted/20 animate-pulse border border-border/5" />
+    <View className="w-full">
+      <Skeleton className="w-full aspect-2/3 rounded-md" />
+    </View>
   );
 };
 
