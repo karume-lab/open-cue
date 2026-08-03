@@ -21,9 +21,11 @@ import {
   useState,
 } from "react";
 import { TextInput, TouchableOpacity, View } from "react-native";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { cn } from "@/lib/utils";
 import type { Movie, MovieTorrent } from "@/types/movie";
 
 // Raw hex values for native-only props — must match global.css
@@ -37,9 +39,19 @@ const qualityRank = (quality: string): number => {
   return index === -1 ? QUALITY_RANK.length : index;
 };
 
+export type TorrentFilter = "all" | "seasons" | "episodes";
+
+const FILTERS: { label: string; value: TorrentFilter }[] = [
+  { label: "All", value: "all" },
+  { label: "Seasons", value: "seasons" },
+  { label: "Episodes", value: "episodes" },
+];
+
 interface Group {
   title: string;
-  torrents: MovieTorrent[];
+  season: number | null;
+  seasonPacks: MovieTorrent[];
+  episodes: MovieTorrent[];
 }
 
 const buildGroups = (movie: Movie | null): Group[] => {
@@ -48,9 +60,11 @@ const buildGroups = (movie: Movie | null): Group[] => {
     return [
       {
         title: "Available",
-        torrents: [...torrents].sort(
+        season: null,
+        seasonPacks: [...torrents].sort(
           (a, b) => qualityRank(a.quality) - qualityRank(b.quality),
         ),
+        episodes: [],
       },
     ];
   }
@@ -59,21 +73,30 @@ const buildGroups = (movie: Movie | null): Group[] => {
 
   const series = torrents.filter((t) => t.kind === "series");
   if (series.length > 0)
-    groups.push({ title: "Full series", torrents: series });
+    groups.push({
+      title: "Full series",
+      season: null,
+      seasonPacks: series,
+      episodes: [],
+    });
 
   // Merge season packs and their episodes into one group per season so group
   // titles stay unique (a season pack and its episodes would otherwise both
   // render as "Season N").
-  const bySeason = new Map<number, MovieTorrent[]>();
+  const bySeason = new Map<
+    number,
+    { packs: MovieTorrent[]; episodes: MovieTorrent[] }
+  >();
   const other: MovieTorrent[] = [];
   for (const torrent of torrents) {
-    if (torrent.season != null) {
-      const list = bySeason.get(torrent.season);
-      if (list) {
-        list.push(torrent);
-      } else {
-        bySeason.set(torrent.season, [torrent]);
-      }
+    if (torrent.kind === "episode" && torrent.season != null) {
+      const entry = bySeason.get(torrent.season) ?? { packs: [], episodes: [] };
+      entry.episodes.push(torrent);
+      bySeason.set(torrent.season, entry);
+    } else if (torrent.season != null) {
+      const entry = bySeason.get(torrent.season) ?? { packs: [], episodes: [] };
+      entry.packs.push(torrent);
+      bySeason.set(torrent.season, entry);
     } else {
       // Episodes without a season and unclassified torrents.
       other.push(torrent);
@@ -82,17 +105,25 @@ const buildGroups = (movie: Movie | null): Group[] => {
 
   const seasonKeys = [...bySeason.keys()].sort((a, b) => a - b);
   for (const season of seasonKeys) {
-    const list = bySeason.get(season) ?? [];
-    list.sort((a, b) => {
-      if (a.kind === "season" && b.kind !== "season") return -1;
-      if (b.kind === "season" && a.kind !== "season") return 1;
-      return (a.episode ?? Infinity) - (b.episode ?? Infinity);
+    const entry = bySeason.get(season) ?? { packs: [], episodes: [] };
+    entry.episodes.sort(
+      (a, b) => (a.episode ?? Infinity) - (b.episode ?? Infinity),
+    );
+    groups.push({
+      title: `Season ${season}`,
+      season,
+      seasonPacks: entry.packs,
+      episodes: entry.episodes,
     });
-    groups.push({ title: `Season ${season}`, torrents: list });
   }
 
   if (other.length > 0) {
-    groups.push({ title: "Other", torrents: other });
+    groups.push({
+      title: "Other",
+      season: null,
+      seasonPacks: other.filter((t) => t.kind !== "episode"),
+      episodes: other.filter((t) => t.kind === "episode"),
+    });
   }
 
   return groups;
@@ -115,14 +146,25 @@ const torrentSearchText = (torrent: MovieTorrent): string => {
   return parts.filter(Boolean).join(" ").toLowerCase();
 };
 
+const torrentId = (torrent: MovieTorrent): string =>
+  `${torrent.hash}-${torrent.label}`;
+
 const TorrentRow = ({
   torrent,
   mode,
   onSelect,
+  selectionMode,
+  selected,
+  onToggle,
+  indent = false,
 }: {
   torrent: MovieTorrent;
   mode: TorrentPickerMode;
   onSelect: (torrent: MovieTorrent, mode: TorrentPickerMode) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggle?: (torrent: MovieTorrent) => void;
+  indent?: boolean;
 }) => {
   const meta = [
     torrent.quality,
@@ -136,13 +178,28 @@ const TorrentRow = ({
 
   return (
     <TouchableOpacity
-      onPress={() => onSelect(torrent, mode)}
+      onPress={
+        selectionMode
+          ? () => onToggle?.(torrent)
+          : () => onSelect(torrent, mode)
+      }
       activeOpacity={0.7}
-      className="flex-row items-center justify-between py-4 border-b border-border/40"
+      className={cn(
+        "flex-row items-center justify-between py-4 border-b border-border/40",
+        indent && "pl-4",
+      )}
     >
+      {selectionMode && (
+        <View className="mr-3" pointerEvents="none">
+          <Checkbox checked={!!selected} onCheckedChange={() => {}} />
+        </View>
+      )}
       <View className="flex-1 pr-3">
         <Text
-          className="text-foreground text-sm font-semibold"
+          className={cn(
+            "text-sm font-semibold",
+            indent ? "text-foreground/90" : "text-foreground",
+          )}
           numberOfLines={1}
         >
           {torrent.label}
@@ -156,16 +213,48 @@ const TorrentRow = ({
           </Text>
         )}
       </View>
-      <View className="size-11 rounded-xl bg-primary/10 items-center justify-center">
-        <Icon
-          as={isStream ? Play : Download}
-          size={18}
-          className={isStream ? "text-primary fill-primary" : "text-primary"}
-        />
-      </View>
+      {!selectionMode && (
+        <View className="size-11 rounded-xl bg-primary/10 items-center justify-center">
+          <Icon
+            as={isStream ? Play : Download}
+            size={18}
+            className={isStream ? "text-primary fill-primary" : "text-primary"}
+          />
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
+
+const FilterChip = ({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    activeOpacity={0.7}
+    className={cn(
+      "flex-1 rounded-md py-2 items-center border",
+      selected
+        ? "bg-primary/15 border-primary/30"
+        : "bg-muted/50 border-border/60",
+    )}
+  >
+    <Text
+      className={cn(
+        "text-xs font-semibold",
+        selected ? "text-primary" : "text-muted-foreground",
+      )}
+    >
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
 
 export interface TorrentPickerSheetHandle {
   present: (mode?: TorrentPickerMode) => void;
@@ -176,18 +265,24 @@ interface TorrentPickerSheetProps {
   movie: Movie | null;
   isLoading?: boolean;
   onSelect: (torrent: MovieTorrent, mode: TorrentPickerMode) => void;
+  onBulkDownload?: (torrents: MovieTorrent[]) => void;
   onRetry?: () => Promise<unknown>;
 }
 
 const TorrentPickerSheet = forwardRef<
   TorrentPickerSheetHandle,
   TorrentPickerSheetProps
->(({ movie, isLoading, onSelect, onRetry }, ref) => {
+>(({ movie, isLoading, onSelect, onBulkDownload, onRetry }, ref) => {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["50%"], []);
   const groups = useMemo(() => buildGroups(movie), [movie]);
   const [mode, setMode] = useState<TorrentPickerMode>("download");
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<TorrentFilter>("all");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selection, setSelection] = useState<Map<string, MovieTorrent>>(
+    new Map(),
+  );
 
   const hasTorrents = useMemo(
     () => (movie?.torrents?.length ?? 0) > 0,
@@ -197,15 +292,50 @@ const TorrentPickerSheet = forwardRef<
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return (movie?.torrents ?? [])
+    const matches = (movie?.torrents ?? [])
       .filter((torrent) => torrentSearchText(torrent).includes(q))
       .sort((a, b) => b.seeds - a.seeds);
-  }, [query, movie]);
+    if (filter === "seasons")
+      return matches.filter((t) => t.kind === "season" || t.kind === "series");
+    if (filter === "episodes")
+      return matches.filter((t) => t.kind === "episode");
+    return matches;
+  }, [query, movie, filter]);
+
+  const filteredGroups = useMemo(() => {
+    if (!movie) return [];
+    if (filter === "seasons") {
+      return groups
+        .map((group) => ({ ...group, episodes: [] }))
+        .filter((group) => group.seasonPacks.length > 0);
+    }
+    if (filter === "episodes") {
+      return groups
+        .map((group) => ({ ...group, seasonPacks: [] }))
+        .filter((group) => group.episodes.length > 0);
+    }
+    return groups.filter(
+      (group) => group.seasonPacks.length > 0 || group.episodes.length > 0,
+    );
+  }, [groups, filter, movie]);
+
+  const visibleTorrents = useMemo(() => {
+    if (query.trim()) return results;
+    return filteredGroups.flatMap((group) => [
+      ...group.seasonPacks,
+      ...group.episodes,
+    ]);
+  }, [filteredGroups, results, query]);
+
+  const selectedTorrents = useMemo(() => [...selection.values()], [selection]);
 
   useImperativeHandle(ref, () => ({
     present: (nextMode?: TorrentPickerMode) => {
       if (nextMode) setMode(nextMode);
       setQuery("");
+      setFilter("all");
+      setSelectionMode(false);
+      setSelection(new Map());
       bottomSheetRef.current?.present();
     },
     dismiss: () => {
@@ -233,6 +363,49 @@ const TorrentPickerSheet = forwardRef<
     [onSelect],
   );
 
+  const toggleTorrent = useCallback((torrent: MovieTorrent) => {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      const id = torrentId(torrent);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.set(id, torrent);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAllVisible = useCallback(() => {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      for (const torrent of visibleTorrents) {
+        next.set(torrentId(torrent), torrent);
+      }
+      return next;
+    });
+  }, [visibleTorrents]);
+
+  const clearSelection = useCallback(() => {
+    setSelection(new Map());
+  }, []);
+
+  const handleToggleSelectionMode = useCallback(() => {
+    setSelectionMode((prev) => {
+      if (prev) clearSelection();
+      return !prev;
+    });
+  }, [clearSelection]);
+
+  const handleBulkDownload = useCallback(() => {
+    if (selectedTorrents.length === 0) return;
+    onBulkDownload?.(selectedTorrents);
+    bottomSheetRef.current?.dismiss();
+  }, [selectedTorrents, onBulkDownload]);
+
+  const showFilters = movie?.mediaType === "tv" && !query.trim();
+  const canSelect = mode === "download" && movie?.mediaType === "tv";
+
   return (
     <BottomSheetModal
       ref={bottomSheetRef}
@@ -243,124 +416,218 @@ const TorrentPickerSheet = forwardRef<
       backgroundStyle={{ backgroundColor: CARD }}
       handleIndicatorStyle={{ backgroundColor: MUTED }}
     >
-      <BottomSheetScrollView
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text className="text-foreground text-lg font-bold mt-2 mb-1">
-          {mode === "stream" ? "Choose what to watch" : "Choose a torrent"}
-        </Text>
-        <Text className="text-muted-foreground text-xs mb-4" numberOfLines={1}>
-          {movie?.title ?? ""}
-        </Text>
-
-        {movie && !isLoading && hasTorrents && (
-          <View className="flex-row items-center gap-3 bg-muted/50 border border-border/60 rounded-md px-4 mb-4">
-            <Icon as={Search} size={15} className="text-muted-foreground/70" />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search by title, quality, size…"
-              placeholderTextColor={MUTED_FOREGROUND}
-              autoCapitalize="none"
-              autoCorrect={false}
-              className="flex-1 text-foreground text-sm py-2.5"
-            />
-            {query.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setQuery("")}
-                hitSlop={8}
-                className="p-1"
-              >
-                <Icon as={X} size={15} className="text-muted-foreground/70" />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {isLoading ? (
-          <View className="mb-2">
-            <Skeleton className="w-24 h-3 mb-3" />
-            {Array.from({ length: 4 }, (_, i) => i.toString()).map((id) => (
-              <View
-                key={`tsk-${id}`}
-                className="flex-row items-center justify-between py-4 border-b border-border/40"
-              >
-                <View className="flex-1 pr-3 gap-2">
-                  <Skeleton className="w-40 h-4" />
-                  <Skeleton className="w-24 h-3" />
-                </View>
-                <Skeleton className="size-11 rounded-xl" />
-              </View>
-            ))}
-          </View>
-        ) : groups.length === 0 ? (
-          <View className="items-center justify-center py-12 px-6 gap-4">
-            <View className="size-16 rounded-full bg-muted/40 items-center justify-center">
-              <Icon as={Inbox} size={28} className="text-muted-foreground" />
-            </View>
-            <Text className="text-muted-foreground text-sm text-center">
-              No torrents found for this title. Try again in a moment or
-              double-check the search filters.
+      <View className="flex-1">
+        <BottomSheetScrollView
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="flex-row items-center justify-between mt-2 mb-1">
+            <Text className="text-foreground text-lg font-bold">
+              {mode === "stream" ? "Choose what to watch" : "Choose a torrent"}
             </Text>
-            {onRetry && (
+            {canSelect && !isLoading && hasTorrents && (
               <TouchableOpacity
-                onPress={() => onRetry()}
+                onPress={handleToggleSelectionMode}
                 activeOpacity={0.7}
-                className="flex-row items-center justify-center gap-2 bg-primary rounded-md px-6 py-3.5"
+                className="px-3 py-1.5 rounded-md border border-border/60 bg-muted/50"
               >
-                <Icon
-                  as={RefreshCw}
-                  size={16}
-                  className="text-primary-foreground"
-                />
-                <Text className="text-primary-foreground font-bold text-sm">
-                  Try again
+                <Text
+                  className={cn(
+                    "text-xs font-bold",
+                    selectionMode ? "text-primary" : "text-foreground",
+                  )}
+                >
+                  {selectionMode ? "Done" : "Select"}
                 </Text>
               </TouchableOpacity>
             )}
           </View>
-        ) : query.trim().length > 0 ? (
-          <View className="mb-4">
-            <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
-              Results {results.length > 0 && `(${results.length})`}
-            </Text>
-            {results.length === 0 ? (
-              <View className="items-center justify-center py-10 px-6">
-                <Text className="text-muted-foreground text-sm text-center">
-                  No torrents match “{query.trim()}”.
-                </Text>
-              </View>
-            ) : (
-              results.map((torrent) => (
-                <TorrentRow
-                  key={`${torrent.hash}-${torrent.label}`}
-                  torrent={torrent}
-                  mode={mode}
-                  onSelect={handleSelect}
-                />
-              ))
-            )}
-          </View>
-        ) : (
-          groups.map((group) => (
-            <View key={group.title} className="mb-4">
-              <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
-                {group.title}
-              </Text>
-              {group.torrents.map((torrent) => (
-                <TorrentRow
-                  key={`${torrent.hash}-${torrent.label}`}
-                  torrent={torrent}
-                  mode={mode}
-                  onSelect={handleSelect}
+          <Text
+            className="text-muted-foreground text-xs mb-4"
+            numberOfLines={1}
+          >
+            {movie?.title ?? ""}
+          </Text>
+
+          {movie && !isLoading && hasTorrents && (
+            <View className="flex-row items-center gap-3 bg-muted/50 border border-border/60 rounded-md px-4 mb-4">
+              <Icon
+                as={Search}
+                size={15}
+                className="text-muted-foreground/70"
+              />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search by title, quality, size…"
+                placeholderTextColor={MUTED_FOREGROUND}
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="flex-1 text-foreground text-sm py-2.5"
+              />
+              {query.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setQuery("")}
+                  hitSlop={8}
+                  className="p-1"
+                >
+                  <Icon as={X} size={15} className="text-muted-foreground/70" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {showFilters && (
+            <View className="flex-row gap-2 mb-4">
+              {FILTERS.map((option) => (
+                <FilterChip
+                  key={option.value}
+                  label={option.label}
+                  selected={filter === option.value}
+                  onPress={() => setFilter(option.value)}
                 />
               ))}
             </View>
-          ))
+          )}
+
+          {isLoading ? (
+            <View className="mb-2">
+              <Skeleton className="w-24 h-3 mb-3" />
+              {Array.from({ length: 4 }, (_, i) => i.toString()).map((id) => (
+                <View
+                  key={`tsk-${id}`}
+                  className="flex-row items-center justify-between py-4 border-b border-border/40"
+                >
+                  <View className="flex-1 pr-3 gap-2">
+                    <Skeleton className="w-40 h-4" />
+                    <Skeleton className="w-24 h-3" />
+                  </View>
+                  <Skeleton className="size-11 rounded-xl" />
+                </View>
+              ))}
+            </View>
+          ) : groups.length === 0 ? (
+            <View className="items-center justify-center py-12 px-6 gap-4">
+              <View className="size-16 rounded-full bg-muted/40 items-center justify-center">
+                <Icon as={Inbox} size={28} className="text-muted-foreground" />
+              </View>
+              <Text className="text-muted-foreground text-sm text-center">
+                No torrents found for this title. Try again in a moment or
+                double-check the search filters.
+              </Text>
+              {onRetry && (
+                <TouchableOpacity
+                  onPress={() => onRetry()}
+                  activeOpacity={0.7}
+                  className="flex-row items-center justify-center gap-2 bg-primary rounded-md px-6 py-3.5"
+                >
+                  <Icon
+                    as={RefreshCw}
+                    size={16}
+                    className="text-primary-foreground"
+                  />
+                  <Text className="text-primary-foreground font-bold text-sm">
+                    Try again
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : query.trim().length > 0 ? (
+            <View className="mb-4">
+              <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
+                Results {results.length > 0 && `(${results.length})`}
+              </Text>
+              {results.length === 0 ? (
+                <View className="items-center justify-center py-10 px-6">
+                  <Text className="text-muted-foreground text-sm text-center">
+                    No torrents match “{query.trim()}”.
+                  </Text>
+                </View>
+              ) : (
+                results.map((torrent) => (
+                  <TorrentRow
+                    key={torrentId(torrent)}
+                    torrent={torrent}
+                    mode={mode}
+                    onSelect={handleSelect}
+                    selectionMode={selectionMode}
+                    selected={selection.has(torrentId(torrent))}
+                    onToggle={toggleTorrent}
+                  />
+                ))
+              )}
+            </View>
+          ) : (
+            filteredGroups.map((group) => (
+              <View key={group.title} className="mb-4">
+                <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
+                  {group.title}
+                </Text>
+                {group.seasonPacks.map((torrent) => (
+                  <TorrentRow
+                    key={torrentId(torrent)}
+                    torrent={torrent}
+                    mode={mode}
+                    onSelect={handleSelect}
+                    selectionMode={selectionMode}
+                    selected={selection.has(torrentId(torrent))}
+                    onToggle={toggleTorrent}
+                  />
+                ))}
+                {group.episodes.map((torrent) => (
+                  <TorrentRow
+                    key={torrentId(torrent)}
+                    torrent={torrent}
+                    mode={mode}
+                    onSelect={handleSelect}
+                    selectionMode={selectionMode}
+                    selected={selection.has(torrentId(torrent))}
+                    onToggle={toggleTorrent}
+                    indent
+                  />
+                ))}
+              </View>
+            ))
+          )}
+        </BottomSheetScrollView>
+
+        {selectionMode && selectedTorrents.length > 0 && (
+          <View className="border-t border-border/60 bg-popover px-5 pt-3 pb-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-sm font-semibold text-foreground">
+                {selectedTorrents.length} selected
+              </Text>
+              <View className="flex-row items-center gap-4">
+                <TouchableOpacity onPress={selectAllVisible}>
+                  <Text className="text-primary text-sm font-semibold">
+                    Select all
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={clearSelection}>
+                  <Text className="text-muted-foreground text-sm font-semibold">
+                    Deselect all
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={handleBulkDownload}
+              activeOpacity={0.8}
+              className="flex-row items-center justify-center gap-2 bg-primary rounded-md py-4"
+            >
+              <Icon
+                as={Download}
+                size={18}
+                className="text-primary-foreground"
+              />
+              <Text className="text-primary-foreground font-bold text-sm">
+                Download ({selectedTorrents.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
-      </BottomSheetScrollView>
+      </View>
     </BottomSheetModal>
   );
 });

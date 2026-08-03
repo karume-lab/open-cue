@@ -1,9 +1,10 @@
 import * as Brightness from "expo-brightness";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { Dimensions, View } from "react-native";
+import { Dimensions, Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { VolumeManager } from "react-native-volume-manager";
+import SettingsPermission from "~/modules/settings-permission";
 
 const { width, height } = Dimensions.get("window");
 
@@ -31,11 +32,16 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
   useEffect(() => {
     (async () => {
       try {
-        const { status } = await Brightness.requestPermissionsAsync();
-        if (status === "granted") {
-          const b = await Brightness.getBrightnessAsync();
-          setStartBrightness(b);
+        if (Platform.OS === "android") {
+          const granted = SettingsPermission.isWriteSettingsGranted();
+          if (!granted) {
+            await SettingsPermission.requestWriteSettings();
+          }
+        } else {
+          await Brightness.requestPermissionsAsync();
         }
+        const b = await Brightness.getBrightnessAsync();
+        setStartBrightness(b);
         const v = await VolumeManager.getVolume();
         if (typeof v === "number") setStartVolume(v);
         else if (v && typeof v.volume === "number") setStartVolume(v.volume);

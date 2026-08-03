@@ -99,6 +99,34 @@ const MediaTorrentPicker = () => {
     [],
   );
 
+  const handleBulkDownload = useCallback((torrents: MovieTorrent[]) => {
+    const current = useMediaActions.getState().movie;
+    if (!current || torrents.length === 0) return;
+
+    let failed = 0;
+    const errors: string[] = [];
+    (async () => {
+      for (const torrent of torrents) {
+        try {
+          await DownloadService.startTorrentDownload(current, torrent);
+        } catch (error) {
+          failed += 1;
+          errors.push(error instanceof Error ? error.message : String(error));
+        }
+      }
+      useMediaActions.getState().dismiss();
+      if (failed > 0) {
+        setDownloadError({
+          title: "Some downloads failed",
+          message:
+            errors.length > 0
+              ? `${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ""}`
+              : `Could not start ${failed} download${failed > 1 ? "s" : ""}.`,
+        });
+      }
+    })();
+  }, []);
+
   return (
     <>
       <TorrentPickerSheet
@@ -106,6 +134,7 @@ const MediaTorrentPicker = () => {
         movie={movie}
         isLoading={isFetchingTorrents}
         onSelect={handleSelect}
+        onBulkDownload={handleBulkDownload}
         onRetry={handleRetry}
       />
       {downloadError && (

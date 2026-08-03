@@ -12,15 +12,84 @@ index 748b799554aa0f3432432a73ea93435d60a581dc..e3dab827940ba1af593d79e57a8ac954
          // For Smooth Streaming playback support with ExoPlayer
          if (media3_buildFromSource) {
 diff --git a/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java b/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
-index e16ac96d8a89055ee6e950777ce73388d22061ee..d098348011928f3bfc51c1f6255a92c30df5402a 100644
+index e16ac96d8a89055ee6e950777ce73388d22061ee..9d50d8c0f730644bff58b8a687fe70366dd19105 100644
 --- a/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
 +++ b/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
-@@ -732,7 +732,7 @@ public class ReactExoplayerView extends FrameLayout implements
+@@ -60,6 +60,8 @@ import androidx.media3.datasource.HttpDataSource;
+ import androidx.media3.exoplayer.DefaultLoadControl;
+ import androidx.media3.exoplayer.DefaultRenderersFactory;
+ import androidx.media3.exoplayer.ExoPlayer;
++import androidx.media3.exoplayer.Renderer;
++import androidx.media3.exoplayer.RenderersFactory;
+ import androidx.media3.exoplayer.dash.DashMediaSource;
+ import androidx.media3.exoplayer.dash.DashUtil;
+ import androidx.media3.exoplayer.dash.DefaultDashChunkSource;
+@@ -80,6 +82,7 @@ import androidx.media3.exoplayer.ima.ImaAdsLoader;
+ import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource;
+ import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionUriBuilder;
+ import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
++import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+ import androidx.media3.exoplayer.rtsp.RtspMediaSource;
+ import androidx.media3.exoplayer.smoothstreaming.DefaultSsChunkSource;
+@@ -102,6 +105,8 @@ import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+ import androidx.media3.exoplayer.upstream.DefaultAllocator;
+ import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
+ import androidx.media3.exoplayer.util.EventLogger;
++import androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer;
++import androidx.media3.decoder.ffmpeg.FfmpegLibrary;
+ import androidx.media3.extractor.metadata.emsg.EventMessage;
+ import androidx.media3.extractor.metadata.id3.Id3Frame;
+ import androidx.media3.extractor.metadata.id3.TextInformationFrame;
+@@ -145,6 +150,7 @@ import java.net.CookieHandler;
+ import java.net.CookieManager;
+ import java.net.CookiePolicy;
+ import java.util.ArrayList;
++import java.util.Collections;
+ import java.util.List;
+ import java.util.Locale;
+ import java.util.Map;
+@@ -730,11 +736,38 @@ public class ReactExoplayerView extends FrameLayout implements
+             this.bandwidthMeter = config.getBandwidthMeter();
+         }
  
-         DefaultRenderersFactory renderersFactory =
-                 new DefaultRenderersFactory(getContext())
+-        DefaultRenderersFactory renderersFactory =
+-                new DefaultRenderersFactory(getContext())
 -                        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
-+                        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                         .setEnableDecoderFallback(true)
-                         .forceEnableMediaCodecAsynchronousQueueing();
+-                        .setEnableDecoderFallback(true)
+-                        .forceEnableMediaCodecAsynchronousQueueing();
++        DefaultRenderersFactory defaultRenderersFactory = new DefaultRenderersFactory(getContext());
++        defaultRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
++        defaultRenderersFactory.setEnableDecoderFallback(true);
++        defaultRenderersFactory.forceEnableMediaCodecAsynchronousQueueing();
++        defaultRenderersFactory.setMediaCodecSelector(new MediaCodecSelector() {
++            @Override
++            public List<MediaCodecInfo> getDecoderInfos(String mimeType, boolean requiresSecureDecoder, boolean requiresTunnelingDecoder) throws MediaCodecUtil.DecoderQueryException {
++                if ("video/hevc".equalsIgnoreCase(mimeType)) {
++                    // Some HEVC streams (e.g. profile 4 / 4:4:4) exceed hardware decoder
++                    // capabilities and crash the device's MediaCodec decoder. Route all
++                    // HEVC through the FFmpeg software renderer below instead.
++                    return Collections.emptyList();
++                }
++                return MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
++            }
++        });
++
++        RenderersFactory renderersFactory = (eventHandler, videoRendererEventListener, audioRendererEventListener, textRendererOutput, metadataRendererOutput) -> {
++            Renderer[] renderers = defaultRenderersFactory.createRenderers(eventHandler, videoRendererEventListener, audioRendererEventListener, textRendererOutput, metadataRendererOutput);
++            try {
++                if (FfmpegLibrary.isAvailable() && renderers.length > 0) {
++                    Renderer[] withFfmpegFallback = new Renderer[renderers.length + 1];
++                    System.arraycopy(renderers, 0, withFfmpegFallback, 0, 1);
++                    withFfmpegFallback[1] = new ExperimentalFfmpegVideoRenderer(0L, eventHandler, videoRendererEventListener, 0);
++                    System.arraycopy(renderers, 1, withFfmpegFallback, 2, renderers.length - 1);
++                    renderers = withFfmpegFallback;
++                }
++            } catch (Throwable ignored) {
++                // FFmpeg decoder unavailable (no native library) — keep default renderers.
++            }
++            return renderers;
++        };
  
+         DefaultMediaSourceFactory mediaSourceFactory;
+         

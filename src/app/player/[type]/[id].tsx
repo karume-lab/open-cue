@@ -280,9 +280,13 @@ const PlayerDetailScreen = () => {
 
   const handleError = (data: OnVideoErrorData) => {
     console.error("Video error:", data.error);
+    const errorCode = data.error.errorCode;
+    const isDecodingFailure = errorCode === "24003"; // ERROR_CODE_DECODING_FAILED
     setPlaybackError({
-      title: "Playback error",
-      message: "Could not play this video.",
+      title: isDecodingFailure ? "Codec not supported" : "Playback error",
+      message: isDecodingFailure
+        ? "This video's codec isn't supported by your device. Try a different quality or encode."
+        : "Could not play this video.",
     });
   };
 

@@ -270,11 +270,7 @@ const dedupeTorrents = (torrents: MovieTorrent[]): MovieTorrent[] => {
 export const isAnime = (movie: Movie): boolean =>
   movie.mediaType === "tv" &&
   (movie.language === "ja" ||
-    movie.genres.some(
-      (genre) =>
-        genre.toLowerCase() === "animation" ||
-        genre.toLowerCase().includes("anime"),
-    ));
+    movie.genres.some((genre) => genre.toLowerCase().includes("anime")));
 
 export const searchTorrents = async (movie: Movie): Promise<MovieTorrent[]> => {
   let torrents: MovieTorrent[];
