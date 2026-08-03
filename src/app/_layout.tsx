@@ -14,18 +14,18 @@ export { ErrorBoundary } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter, useSegments } from "expo-router";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AppState } from "react-native";
 import MediaTorrentPicker from "@/features/media/components/MediaTorrentPicker";
 import { registerBackgroundTasks } from "@/services/BackgroundTasks";
 import { DownloadService } from "@/services/DownloadService";
-import { isOnboarded } from "@/stores/onboardingStore";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 
 // Register background task in the global scope
 registerBackgroundTasks();
 
-// Keep the native splash visible until the initial route has been decided,
-// so an already-onboarded user never sees the onboarding screen flash.
+// Keep the native splash visible until the first screen has rendered, so an
+// already-onboarded user never sees the onboarding screen flash.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient();
@@ -47,46 +47,35 @@ const NAV_THEME = {
 
 const RootLayout: React.FC = () => {
   const router = useRouter();
-  const segments = useSegments();
-  const [isReady, setIsReady] = useState(false);
+  const segments = useSegments() as string[];
+  const { hasSeenOnboarding } = useOnboardingStore();
 
   useEffect(() => {
-    setIsReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isReady) return;
-
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         DownloadService.reconcileDownloads();
       }
     });
     return () => subscription.remove();
-  }, [isReady]);
+  }, []);
 
+  // Users who haven't finished onboarding should only ever see the onboarding
+  // screen; redirect any other focused screen (e.g. via a deep link) back.
   useEffect(() => {
-    if (!isReady) return;
-
-    const isIndex = segments.length === (0 as number);
-    const onboarded = isOnboarded();
-
-    if (!onboarded && !isIndex) {
+    if (segments.length === 0 || hasSeenOnboarding) return;
+    if (segments[0] !== "index") {
       router.replace("/");
-    } else if (onboarded && isIndex) {
-      router.replace("/(tabs)/discover");
     }
-  }, [isReady, segments, router]);
+  }, [hasSeenOnboarding, segments, router]);
 
-  // Only lift the splash once the router has settled on the correct screen.
+  // Lift the splash as soon as a screen is focused. The Protected guards below
+  // make the correct screen the initial route, so there is no redirect
+  // round-trip to wait for in the common case.
   useEffect(() => {
-    if (!isReady) return;
-
-    const isIndex = segments.length === (0 as number);
-    if (isOnboarded() ? !isIndex : isIndex) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [isReady, segments]);
+    if (segments.length === 0) return;
+    if (!hasSeenOnboarding && segments[0] !== "index") return;
+    SplashScreen.hideAsync().catch(() => {});
+  }, [hasSeenOnboarding, segments]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -96,8 +85,15 @@ const RootLayout: React.FC = () => {
             <StatusBar style="light" />
             <BottomSheetModalProvider>
               <Stack>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Protected guard={hasSeenOnboarding}>
+                  <Stack.Screen
+                    name="(tabs)"
+                    options={{ headerShown: false }}
+                  />
+                </Stack.Protected>
+                <Stack.Protected guard={!hasSeenOnboarding}>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                </Stack.Protected>
                 <Stack.Screen
                   name="search"
                   options={{
