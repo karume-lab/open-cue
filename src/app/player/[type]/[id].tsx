@@ -28,7 +28,7 @@ import { StreamService } from "@/services/StreamService";
 import type { MediaType } from "@/types/movie";
 
 const DEMO_VIDEO_URL =
-  "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
 const decodeParam = (
   value: string | string[] | undefined,

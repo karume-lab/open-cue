@@ -23,6 +23,7 @@
       "userInterfaceStyle": "dark"
     },
     "plugins": [
+      "./plugins/with-localhost-cleartext",
       "expo-router",
       "expo-asset",
       "expo-background-task",
