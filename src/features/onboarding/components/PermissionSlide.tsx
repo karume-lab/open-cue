@@ -103,7 +103,11 @@ export const PermissionSlide: React.FC<PermissionSlideProps> = ({ type }) => {
             )}
           />
         )}
-        <Text className="font-semibold text-lg">
+        <Text
+          className="font-semibold text-lg"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
           {granted ? content.grantedLabel : content.actionLabel}
         </Text>
       </Button>
