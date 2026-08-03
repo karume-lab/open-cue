@@ -5,6 +5,8 @@ import { ScrollView, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import BackupManager from "@/features/settings/components/BackupManager";
+import DownloadStorage from "@/features/settings/components/DownloadStorage";
 import StorageManager from "@/features/settings/components/StorageManager";
 import SubtitlePreferencesSheet from "@/features/settings/components/SubtitlePreferencesSheet";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
@@ -74,6 +76,18 @@ const SettingsScreen = () => {
 
         <View className="mt-8">
           <StorageManager />
+        </View>
+
+        <View className="mt-8">
+          <View className="bg-card border border-border/50 rounded-md">
+            <DownloadStorage />
+          </View>
+        </View>
+
+        <View className="mt-8">
+          <View className="bg-card border border-border/50 rounded-md">
+            <BackupManager />
+          </View>
         </View>
       </ScrollView>
 

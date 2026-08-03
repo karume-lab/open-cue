@@ -1,4 +1,4 @@
-import { Directory, Paths } from "expo-file-system";
+import { getDownloadsStoragePath } from "@/services/StorageLocation";
 import TorrentDaemon from "~/modules/torrent-daemon";
 
 // Streams torrents live over a localhost HTTP URL served by the Go daemon.
@@ -12,14 +12,20 @@ class StreamManager {
 
   private async ensureDaemonStarted() {
     if (!this.daemonStarted) {
-      const downloadsDir = new Directory(Paths.document, "downloads");
-      if (!downloadsDir.exists) {
-        downloadsDir.create();
-      }
-      const storagePath = downloadsDir.uri.replace("file://", "");
+      const storagePath = getDownloadsStoragePath();
       await TorrentDaemon.startDaemon(storagePath);
       this.daemonStarted = true;
     }
+  }
+
+  hasActiveStreams(): boolean {
+    return this.streamUrls.size > 0 || this.pendingStarts.size > 0;
+  }
+
+  async stopDaemon() {
+    if (!this.daemonStarted) return;
+    await TorrentDaemon.stopDaemon().catch(() => {});
+    this.daemonStarted = false;
   }
 
   // Starts streaming a torrent and returns the local URL to play. Idempotent

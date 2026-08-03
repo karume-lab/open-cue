@@ -17,6 +17,11 @@ public class TorrentDaemonModule: Module {
       DaemonStop()
     }
 
+    // Shared-storage folder picking is Android-only (SAF). No-op on iOS.
+    AsyncFunction("pickStorageDirectory") { () -> String? in
+      return nil
+    }
+
     AsyncFunction("addMagnet") { (uri: String) -> String in
       var error: NSError?
       let infoHash = DaemonAddMagnet(uri, &error)

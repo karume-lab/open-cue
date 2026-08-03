@@ -14,6 +14,8 @@ A movie/TV streaming and download app for Android, built with Expo and React Nat
 - **Player** — full-screen landscape player with gestures (tap, double-tap to seek ±10s), subtitles, and hardware FFmpeg decoder fallback
 - **Watch history, bookmarks & library** — persisted locally on-device
 - **Offline mode** — filter to only what you've downloaded
+- **Update-safe by default** — all state (MMKV) and downloads live in app-internal storage, so `adb install -r` updates keep your data (same package + signing key). Optionally move downloads to a folder on shared storage so they even survive uninstalls
+- **Backup & restore** — export/import your library, history, bookmarks, and settings as a JSON file on shared storage (`Settings → Backup & Restore`)
 
 ---
 
@@ -183,6 +185,7 @@ bun run build:install-apk   # build + install in one go
 | `build:mobile` | `expo prebuild --clean` + Gradle `assembleRelease` → release APK |
 | `build` | Full production build: `build:go` then `build:mobile` |
 | `install-apk` | `adb install` the built release APK |
+| `update-apk` | `adb install -r` the built release APK — reinstalls **without losing app data** (keeps MMKV state and downloads) |
 | `build:install-apk` | `build` + `install-apk` in one command |
 | `doctor` | `expo-doctor` project health check |
 | `update-packages` | `expo install --check` for out-of-date SDK packages |

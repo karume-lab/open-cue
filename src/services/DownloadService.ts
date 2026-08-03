@@ -1,9 +1,13 @@
-import { Directory, File, Paths } from "expo-file-system";
+import { Directory, File } from "expo-file-system";
 import { Platform } from "react-native";
 import {
   type DownloadState,
   useAppStore,
 } from "@/features/shared/store/useAppStore";
+import {
+  getDownloadsDirectory,
+  getDownloadsStoragePath,
+} from "@/services/StorageLocation";
 import { episodeLabel, magnetFromHash } from "@/services/torrents";
 import type { Movie, MovieTorrent } from "@/types/movie";
 import TorrentDaemon, {
@@ -66,7 +70,7 @@ const resolveLocalVideoPath = async (
   }
 
   try {
-    const downloadsDir = new Directory(Paths.document, "downloads");
+    const downloadsDir = getDownloadsDirectory();
     if (!downloadsDir.exists) return undefined;
     const videos = findVideoFiles(downloadsDir);
     if (videos.length === 0) return undefined;
@@ -124,14 +128,16 @@ class DownloadManager {
 
   private async ensureDaemonStarted() {
     if (!this.daemonStarted) {
-      const downloadsDir = new Directory(Paths.document, "downloads");
-      if (!downloadsDir.exists) {
-        downloadsDir.create();
-      }
-      const storagePath = downloadsDir.uri.replace("file://", "");
+      const storagePath = getDownloadsStoragePath();
       await TorrentDaemon.startDaemon(storagePath);
       this.daemonStarted = true;
     }
+  }
+
+  async stopDaemon() {
+    if (!this.daemonStarted) return;
+    await TorrentDaemon.stopDaemon().catch(() => {});
+    this.daemonStarted = false;
   }
 
   async startTorrentDownload(movie: Movie, torrent: MovieTorrent) {

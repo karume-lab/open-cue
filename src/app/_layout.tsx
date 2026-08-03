@@ -17,7 +17,10 @@ import type React from "react";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import MediaTorrentPicker from "@/features/media/components/MediaTorrentPicker";
-import { registerBackgroundTasks } from "@/services/BackgroundTasks";
+import {
+  registerBackgroundTasks,
+  runStartupBackups,
+} from "@/services/BackgroundTasks";
 import { DownloadService } from "@/services/DownloadService";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
@@ -51,9 +54,11 @@ const RootLayout: React.FC = () => {
   const { hasSeenOnboarding } = useOnboardingStore();
 
   useEffect(() => {
+    runStartupBackups();
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         DownloadService.reconcileDownloads();
+        runStartupBackups();
       }
     });
     return () => subscription.remove();

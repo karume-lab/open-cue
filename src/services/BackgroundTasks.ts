@@ -1,6 +1,7 @@
 import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { useAppStore } from "@/features/shared/store/useAppStore";
+import { runDailyBackupIfDue } from "@/services/BackupService";
 import { scheduleLocalNotification } from "@/services/NotificationService";
 import { searchTorrents } from "@/services/torrents";
 
@@ -9,6 +10,13 @@ const BACKGROUND_MOVIE_UPDATER = "BACKGROUND_MOVIE_UPDATER";
 // Define the background task using expo-task-manager
 TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
   try {
+    // Daily backup (silent, only when a folder is configured and a day passed).
+    try {
+      await runDailyBackupIfDue();
+    } catch (error) {
+      console.error("Background backup failed:", error);
+    }
+
     // 1. Fetch bookmarked movies from Zustand Store
     const state = useAppStore.getState();
     const bookmarkedMovies = state.bookmarks;
@@ -42,6 +50,15 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
     return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
+
+// Runs daily when the app is launched or brought to the foreground.
+export const runStartupBackups = async () => {
+  try {
+    await runDailyBackupIfDue();
+  } catch (error) {
+    console.error("Startup backup failed:", error);
+  }
+};
 
 export const registerBackgroundTasks = async () => {
   try {

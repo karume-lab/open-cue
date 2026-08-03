@@ -13,6 +13,7 @@ export interface DownloadNotification {
 interface TorrentDaemonInterface {
   startDaemon(storagePath: string): Promise<void>;
   stopDaemon(): Promise<void>;
+  pickStorageDirectory(): Promise<string | null>;
   addMagnet(uri: string): Promise<string>;
   getProgress(infoHash: string): number;
   getFiles(infoHash: string): string;
