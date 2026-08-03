@@ -204,20 +204,6 @@ const OnboardingScreen: React.FC = () => {
 
   return (
     <View className="flex-1 bg-background">
-      {/* Skip Button */}
-      {currentIndex < slides.length - 1 && (
-        <View
-          className="absolute z-10 right-4"
-          style={{ top: Math.max(insets.top + 16, 24) }}
-        >
-          <Button variant="ghost" onPress={handleFinishOnboarding}>
-            <Text className="text-muted-foreground font-semibold text-sm">
-              Skip
-            </Text>
-          </Button>
-        </View>
-      )}
-
       {/* The Animated FlatList */}
       <Animated.FlatList
         ref={flatListRef}
