@@ -148,7 +148,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
         <TouchableOpacity
           onPress={handleToggleBookmark}
           activeOpacity={0.7}
-          className={`absolute top-2.5 right-2.5 size-9 rounded-full items-center justify-center border ${
+          className={`absolute top-2.5 right-2.5 size-9 rounded-md items-center justify-center border ${
             isBookmarked
               ? "bg-primary/20 border-primary/40"
               : "bg-black/40 border-border/20"
