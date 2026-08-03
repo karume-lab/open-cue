@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import MovieDownloadCard from "@/features/downloads/components/MovieDownloadCard";
 import ToggleDownloadStatus from "@/features/downloads/components/ToggleDownloadStatus";
+import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { DownloadService } from "@/services/DownloadService";
 import { ExportService } from "@/services/ExportService";
@@ -52,6 +52,10 @@ const DownloadsScreen = () => {
   const [index, setIndex] = useState(0);
   const [isAllPaused, setIsAllPaused] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [exportResult, setExportResult] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -83,10 +87,10 @@ const DownloadsScreen = () => {
 
   const handleExport = async (id: string) => {
     const result = await ExportService.exportDownload(id);
-    Alert.alert(
-      result.ok ? "Saved to device" : "Could not save",
-      result.message,
-    );
+    setExportResult({
+      title: result.ok ? "Saved to device" : "Could not save",
+      message: result.message,
+    });
   };
 
   const renderScene = ({ route }: { route: Route }) => {
@@ -187,6 +191,16 @@ const DownloadsScreen = () => {
         <ToggleDownloadStatus
           isAllPaused={isAllPaused}
           onToggle={handleToggleAll}
+        />
+      )}
+      {exportResult && (
+        <MessageDialog
+          open
+          title={exportResult.title}
+          message={exportResult.message}
+          onOpenChange={(open) => {
+            if (!open) setExportResult(null);
+          }}
         />
       )}
     </View>

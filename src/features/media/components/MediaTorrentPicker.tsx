@@ -1,6 +1,5 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 import {
   fetchMediaDetailWithTorrents,
   refetchTorrents,
@@ -9,6 +8,7 @@ import TorrentPickerSheet, {
   type TorrentPickerMode,
   type TorrentPickerSheetHandle,
 } from "@/features/media/components/TorrentPickerSheet";
+import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useMediaActions } from "@/features/shared/store/useMediaActions";
 import { DownloadService } from "@/services/DownloadService";
 import { magnetFromHash } from "@/services/torrents";
@@ -21,6 +21,10 @@ const MediaTorrentPicker = () => {
   const { movie, mode, onRetry } = useMediaActions();
   const [isFetchingTorrents, setIsFetchingTorrents] = useState(false);
   const fetchingForRef = useRef<string | null>(null);
+  const [downloadError, setDownloadError] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (movie) {
@@ -83,12 +87,13 @@ const MediaTorrentPicker = () => {
       }
 
       DownloadService.startTorrentDownload(current, torrent).catch((error) => {
-        Alert.alert(
-          "Download unavailable",
-          error instanceof Error
-            ? error.message
-            : "No torrents found for this title.",
-        );
+        setDownloadError({
+          title: "Download unavailable",
+          message:
+            error instanceof Error
+              ? error.message
+              : "No torrents found for this title.",
+        });
       });
     },
     [],
@@ -97,13 +102,25 @@ const MediaTorrentPicker = () => {
   if (!movie) return null;
 
   return (
-    <TorrentPickerSheet
-      ref={bottomSheetRef}
-      movie={movie}
-      isLoading={isFetchingTorrents}
-      onSelect={handleSelect}
-      onRetry={handleRetry}
-    />
+    <>
+      <TorrentPickerSheet
+        ref={bottomSheetRef}
+        movie={movie}
+        isLoading={isFetchingTorrents}
+        onSelect={handleSelect}
+        onRetry={handleRetry}
+      />
+      {downloadError && (
+        <MessageDialog
+          open
+          title={downloadError.title}
+          message={downloadError.message}
+          onOpenChange={(open) => {
+            if (!open) setDownloadError(null);
+          }}
+        />
+      )}
+    </>
   );
 };
 

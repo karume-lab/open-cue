@@ -1,9 +1,18 @@
 import { useRouter } from "expo-router";
-import { Clapperboard, Download, Film, Sparkles } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
+import {
+  Bell,
+  Clapperboard,
+  Download,
+  Film,
+  Settings,
+  Sparkles,
+} from "lucide-react-native";
 import type React from "react";
 import { useRef, useState } from "react";
 import {
   type FlatList,
+  Platform,
   useWindowDimensions,
   View,
   type ViewToken,
@@ -19,10 +28,30 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import {
+  PermissionSlide,
+  type PermissionSlideType,
+} from "@/features/onboarding/components/PermissionSlide";
 import { TagSelectionSlide } from "@/features/onboarding/components/TagSelectionSlide";
+import { cn } from "@/lib/utils";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
-const SLIDES = [
+type SlideType =
+  | "discover"
+  | "download"
+  | "player"
+  | "interests"
+  | PermissionSlideType;
+
+interface OnboardingSlide {
+  id: string;
+  title: string;
+  description: string;
+  type: SlideType;
+  icon: LucideIcon;
+}
+
+const BASE_SLIDES: OnboardingSlide[] = [
   {
     id: "1",
     title: "Discover Greatness.",
@@ -55,7 +84,29 @@ const SLIDES = [
     type: "interests",
     icon: Sparkles,
   },
+  {
+    id: "5",
+    title: "Don't miss a release.",
+    description:
+      "Cue can let you know when a bookmarked movie gets a new 4K release, even when the app is closed.",
+    type: "notifications",
+    icon: Bell,
+  },
 ];
+
+// WRITE_SETTINGS is an Android-only permission (granted from the system
+// settings screen), so the slide only exists on Android.
+const WRITE_SETTINGS_SLIDE: OnboardingSlide = {
+  id: "6",
+  title: "Own the playback experience.",
+  description:
+    "Swipe on the left edge of the screen to adjust brightness while streaming.",
+  type: "writeSettings",
+  icon: Settings,
+};
+
+const isPermissionSlide = (type: SlideType): type is PermissionSlideType =>
+  type === "notifications" || type === "writeSettings";
 
 interface PaginatorDotProps {
   index: number;
@@ -115,6 +166,11 @@ const OnboardingScreen: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const { completeOnboarding } = useOnboardingStore();
 
+  const slides =
+    Platform.OS === "android"
+      ? [...BASE_SLIDES, WRITE_SETTINGS_SLIDE]
+      : BASE_SLIDES;
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollX.value = event.contentOffset.x;
@@ -149,7 +205,7 @@ const OnboardingScreen: React.FC = () => {
   return (
     <View className="flex-1 bg-background">
       {/* Skip Button */}
-      {currentIndex < SLIDES.length - 1 && (
+      {currentIndex < slides.length - 1 && (
         <View
           className="absolute z-10 right-4"
           style={{ top: Math.max(insets.top + 16, 24) }}
@@ -165,7 +221,7 @@ const OnboardingScreen: React.FC = () => {
       {/* The Animated FlatList */}
       <Animated.FlatList
         ref={flatListRef}
-        data={SLIDES}
+        data={slides}
         keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
@@ -176,12 +232,26 @@ const OnboardingScreen: React.FC = () => {
         viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
         renderItem={({ item }) => {
           const IconComponent = item.icon;
+          const isPermission = isPermissionSlide(item.type);
           return (
             <View style={{ width }} className="flex-1 justify-center px-8">
-              <View className="mb-12 items-center justify-center min-h-50">
+              <View
+                className={cn(
+                  "items-center justify-center",
+                  isPermission ? "mb-4" : "mb-10 min-h-50",
+                )}
+              >
                 {item.type !== "interests" && (
-                  <View className="w-32 h-32 rounded-full bg-primary/20 items-center justify-center mb-6">
-                    <IconComponent size={64} color="#c97742" />
+                  <View
+                    className={cn(
+                      "rounded-full bg-primary/20 items-center justify-center",
+                      isPermission ? "size-20" : "w-32 h-32 mb-6",
+                    )}
+                  >
+                    <IconComponent
+                      size={isPermission ? 40 : 64}
+                      color="#c97742"
+                    />
                   </View>
                 )}
                 {item.type === "interests" && (
@@ -194,9 +264,17 @@ const OnboardingScreen: React.FC = () => {
               <Text className="text-4xl font-bold text-foreground text-center mb-4">
                 {item.title}
               </Text>
-              <Text className="text-base text-muted-foreground text-center leading-6">
+              <Text
+                className={cn(
+                  "text-base text-muted-foreground text-center leading-6",
+                  isPermission && "mb-6",
+                )}
+              >
                 {item.description}
               </Text>
+              {isPermissionSlide(item.type) && (
+                <PermissionSlide type={item.type} />
+              )}
             </View>
           );
         }}
@@ -208,7 +286,7 @@ const OnboardingScreen: React.FC = () => {
         className="px-8 w-full"
       >
         <View className="flex-row justify-center h-16 items-center gap-2">
-          {SLIDES.map((_, i) => (
+          {slides.map((_, i) => (
             <PaginatorDot
               key={i.toString()}
               index={i}
@@ -221,7 +299,7 @@ const OnboardingScreen: React.FC = () => {
         <Button
           className="w-full h-14 rounded-md"
           onPress={() => {
-            if (currentIndex < SLIDES.length - 1) {
+            if (currentIndex < slides.length - 1) {
               flatListRef.current?.scrollToIndex({
                 index: currentIndex + 1,
                 animated: true,
@@ -232,7 +310,7 @@ const OnboardingScreen: React.FC = () => {
           }}
         >
           <Text className="font-bold text-lg text-center text-primary-foreground">
-            {currentIndex === SLIDES.length - 1 ? "Enter Cue" : "Next"}
+            {currentIndex === slides.length - 1 ? "Enter Cue" : "Next"}
           </Text>
         </Button>
       </View>

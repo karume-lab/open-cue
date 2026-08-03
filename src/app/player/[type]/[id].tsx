@@ -5,7 +5,6 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   BackHandler,
   Platform,
@@ -24,6 +23,7 @@ import { useMovieDetailsQuery } from "@/features/discover/services/queries";
 import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
 import SubtitlePreferencesSheet from "@/features/settings/components/SubtitlePreferencesSheet";
+import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { resolveDownloadFileUri } from "@/services/DownloadService";
 import { StreamService } from "@/services/StreamService";
@@ -70,6 +70,10 @@ const PlayerDetailScreen = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
   const [isInPip, setIsInPip] = useState(false);
+  const [playbackError, setPlaybackError] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
   const savedCurrentTime = watchHistory[mediaId]?.currentTime || 0;
   const [currentTime, setCurrentTime] = useState(0);
@@ -175,10 +179,10 @@ const PlayerDetailScreen = () => {
       } catch (error) {
         console.error("Failed to prepare video source:", error);
         if (!cancelled) {
-          Alert.alert(
-            "Playback unavailable",
-            "Could not start playback. Please try again.",
-          );
+          setPlaybackError({
+            title: "Playback unavailable",
+            message: "Could not start playback. Please try again.",
+          });
           setVideoSource(DEMO_VIDEO_URL);
         }
       } finally {
@@ -273,7 +277,10 @@ const PlayerDetailScreen = () => {
 
   const handleError = (data: OnVideoErrorData) => {
     console.error("Video error:", data.error);
-    Alert.alert("Playback error", "Could not play this video.");
+    setPlaybackError({
+      title: "Playback error",
+      message: "Could not play this video.",
+    });
   };
 
   const seekForward = () => {
@@ -349,6 +356,17 @@ const PlayerDetailScreen = () => {
       />
 
       <SubtitlePreferencesSheet ref={subtitleSheetRef} />
+
+      {playbackError && (
+        <MessageDialog
+          open
+          title={playbackError.title}
+          message={playbackError.message}
+          onOpenChange={(open) => {
+            if (!open) setPlaybackError(null);
+          }}
+        />
+      )}
     </View>
   );
 };

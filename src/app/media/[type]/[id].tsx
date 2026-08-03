@@ -11,7 +11,6 @@ import {
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  Alert,
   Dimensions,
   Image,
   RefreshControl,
@@ -25,6 +24,7 @@ import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
+import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import {
   downloadsForMedia,
   useAppStore,
@@ -129,6 +129,10 @@ const MediaDetailScreen = () => {
   const { bookmarks, downloads, watchHistory, toggleBookmark } = useAppStore();
 
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const [exportResult, setExportResult] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
   const { present: presentTorrentPicker } = useMediaActions();
   const handleToggleBookmark = useDebounceCallback(() => {
     if (movie) toggleBookmark(movie);
@@ -174,10 +178,10 @@ const MediaDetailScreen = () => {
 
   const handleExportDownload = async (downloadId: string) => {
     const result = await ExportService.exportDownload(downloadId);
-    Alert.alert(
-      result.ok ? "Saved to device" : "Could not save",
-      result.message,
-    );
+    setExportResult({
+      title: result.ok ? "Saved to device" : "Could not save",
+      message: result.message,
+    });
   };
 
   const renderPrimaryAction = () => {
@@ -513,6 +517,16 @@ const MediaDetailScreen = () => {
           )}
         </View>
       </ScrollView>
+      {exportResult && (
+        <MessageDialog
+          open
+          title={exportResult.title}
+          message={exportResult.message}
+          onOpenChange={(open) => {
+            if (!open) setExportResult(null);
+          }}
+        />
+      )}
     </View>
   );
 };
