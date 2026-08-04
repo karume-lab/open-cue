@@ -24,6 +24,7 @@
     },
     "plugins": [
       "./plugins/with-localhost-cleartext.ts",
+      "./plugins/with-all-files-access.ts",
       "expo-router",
       "expo-asset",
       "expo-background-task",

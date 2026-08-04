@@ -102,9 +102,11 @@ export const FolderSelectionSlide: React.FC<FolderSelectionSlideProps> = ({
         <Text className="text-xs text-muted-foreground text-center mt-3 leading-5">
           If you skip this, a{" "}
           <Text className="font-semibold text-foreground">Cue</Text> folder will
-          be created in your{" "}
-          <Text className="font-semibold text-foreground">Documents</Text>{" "}
-          directory. Pick a folder below to choose a different location.
+          be created at the root of your{" "}
+          <Text className="font-semibold text-foreground">
+            Internal Storage
+          </Text>
+          . Pick a folder below to choose a different location.
         </Text>
       )}
     </View>

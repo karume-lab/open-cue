@@ -1,4 +1,5 @@
 import { Directory, Paths } from "expo-file-system";
+import { Platform } from "react-native";
 import { storage } from "@/features/shared/store/useAppStore";
 import TorrentDaemon from "~/modules/torrent-daemon";
 
@@ -61,17 +62,32 @@ export const getCueSubdirectoryUri = (name: string): string | undefined => {
   )}`;
 };
 
-// Creates a subfolder under the Cue folder through the SAF grant. No-op (or
-// skipped) when the folder is already there or no content URI is available.
+// Creates a subfolder under the Cue folder. Prefers the SAF content URI when a
+// folder was picked via the picker; falls back to the raw filesystem path for
+// folders created directly on shared storage (default Cue folder) or legacy
+// folders. No-op when the folder is already there or no path is available.
 const ensureCueSubdirectory = (name: string): void => {
+  const cuePath = getCueDirectoryPath();
   const treeUri = getCueDirectoryUri();
-  const childUri = getCueSubdirectoryUri(name);
-  if (!treeUri || !childUri) return;
-  try {
-    const child = new Directory(childUri);
-    if (!child.exists) {
-      new Directory(treeUri).createDirectory(name);
+  if (treeUri) {
+    const childUri = getCueSubdirectoryUri(name);
+    if (!childUri) return;
+    try {
+      const child = new Directory(childUri);
+      if (!child.exists) {
+        new Directory(treeUri).createDirectory(name);
+      }
+    } catch (error) {
+      console.error(`Failed to create ${name}/ in the Cue folder:`, error);
     }
+    return;
+  }
+  if (!cuePath) return;
+  try {
+    new Directory(`file://${cuePath}/${name}`).create({
+      idempotent: true,
+      intermediates: true,
+    });
   } catch (error) {
     console.error(`Failed to create ${name}/ in the Cue folder:`, error);
   }
@@ -79,7 +95,7 @@ const ensureCueSubdirectory = (name: string): void => {
 
 // Persists a chosen folder as the Cue folder and ensures the media/ and
 // backups/ subfolders exist. `uri` is the SAF content tree URI; when absent
-// (legacy folders) subfolder creation is skipped.
+// (default-created or legacy folders) the subfolders are created via raw paths.
 export const setCueDirectory = (path: string, uri = ""): void => {
   storage.set(CUE_DIR_PATH_KEY, path);
   storage.set(CUE_DIR_URI_KEY, uri);
@@ -87,12 +103,23 @@ export const setCueDirectory = (path: string, uri = ""): void => {
   ensureCueSubdirectory(BACKUPS_DIR_NAME);
 };
 
-// Creates (or reuses) a "Cue" folder in the public Documents directory on
-// external shared storage so it survives uninstall. Falls back to app-internal
-// storage only if external storage is unavailable. No SAF grant is needed; the
-// Go daemon accesses the folder via the raw filesystem path.
+// Creates (or reuses) a "Cue" folder at the root of external shared storage
+// (/storage/emulated/0/Cue) so it survives uninstall. On Android 11+ raw
+// writes to shared storage need "All files access", so when creation fails the
+// user is asked to grant it once and creation is retried. Falls back to
+// app-internal storage only if external storage is still unavailable.
 export const setDefaultCueDirectory = async (): Promise<string> => {
-  const externalPath = await TorrentDaemon.createDefaultCueDirectory();
+  let externalPath = await TorrentDaemon.createDefaultCueDirectory();
+  if (
+    !externalPath &&
+    Platform.OS === "android" &&
+    !TorrentDaemon.hasAllFilesAccess()
+  ) {
+    const granted = await TorrentDaemon.requestAllFilesAccess();
+    if (granted) {
+      externalPath = await TorrentDaemon.createDefaultCueDirectory();
+    }
+  }
   if (externalPath) {
     setCueDirectory(externalPath);
     return externalPath;

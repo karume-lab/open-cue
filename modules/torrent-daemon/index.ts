@@ -38,7 +38,20 @@ interface TorrentDaemonInterface {
   startDaemon(storagePath: string): Promise<void>;
   stopDaemon(): Promise<void>;
   pickStorageDirectory(): Promise<StorageDirectoryResult | null>;
-  /** Creates Documents/Cue on external shared storage and returns its path, or null on failure. */
+  /**
+   * True when the app holds Android "All files access" (MANAGE_EXTERNAL_STORAGE),
+   * required on Android 11+ to create folders directly on shared storage.
+   */
+  hasAllFilesAccess(): boolean;
+  /**
+   * Opens the system "All files access" screen and resolves once the user
+   * grants (or denies) it. Returns whether access was granted.
+   */
+  requestAllFilesAccess(): Promise<boolean>;
+  /**
+   * Creates a Cue folder at the root of external shared storage
+   * (/storage/emulated/0/Cue) and returns its path, or null on failure.
+   */
   createDefaultCueDirectory(): Promise<string | null>;
   addMagnet(uri: string): Promise<string>;
   getProgress(infoHash: string): number;
