@@ -1,13 +1,13 @@
 import { Directory } from "expo-file-system";
-import { storage, useAppStore } from "@/features/shared/store/useAppStore";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import { DownloadService } from "@/services/DownloadService";
 import {
   getDownloadsDirectory,
   getDownloadsStoragePath,
+  MEDIA_DIR_NAME,
+  setCueDirectory,
 } from "@/services/StorageLocation";
 import { StreamService } from "@/services/StreamService";
-
-const STORAGE_PATH_KEY = "downloadStoragePath";
 
 export const hasActiveTransfers = (): boolean => {
   const { downloads } = useAppStore.getState();
@@ -17,10 +17,11 @@ export const hasActiveTransfers = (): boolean => {
   return active || StreamService.hasActiveStreams();
 };
 
-// Moves the entire downloads directory to a new location on shared/external
-// storage. Refuses while any torrent is actively transferring so the daemon
-// never holds mmap handles across a move.
-export const moveDownloadsStorage = async (newPath: string): Promise<void> => {
+// Moves the entire downloads directory into the media/ subfolder of a new Cue
+// folder on shared/external storage. Refuses while any torrent is actively
+// transferring so the daemon never holds mmap handles across a move.
+export const moveDownloadsStorage = async (cueRoot: string): Promise<void> => {
+  const newPath = `${cueRoot}/${MEDIA_DIR_NAME}`;
   const currentPath = getDownloadsStoragePath();
   if (currentPath === newPath) return;
 
@@ -37,10 +38,7 @@ export const moveDownloadsStorage = async (newPath: string): Promise<void> => {
   const newDir = new Directory(`file://${newPath}`);
 
   if (!oldDir.exists) {
-    if (!newDir.exists) {
-      newDir.create({ idempotent: true, intermediates: true });
-    }
-    storage.set(STORAGE_PATH_KEY, newPath);
+    setCueDirectory(cueRoot);
     return;
   }
 
@@ -50,6 +48,7 @@ export const moveDownloadsStorage = async (newPath: string): Promise<void> => {
     );
   }
 
+  if (newDir.exists) newDir.delete();
   oldDir.move(newDir);
-  storage.set(STORAGE_PATH_KEY, newPath);
+  setCueDirectory(cueRoot);
 };

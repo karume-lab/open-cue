@@ -3,16 +3,20 @@ import * as DocumentPicker from "expo-document-picker";
 import { Directory, File } from "expo-file-system";
 import { storage, useAppStore } from "@/features/shared/store/useAppStore";
 import { APP_STORAGE_NAME } from "@/lib/constants";
+import {
+  BACKUPS_DIR_NAME,
+  getCueDirectoryPath,
+  pickCueDirectory,
+} from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
-import TorrentDaemon from "~/modules/torrent-daemon";
 
 // Exports/imports the persisted app state (bookmarks, watch history, download
-// metadata, settings, onboarding) as a single JSON file. The file is written to
-// a user-chosen folder on shared storage so it survives uninstalls and device
-// switches. Actual video files are NOT included — re-download or keep them on
-// shared storage yourself.
+// metadata, settings, onboarding) as a single JSON file. Backups are written to
+// the `backups/` subfolder of the Cue folder on shared storage so they survive
+// uninstalls and device switches. Actual video files are NOT included —
+// re-download or keep them on shared storage yourself.
 //
-// Once a backup folder is chosen it is persisted in MMKV and the export runs
+// Once a Cue folder is chosen it is persisted in MMKV and the export runs
 // automatically (silently) roughly once per day, always overwriting the same
 // `cue-backup.json` file so the previous backup is replaced.
 
@@ -20,6 +24,8 @@ const BACKUP_SCHEMA = 1;
 const BACKUP_FILE_NAME = "cue-backup.json";
 const ONBOARDING_STORAGE_KEY = "onboarding-storage";
 const ONBOARDED_KEY = "isOnboarded";
+// Legacy: a backup folder chosen directly (without the backups/ subfolder)
+// before the cue-folder layout existed.
 const BACKUP_DIR_PATH_KEY = "backupDirectoryPath";
 const LAST_BACKUP_KEY = "lastBackupDate";
 const DAILY_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -48,21 +54,24 @@ const collectBackup = (): BackupFile => ({
   isOnboarded: storage.getBoolean(ONBOARDED_KEY) ?? false,
 });
 
-export const getBackupDirectoryPath = (): string | null =>
-  storage.getString(BACKUP_DIR_PATH_KEY) ?? null;
+// Backups live in the `backups/` subfolder of the Cue folder. Falls back to a
+// legacy folder chosen before the cue-folder layout existed.
+export const getBackupDirectoryPath = (): string | null => {
+  const cue = getCueDirectoryPath();
+  if (cue) return `${cue}/${BACKUPS_DIR_NAME}`;
+  return storage.getString(BACKUP_DIR_PATH_KEY) ?? null;
+};
 
 export const getLastBackupDate = (): string | null =>
   storage.getString(LAST_BACKUP_KEY) ?? null;
 
-// Prompts the user for a shared/external folder (SAF picker) and persists it as
-// the backup location. Returns null when cancelled.
+// Prompts the user for the Cue folder (SAF picker) and persists it; backups
+// then go to its backups/ subfolder. Returns the backup directory or null when
+// cancelled.
 export const pickBackupDirectory = async (): Promise<string | null> => {
-  const path = await TorrentDaemon.pickStorageDirectory();
-  if (!path) return null;
-  storage.set(BACKUP_DIR_PATH_KEY, path);
-  const dir = new Directory(`file://${path}`);
-  if (!dir.exists) dir.create({ idempotent: true, intermediates: true });
-  return path;
+  const cue = await pickCueDirectory();
+  if (!cue) return null;
+  return getBackupDirectoryPath();
 };
 
 const writeBackupFile = (backup: BackupFile, dirPath: string): void => {
@@ -78,8 +87,7 @@ const writeBackupFile = (backup: BackupFile, dirPath: string): void => {
 export const exportBackup = async (options?: {
   silent?: boolean;
 }): Promise<BackupResult> => {
-  let dirPath: string | null | undefined =
-    storage.getString(BACKUP_DIR_PATH_KEY);
+  let dirPath = getBackupDirectoryPath();
   if (!dirPath) {
     if (options?.silent) {
       return { ok: false, text: "No backup folder configured yet." };
@@ -108,7 +116,7 @@ export const exportBackup = async (options?: {
 // Runs a silent backup when a folder is configured and more than a day has
 // passed since the last one. Call this on app launch / from background tasks.
 export const runDailyBackupIfDue = async (): Promise<void> => {
-  if (!storage.getString(BACKUP_DIR_PATH_KEY)) return;
+  if (!getBackupDirectoryPath()) return;
 
   const last = storage.getString(LAST_BACKUP_KEY);
   if (last) {

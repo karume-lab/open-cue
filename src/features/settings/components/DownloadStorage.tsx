@@ -3,10 +3,12 @@ import { Alert, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import {
+  getCueDirectoryPath,
   getDownloadsDirectory,
   getDownloadsStoragePath,
-  getStoredStoragePath,
-  setDownloadsStorageDirectory,
+  getMediaDirectoryPath,
+  MEDIA_DIR_NAME,
+  setCueDirectory,
 } from "@/services/StorageLocation";
 import { moveDownloadsStorage } from "@/services/StorageMigration";
 import TorrentDaemon from "~/modules/torrent-daemon";
@@ -19,13 +21,17 @@ const DownloadStorage = () => {
     null,
   );
 
-  const storedPath = getStoredStoragePath();
-  const locationLabel = storedPath ?? INTERNAL_LABEL;
-  const isShared = Boolean(storedPath);
+  const cuePath = getCueDirectoryPath();
+  const mediaPath = getMediaDirectoryPath();
+  const locationLabel = mediaPath ?? INTERNAL_LABEL;
+  const isShared = Boolean(mediaPath);
 
-  const applyPath = (path: string) => {
-    setDownloadsStorageDirectory(path);
-    setResult({ ok: true, text: "Downloads folder updated." });
+  const applyCue = (path: string) => {
+    setCueDirectory(path);
+    setResult({
+      ok: true,
+      text: `Cue folder set. Downloads go to ${MEDIA_DIR_NAME}/, backups to backups/.`,
+    });
   };
 
   const runMove = async (path: string) => {
@@ -33,7 +39,7 @@ const DownloadStorage = () => {
       await moveDownloadsStorage(path);
       setResult({
         ok: true,
-        text: "Downloads moved to the new folder. They now survive uninstalls.",
+        text: "Downloads moved into the new Cue folder. They now survive uninstalls.",
       });
     } catch (error) {
       setResult({
@@ -57,24 +63,26 @@ const DownloadStorage = () => {
       const currentPath = getDownloadsStoragePath();
       const oldDir = getDownloadsDirectory();
       const hasExisting =
-        currentPath !== path && oldDir.exists && oldDir.list().length > 0;
+        currentPath !== `${path}/${MEDIA_DIR_NAME}` &&
+        oldDir.exists &&
+        oldDir.list().length > 0;
 
       if (hasExisting) {
         Alert.alert(
           "Move existing downloads?",
-          "Move your already-downloaded movies to the new folder so they also survive uninstalls.",
+          "Move your already-downloaded movies into the new Cue folder so they also survive uninstalls.",
           [
             { text: "Cancel", style: "cancel" },
             {
               text: "Keep them where they are",
               style: "destructive",
-              onPress: () => applyPath(path),
+              onPress: () => applyCue(path),
             },
             { text: "Move", onPress: () => runMove(path) },
           ],
         );
       } else {
-        applyPath(path);
+        applyCue(path);
       }
     } catch (error) {
       setResult({
@@ -89,25 +97,29 @@ const DownloadStorage = () => {
 
   return (
     <View className="px-5 py-4">
-      <Text className="text-xl font-bold text-foreground mb-4">
-        Download Storage
-      </Text>
+      <Text className="text-xl font-bold text-foreground mb-4">Cue Folder</Text>
       <Text className="text-xs text-muted-foreground mb-2">
         Current location
       </Text>
       <View className="bg-muted/30 border border-border/50 rounded-md px-4 py-3 mb-4">
         <Text className="text-sm text-foreground" numberOfLines={2}>
-          {locationLabel}
+          {cuePath ?? locationLabel}
         </Text>
+        {cuePath && (
+          <Text className="text-xs text-primary mt-1">
+            Downloads are stored in {MEDIA_DIR_NAME}/ and backups in backups/
+            inside this folder.
+          </Text>
+        )}
+        {isShared && !cuePath && (
+          <Text className="text-xs text-primary mt-1">
+            Shared storage — downloads survive uninstalls.
+          </Text>
+        )}
         {!isShared && (
           <Text className="text-xs text-destructive mt-1">
             Downloads here are deleted when the app is uninstalled. Choose a
             folder on shared storage to keep them.
-          </Text>
-        )}
-        {isShared && (
-          <Text className="text-xs text-primary mt-1">
-            Shared storage — downloads survive uninstalls.
           </Text>
         )}
       </View>
@@ -119,7 +131,7 @@ const DownloadStorage = () => {
         onPress={handleChooseFolder}
       >
         <Text className="text-sm font-medium text-foreground">
-          {busy ? "Opening folder picker…" : "Choose download folder"}
+          {busy ? "Opening folder picker…" : "Choose Cue folder"}
         </Text>
       </Button>
 

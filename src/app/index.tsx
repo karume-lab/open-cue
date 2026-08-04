@@ -5,6 +5,7 @@ import {
   Clapperboard,
   Download,
   Film,
+  FolderOpen,
   Settings,
   Sparkles,
 } from "lucide-react-native";
@@ -28,6 +29,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { FolderSelectionSlide } from "@/features/onboarding/components/FolderSelectionSlide";
 import {
   PermissionSlide,
   type PermissionSlideType,
@@ -39,6 +41,7 @@ import { useOnboardingStore } from "@/stores/onboardingStore";
 type SlideType =
   | "discover"
   | "download"
+  | "folder"
   | "player"
   | "interests"
   | PermissionSlideType;
@@ -70,6 +73,14 @@ const BASE_SLIDES: OnboardingSlide[] = [
   },
   {
     id: "3",
+    title: "Your files, one place.",
+    description:
+      "Pick a folder and Cue keeps your movies in media/ and your backups in backups/, so everything survives reinstalls.",
+    type: "folder",
+    icon: FolderOpen,
+  },
+  {
+    id: "4",
     title: "Beautiful Player.",
     description:
       "Enjoy a seamless viewing experience with our beautiful, feature-rich video player.",
@@ -77,7 +88,7 @@ const BASE_SLIDES: OnboardingSlide[] = [
     icon: Clapperboard,
   },
   {
-    id: "4",
+    id: "5",
     title: "Pick your interests.",
     description:
       "Choose your favorite genres to personalize your discover feed.",
@@ -85,7 +96,7 @@ const BASE_SLIDES: OnboardingSlide[] = [
     icon: Sparkles,
   },
   {
-    id: "5",
+    id: "6",
     title: "Don't miss a release.",
     description:
       "Cue can let you know when a bookmarked movie gets a new 4K release, even when the app is closed.",
@@ -97,7 +108,7 @@ const BASE_SLIDES: OnboardingSlide[] = [
 // WRITE_SETTINGS is an Android-only permission (granted from the system
 // settings screen), so the slide only exists on Android.
 const WRITE_SETTINGS_SLIDE: OnboardingSlide = {
-  id: "6",
+  id: "7",
   title: "Own the playback experience.",
   description:
     "Swipe on the left edge of the screen to adjust brightness while streaming.",
@@ -219,25 +230,23 @@ const OnboardingScreen: React.FC = () => {
         renderItem={({ item }) => {
           const IconComponent = item.icon;
           const isPermission = isPermissionSlide(item.type);
+          const isCompact = isPermission || item.type === "folder";
           return (
             <View style={{ width }} className="flex-1 justify-center px-8">
               <View
                 className={cn(
                   "items-center justify-center",
-                  isPermission ? "mb-4" : "mb-10 min-h-50",
+                  isCompact ? "mb-4" : "mb-10 min-h-50",
                 )}
               >
                 {item.type !== "interests" && (
                   <View
                     className={cn(
                       "rounded-full bg-primary/20 items-center justify-center",
-                      isPermission ? "size-20" : "w-32 h-32 mb-6",
+                      isCompact ? "size-20" : "w-32 h-32 mb-6",
                     )}
                   >
-                    <IconComponent
-                      size={isPermission ? 40 : 64}
-                      color="#c97742"
-                    />
+                    <IconComponent size={isCompact ? 40 : 64} color="#c97742" />
                   </View>
                 )}
                 {item.type === "interests" && (
@@ -253,7 +262,7 @@ const OnboardingScreen: React.FC = () => {
               <Text
                 className={cn(
                   "text-base text-muted-foreground text-center leading-6",
-                  isPermission && "mb-6",
+                  isCompact && "mb-6",
                 )}
               >
                 {item.description}
@@ -261,6 +270,7 @@ const OnboardingScreen: React.FC = () => {
               {isPermissionSlide(item.type) && (
                 <PermissionSlide type={item.type} />
               )}
+              {item.type === "folder" && <FolderSelectionSlide />}
             </View>
           );
         }}

@@ -41,10 +41,10 @@ const BackupManager = () => {
         setBackupDir(path);
         outcome = {
           ok: true,
-          text: "Backup folder set. Daily automatic backups are enabled.",
+          text: "Cue folder set. Automatic backups now go to backups/ inside it.",
         };
       } else {
-        outcome = { ok: false, text: "Backup folder selection was cancelled." };
+        outcome = { ok: false, text: "Folder selection was cancelled." };
       }
     } else {
       outcome =
@@ -66,8 +66,8 @@ const BackupManager = () => {
         Backup & Restore
       </Text>
       <Text className="text-xs text-muted-foreground mb-4">
-        Back up your library, watch history, bookmarks, and settings to shared
-        storage, and restore them after a reinstall.
+        Back up your library, watch history, bookmarks, and settings to backups/
+        inside your Cue folder, and restore them after a reinstall.
       </Text>
 
       <View className="bg-background/60 border border-border/40 rounded-md p-4 mb-4">
@@ -77,7 +77,7 @@ const BackupManager = () => {
         <Text className="text-xs text-muted-foreground">
           {backupDir
             ? `Folder: ${backupDir}`
-            : "No backup folder set. Pick a folder to enable daily automatic backups."}
+            : "Pick your Cue folder to enable daily automatic backups."}
         </Text>
         {lastBackup && (
           <Text className="text-xs text-muted-foreground mt-1">
@@ -92,7 +92,7 @@ const BackupManager = () => {
             onPress={() => run("folder")}
           >
             <Text className="text-sm font-medium text-foreground">
-              {backupDir ? "Change backup folder" : "Choose backup folder"}
+              {backupDir ? "Change folder" : "Choose Cue folder"}
             </Text>
           </Button>
         </View>
