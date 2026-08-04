@@ -107,20 +107,16 @@ class TorrentDaemonModule : Module() {
       stopService()
     }
 
-    AsyncFunction("startLanServing") { fileDir: String ->
-      Daemon.startLANServing(fileDir)
+    AsyncFunction("startLanServing") { _: String -> }
+
+    AsyncFunction("stopLanServing") {}
+
+    Function("getLanStreamURL") { _: String ->
+      ""
     }
 
-    AsyncFunction("stopLanServing") {
-      Daemon.stopLANServing()
-    }
-
-    Function("getLanStreamURL") { infoHash: String ->
-      Daemon.getLanStreamURL(infoHash)
-    }
-
-    Function("getLanFileURL") { filePath: String ->
-      Daemon.getLanFileURL(filePath)
+    Function("getLanFileURL") { _: String ->
+      ""
     }
   }
 
