@@ -38,6 +38,8 @@ interface TorrentDaemonInterface {
   startDaemon(storagePath: string): Promise<void>;
   stopDaemon(): Promise<void>;
   pickStorageDirectory(): Promise<StorageDirectoryResult | null>;
+  /** Creates Documents/Cue on external shared storage and returns its path, or null on failure. */
+  createDefaultCueDirectory(): Promise<string | null>;
   addMagnet(uri: string): Promise<string>;
   getProgress(infoHash: string): number;
   getDownloadSpeed(infoHash: string): number;

@@ -318,7 +318,7 @@ const OnboardingScreen: React.FC = () => {
                   />
                 )}
               </View>
-              <Text className="text-4xl font-bold text-foreground text-center mb-4 pb-1">
+              <Text className="text-4xl font-bold text-foreground text-center mb-3 pb-2 leading-tight">
                 {item.title}
               </Text>
               <Text
@@ -367,11 +367,11 @@ const OnboardingScreen: React.FC = () => {
         <Button
           className="w-full h-14 rounded-md"
           disabled={!currentSlideReady}
-          onPress={() => {
+          onPress={async () => {
             const slide = slides[currentIndex];
             // If folder slide and no folder picked yet, create the default.
             if (slide.type === "folder" && !folderPath) {
-              const defaultPath = setDefaultCueDirectory();
+              const defaultPath = await setDefaultCueDirectory();
               setFolderPath(defaultPath);
             }
             if (currentIndex < slides.length - 1) {

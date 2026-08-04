@@ -43,6 +43,16 @@ class TorrentDaemonModule : Module() {
       )
     }
 
+    // Creates a "Cue" folder inside the public Documents directory on external
+    // shared storage and returns its absolute path, or null on failure.
+    // The folder lives outside app-private storage so it survives an uninstall.
+    AsyncFunction("createDefaultCueDirectory") Coroutine { ->
+      val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+      val cueDir = java.io.File(docsDir, "Cue")
+      if (!cueDir.exists() && !cueDir.mkdirs()) return@Coroutine null
+      cueDir.absolutePath
+    }
+
     AsyncFunction("startDaemon") { storagePath: String ->
       Daemon.start(storagePath)
     }
