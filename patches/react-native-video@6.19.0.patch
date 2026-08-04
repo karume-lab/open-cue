@@ -81,7 +81,7 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..9d50d8c0f730644bff58b8a687fe7036
 +                if (FfmpegLibrary.isAvailable() && renderers.length > 0) {
 +                    Renderer[] withFfmpegFallback = new Renderer[renderers.length + 1];
 +                    System.arraycopy(renderers, 0, withFfmpegFallback, 0, 1);
-+                    withFfmpegFallback[1] = new ExperimentalFfmpegVideoRenderer(0L, eventHandler, videoRendererEventListener, 0);
++                    withFfmpegFallback[1] = new ExperimentalFfmpegVideoRenderer(0L, eventHandler, videoRendererEventListener, C.TRACK_TYPE_VIDEO);
 +                    System.arraycopy(renderers, 1, withFfmpegFallback, 2, renderers.length - 1);
 +                    renderers = withFfmpegFallback;
 +                }
