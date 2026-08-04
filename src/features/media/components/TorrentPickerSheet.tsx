@@ -279,6 +279,7 @@ const TorrentPickerSheet = forwardRef<
   const [mode, setMode] = useState<TorrentPickerMode>("download");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TorrentFilter>("all");
+  const [showAllTorrents, setShowAllTorrents] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selection, setSelection] = useState<Map<string, MovieTorrent>>(
     new Map(),
@@ -304,20 +305,44 @@ const TorrentPickerSheet = forwardRef<
 
   const filteredGroups = useMemo(() => {
     if (!movie) return [];
-    if (filter === "seasons") {
-      return groups
-        .map((group) => ({ ...group, episodes: [] }))
-        .filter((group) => group.seasonPacks.length > 0);
+    let result = (() => {
+      if (filter === "seasons") {
+        return groups
+          .map((group) => ({ ...group, episodes: [] }))
+          .filter((group) => group.seasonPacks.length > 0);
+      }
+      if (filter === "episodes") {
+        return groups
+          .map((group) => ({ ...group, seasonPacks: [] }))
+          .filter((group) => group.episodes.length > 0);
+      }
+      return groups.filter(
+        (group) => group.seasonPacks.length > 0 || group.episodes.length > 0,
+      );
+    })();
+
+    if (!showAllTorrents && movie.mediaType === "tv") {
+      result = result.map((group) => {
+        const all = [...group.seasonPacks, ...group.episodes];
+        if (all.length <= 1) return group;
+        const best = all.reduce((a, b) => (b.seeds > a.seeds ? b : a));
+        return {
+          ...group,
+          seasonPacks: best.kind !== "episode" ? [best] : [],
+          episodes: best.kind === "episode" ? [best] : [],
+        };
+      });
     }
-    if (filter === "episodes") {
-      return groups
-        .map((group) => ({ ...group, seasonPacks: [] }))
-        .filter((group) => group.episodes.length > 0);
-    }
-    return groups.filter(
-      (group) => group.seasonPacks.length > 0 || group.episodes.length > 0,
+
+    return result;
+  }, [groups, filter, movie, showAllTorrents]);
+
+  const hasCollapsedTorrents = useMemo(() => {
+    if (showAllTorrents || movie?.mediaType !== "tv") return false;
+    return filteredGroups.some(
+      (g) => g.seasonPacks.length + g.episodes.length > 1,
     );
-  }, [groups, filter, movie]);
+  }, [showAllTorrents, movie, filteredGroups]);
 
   const visibleTorrents = useMemo(() => {
     if (query.trim()) return results;
@@ -334,6 +359,7 @@ const TorrentPickerSheet = forwardRef<
       if (nextMode) setMode(nextMode);
       setQuery("");
       setFilter("all");
+      setShowAllTorrents(false);
       setSelectionMode(false);
       setSelection(new Map());
       bottomSheetRef.current?.present();
@@ -488,6 +514,29 @@ const TorrentPickerSheet = forwardRef<
                   onPress={() => setFilter(option.value)}
                 />
               ))}
+              {hasCollapsedTorrents && (
+                <TouchableOpacity
+                  onPress={() => setShowAllTorrents((prev) => !prev)}
+                  activeOpacity={0.7}
+                  className={cn(
+                    "flex-1 rounded-md py-2 items-center border",
+                    showAllTorrents
+                      ? "bg-primary/15 border-primary/30"
+                      : "bg-muted/50 border-border/60",
+                  )}
+                >
+                  <Text
+                    className={cn(
+                      "text-xs font-semibold",
+                      showAllTorrents
+                        ? "text-primary"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {showAllTorrents ? "Less" : "Show all"}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
