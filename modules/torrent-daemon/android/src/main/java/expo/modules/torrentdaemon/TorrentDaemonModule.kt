@@ -106,6 +106,22 @@ class TorrentDaemonModule : Module() {
     AsyncFunction("stopDownloadNotifications") {
       stopService()
     }
+
+    AsyncFunction("startLanServing") { fileDir: String ->
+      Daemon.startLANServing(fileDir)
+    }
+
+    AsyncFunction("stopLanServing") {
+      Daemon.stopLANServing()
+    }
+
+    Function("getLanStreamURL") { infoHash: String ->
+      Daemon.getLanStreamURL(infoHash)
+    }
+
+    Function("getLanFileURL") { filePath: String ->
+      Daemon.getLanFileURL(filePath)
+    }
   }
 
   private fun downloadsJson(downloads: List<Map<String, Any?>>): String {

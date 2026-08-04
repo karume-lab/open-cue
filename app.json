@@ -34,6 +34,7 @@
           "enableAndroidPictureInPicture": true
         }
       ],
+      "react-native-google-cast",
       [
         "expo-build-properties",
         {

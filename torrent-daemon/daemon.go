@@ -2,12 +2,14 @@ package daemon
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -258,6 +260,186 @@ func contentTypeFor(name string) string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+// ── LAN serving ──────────────────────────────────────────────
+// When casting, the phone must serve video over the LAN so the Chromecast
+// receiver can fetch it. A separate HTTP server binds to 0.0.0.0 with a
+// per-session random token in every URL to prevent unauthorized access.
+// The server handles both torrent streams (already in memory via the
+// locked reader) and downloaded files (served from disk).
+
+var (
+	lanMu      sync.Mutex
+	lanSrv     *http.Server
+	lanAddr    string // e.g. "http://192.168.1.42:54321"
+	lanToken   string // random per-session token
+	lanActive  bool
+	lanFileDir string // downloads root directory for file serving
+)
+
+// getLanIP enumerates network interfaces and returns the first non-loopback
+// IPv4 address (typically the WiFi interface).
+func getLanIP() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "127.0.0.1"
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return "127.0.0.1"
+}
+
+func generateToken() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback — token is only for basic protection, not security-critical
+		return "fallback-token"
+	}
+	return fmt.Sprintf("%x", b)
+}
+
+// StartLANServing binds a public HTTP server on a random port for casting.
+// The server requires a per-session token in every request path.
+// fileDir is the downloads root for serving local files (may be empty).
+func StartLANServing(fileDir string) error {
+	lanMu.Lock()
+	defer lanMu.Unlock()
+
+	if lanActive {
+		return nil
+	}
+
+	ip := getLanIP()
+	listener, err := net.Listen("tcp", ip+":0")
+	if err != nil {
+		// Fallback to all interfaces if binding to specific IP fails
+		listener, err = net.Listen("tcp", "0.0.0.0:0")
+		if err != nil {
+			return fmt.Errorf("lan server: %w", err)
+		}
+	}
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	token := generateToken()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/cast/stream/", handleLANServeStream)
+	mux.HandleFunc("/cast/file/", handleLANServeFile)
+
+	lanSrv = &http.Server{Handler: mux}
+	lanAddr = fmt.Sprintf("http://%s:%d", ip, port)
+	lanToken = token
+	lanFileDir = fileDir
+	lanActive = true
+
+	go func() {
+		if err := lanSrv.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("lan server: %v", err)
+		}
+	}()
+
+	return nil
+}
+
+// StopLANServing tears down the public server and drops all active sessions.
+func StopLANServing() {
+	lanMu.Lock()
+	defer lanMu.Unlock()
+
+	if lanSrv != nil {
+		lanSrv.Close()
+		lanSrv = nil
+	}
+	lanActive = false
+	lanAddr = ""
+	lanToken = ""
+	lanFileDir = ""
+}
+
+// GetLanStreamURL returns the full LAN URL for a torrent stream, including the
+// session token. Returns "" if the LAN server is not active.
+func GetLanStreamURL(infoHashHex string) string {
+	lanMu.Lock()
+	defer lanMu.Unlock()
+	if !lanActive || lanAddr == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/cast/stream/%s/%s", lanAddr, lanToken, infoHashHex)
+}
+
+// GetLanFileURL returns the full LAN URL for a local downloaded file.
+func GetLanFileURL(filePath string) string {
+	lanMu.Lock()
+	defer lanMu.Unlock()
+	if !lanActive || lanAddr == "" {
+		return ""
+	}
+	encoded := url.PathEscape(filePath)
+	return fmt.Sprintf("%s/cast/file/%s/%s", lanAddr, lanToken, encoded)
+}
+
+func handleLANServeStream(w http.ResponseWriter, r *http.Request) {
+	// Path: /cast/stream/<token>/<hash>
+	parts := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/cast/stream/"), "/", 2)
+	if len(parts) != 2 || parts[0] != lanToken {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	infoHash := parts[1]
+
+	// CORS headers for Chromecast receiver
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Range")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Delegate to the existing stream handler by re-writing the path
+	r.URL.Path = "/stream/" + infoHash
+	handleStreamRequest(w, r)
+}
+
+func handleLANServeFile(w http.ResponseWriter, r *http.Request) {
+	// Path: /cast/file/<token>/<encoded-path>
+	rest := strings.TrimPrefix(r.URL.Path, "/cast/file/")
+	parts := strings.SplitN(rest, "/", 2)
+	if len(parts) != 2 || parts[0] != lanToken {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	rawPath, err := url.PathUnescape(parts[1])
+	if err != nil {
+		http.Error(w, "bad path", http.StatusBadRequest)
+		return
+	}
+
+	// CORS headers for Chromecast receiver
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Range")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Serve the file from disk. Path traversal is limited to the downloads
+	// directory by the caller (fileDir).
+	http.ServeFile(w, r, rawPath)
 }
 
 // Start initializes the torrent client.

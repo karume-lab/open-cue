@@ -106,5 +106,25 @@ public class TorrentDaemonModule: Module {
 
     AsyncFunction("stopDownloadNotifications") {
     }
+
+    AsyncFunction("startLanServing") { (fileDir: String) in
+      var error: NSError?
+      DaemonStartLANServing(fileDir, &error)
+      if let err = error {
+        throw err
+      }
+    }
+
+    AsyncFunction("stopLanServing") {
+      DaemonStopLANServing()
+    }
+
+    Function("getLanStreamURL") { (infoHash: String) -> String in
+      return DaemonGetLanStreamURL(infoHash)
+    }
+
+    Function("getLanFileURL") { (filePath: String) -> String in
+      return DaemonGetLanFileURL(filePath)
+    }
   }
 }

@@ -217,6 +217,10 @@ cue/
 
 ---
 
+## License
+
+This project is licensed under the **CC BY-NC-SA 4.0** with an additional restriction prohibiting use for AI/machine learning training. See [LICENSE](LICENSE) for details.
+
 ## Legal Disclaimer
 
 **Cue** is designed solely for providing access to publicly available content. It is not intended to support or promote piracy or copyright infringement. As the creator of this app, I hereby declare that I am not responsible for, and in no way associated with, any external links or the content they direct to.

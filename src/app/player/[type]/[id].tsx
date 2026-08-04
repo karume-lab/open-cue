@@ -8,12 +8,21 @@ import {
   Alert,
   AppState,
   BackHandler,
+  Image,
   Platform,
   StatusBar,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
+import {
+  CastState,
+  useCastDevice,
+  useCastState,
+  useMediaStatus,
+  useRemoteMediaClient,
+  useStreamPosition,
+} from "react-native-google-cast";
 import Video, {
   type OnBufferData,
   type OnLoadData,
@@ -26,6 +35,7 @@ import Video, {
 } from "react-native-video";
 import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
+import CastOverlay from "@/features/player/components/CastOverlay";
 import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
 import SubtitleOverlay from "@/features/player/components/SubtitleOverlay";
@@ -35,6 +45,21 @@ import SubtitleSheet, {
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { loadSubtitleCues, type SubtitleCue } from "@/lib/subtitles";
+import {
+  buildMediaRequest,
+  castPause,
+  castPlay,
+  castSeek,
+  castSetMuted,
+  castSetPlaybackRate,
+  castSetSubtitles,
+  castSetVolume,
+  getCastDuration,
+  isCastPlaying,
+  resolveFileCastURL,
+  resolveStreamCastURL,
+  stopLanServing,
+} from "@/services/CastService";
 import { resolveDownloadFileUri } from "@/services/DownloadService";
 import { StreamService } from "@/services/StreamService";
 import { episodeLabel } from "@/services/torrents";
@@ -144,6 +169,28 @@ const PlayerDetailScreen = () => {
   const [selectedSubtitleTrack, setSelectedSubtitleTrack] =
     useState<string>("off");
 
+  const subtitleTracks = useMemo<SubtitleTrackOption[]>(() => {
+    const tracks: SubtitleTrackOption[] = [{ id: "off", label: "Off" }];
+    if (externalSubtitleUri) {
+      tracks.push({
+        id: "external",
+        label: "External file",
+        detail:
+          subtitleCues.length > 0
+            ? `${subtitleCues.length} cues`
+            : "Sidecar subtitle from download",
+      });
+    }
+    embeddedTracks.forEach((track, index) => {
+      tracks.push({
+        id: `embedded:${index}`,
+        label: track.title || track.language || `Embedded track ${index + 1}`,
+        detail: track.language ? `Embedded · ${track.language}` : "Embedded",
+      });
+    });
+    return tracks;
+  }, [externalSubtitleUri, subtitleCues.length, embeddedTracks]);
+
   // Resume flow: prompt the user when there's meaningful progress, otherwise
   // auto-resume (or start from the beginning for brand-new plays).
   const [resumeMode, setResumeMode] = useState<ResumeMode>(() =>
@@ -157,6 +204,56 @@ const PlayerDetailScreen = () => {
   const lastSavedTime = useRef<number>(0);
   const currentTimeRef = useRef<number>(0);
   const hasEnteredPipRef = useRef(false);
+
+  // ── Cast state ─────────────────────────────────────────────
+  const castState = useCastState();
+  const castDevice = useCastDevice();
+  const castClient = useRemoteMediaClient();
+  const castMediaStatus = useMediaStatus();
+  const castStreamPosition = useStreamPosition(1000);
+  const [isCasting, setIsCasting] = useState(false);
+  const [castVolume, setCastVolume] = useState(1);
+  const [castMuted, setCastMuted] = useState(false);
+  const castLoadingRef = useRef(false);
+  const wasCastingRef = useRef(false);
+
+  // Sync cast connection state to local flag
+  useEffect(() => {
+    const connected = castState === CastState.CONNECTED;
+    setIsCasting(connected);
+
+    if (!connected) {
+      castLoadingRef.current = false;
+
+      // If we were casting and the connection dropped unexpectedly
+      // (not via handleStopCast / handleBack), auto-resume on phone
+      if (wasCastingRef.current) {
+        wasCastingRef.current = false;
+        const position = currentTimeRef.current;
+        stopLanServing().catch(() => {});
+        setIsPlaying(true);
+        if (videoRef.current && position > 0) {
+          videoRef.current.seek(position);
+        }
+      }
+    } else {
+      wasCastingRef.current = true;
+    }
+  }, [castState]);
+
+  // Sync cast position to player seek bar
+  useEffect(() => {
+    if (!isCasting || castStreamPosition == null) return;
+    setCurrentTime(castStreamPosition);
+    currentTimeRef.current = castStreamPosition;
+    setDuration(getCastDuration(castMediaStatus));
+    setPlayableDuration(getCastDuration(castMediaStatus));
+    setIsPlaying(isCastPlaying(castMediaStatus));
+    // Sync volume from receiver
+    if (castMediaStatus?.volume != null) {
+      setCastVolume(castMediaStatus.volume);
+    }
+  }, [isCasting, castStreamPosition, castMediaStatus]);
 
   const saveProgress = useCallback(
     (time: number) => {
@@ -173,9 +270,29 @@ const PlayerDetailScreen = () => {
   );
 
   const handleBack = useCallback(() => {
+    wasCastingRef.current = false;
     saveProgress(currentTimeRef.current);
+    if (isCasting && castClient) {
+      castClient.stop().catch(() => {});
+    }
+    stopLanServing().catch(() => {});
     router.back();
-  }, [saveProgress]);
+  }, [saveProgress, isCasting, castClient]);
+
+  const handleStopCast = useCallback(async () => {
+    wasCastingRef.current = false;
+    const position = castStreamPosition ?? currentTimeRef.current;
+    if (castClient) {
+      saveProgress(position);
+      await castClient.stop().catch(() => {});
+    }
+    await stopLanServing().catch(() => {});
+    // Resume local playback from the current position
+    setIsPlaying(true);
+    if (videoRef.current && position > 0) {
+      videoRef.current.seek(position);
+    }
+  }, [castClient, castStreamPosition, saveProgress]);
 
   const enterPictureInPicture = useCallback(() => {
     if (Platform.OS !== "android") return;
@@ -313,8 +430,102 @@ const PlayerDetailScreen = () => {
     return () => {
       ScreenOrientation.unlockAsync();
       StatusBar.setHidden(false);
+      stopLanServing().catch(() => {});
     };
   }, []);
+
+  // ── Cast media loading ──────────────────────────────────────
+  // When a cast session starts, resolve the LAN URL and load the media
+  // on the Chromecast. For streaming, this creates a new stream via the
+  // daemon. For downloads, it serves the local file over LAN.
+  useEffect(() => {
+    if (!isCasting || !castClient || !movie || castLoadingRef.current) return;
+    castLoadingRef.current = true;
+
+    let cancelled = false;
+
+    const loadCastMedia = async () => {
+      try {
+        let url: string;
+
+        if (mode === "stream" && magnet && hash) {
+          url = await resolveStreamCastURL(decodeParam(magnet) ?? magnet, hash);
+        } else if (isLocal && downloadId) {
+          const download = useAppStore.getState().downloads[downloadId];
+          if (!download?.localVideoPath) {
+            setPlaybackError({
+              title: "Cast unavailable",
+              message: "Could not locate the downloaded file for casting.",
+            });
+            return;
+          }
+          const fileUri = await resolveDownloadFileUri(download);
+          if (!fileUri) {
+            setPlaybackError({
+              title: "Cast unavailable",
+              message: "Could not access the downloaded file.",
+            });
+            return;
+          }
+          url = resolveFileCastURL(fileUri.replace("file://", ""));
+        } else {
+          return;
+        }
+
+        if (cancelled) return;
+
+        // Stop local video playback — the TV is now the display
+        setIsPlaying(false);
+
+        const subtitleTrackOptions = subtitleTracks.filter(
+          (t) => t.id !== "off",
+        );
+
+        const request = buildMediaRequest({
+          movie,
+          url,
+          subtitleTracks: subtitleTrackOptions,
+          startTime: savedCurrentTime,
+        });
+
+        await castClient.loadMedia(request);
+
+        // Apply persisted playback rate
+        if (settings.playbackRate !== 1) {
+          await castClient.setPlaybackRate(settings.playbackRate);
+        }
+      } catch (error) {
+        console.error("Failed to load cast media:", error);
+        if (!cancelled) {
+          setPlaybackError({
+            title: "Cast failed",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Could not start casting. Try again.",
+          });
+        }
+      }
+    };
+
+    loadCastMedia();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isCasting,
+    castClient,
+    movie,
+    mode,
+    magnet,
+    hash,
+    isLocal,
+    downloadId,
+    savedCurrentTime,
+    settings.playbackRate,
+    subtitleTracks,
+  ]);
 
   const handleBackRef = useRef(handleBack);
   handleBackRef.current = handleBack;
@@ -465,51 +676,49 @@ const PlayerDetailScreen = () => {
       handleReplay();
       return;
     }
-    setIsPlaying((prev) => !prev);
-  }, [ended, handleReplay]);
+    if (isCasting && castClient) {
+      if (isPlaying) {
+        castPause(castClient);
+      } else {
+        castPlay(castClient);
+      }
+      setIsPlaying((prev) => !prev);
+    } else {
+      setIsPlaying((prev) => !prev);
+    }
+  }, [ended, handleReplay, isCasting, castClient, isPlaying]);
 
   const cycleRate = useCallback(() => {
     setRate((prev) => {
       const index = PLAYBACK_RATES.indexOf(prev);
       const next = PLAYBACK_RATES[(index + 1) % PLAYBACK_RATES.length];
       updateSettings({ playbackRate: next });
+      if (isCasting && castClient) {
+        castSetPlaybackRate(castClient, next);
+      }
       return next;
     });
-  }, [updateSettings]);
+  }, [updateSettings, isCasting, castClient]);
 
   const seekForward = () => {
     const newTime = Math.min(currentTime + 10, duration);
-    videoRef.current?.seek(newTime);
+    if (isCasting && castClient) {
+      castSeek(castClient, newTime);
+    } else {
+      videoRef.current?.seek(newTime);
+    }
     setCurrentTime(newTime);
   };
 
   const seekBackward = () => {
     const newTime = Math.max(currentTime - 10, 0);
-    videoRef.current?.seek(newTime);
+    if (isCasting && castClient) {
+      castSeek(castClient, newTime);
+    } else {
+      videoRef.current?.seek(newTime);
+    }
     setCurrentTime(newTime);
   };
-
-  const subtitleTracks = useMemo<SubtitleTrackOption[]>(() => {
-    const tracks: SubtitleTrackOption[] = [{ id: "off", label: "Off" }];
-    if (externalSubtitleUri) {
-      tracks.push({
-        id: "external",
-        label: "External file",
-        detail:
-          subtitleCues.length > 0
-            ? `${subtitleCues.length} cues`
-            : "Sidecar subtitle from download",
-      });
-    }
-    embeddedTracks.forEach((track, index) => {
-      tracks.push({
-        id: `embedded:${index}`,
-        label: track.title || track.language || `Embedded track ${index + 1}`,
-        detail: track.language ? `Embedded · ${track.language}` : "Embedded",
-      });
-    });
-    return tracks;
-  }, [externalSubtitleUri, subtitleCues.length, embeddedTracks]);
 
   const videoTextTrack: SelectedTrack =
     subtitlePrefs.enabled && selectedSubtitleTrack.startsWith("embedded")
@@ -523,6 +732,18 @@ const PlayerDetailScreen = () => {
 
   const handleSelectSubtitleTrack = (id: string) => {
     setSelectedSubtitleTrack(id);
+
+    if (isCasting && castClient) {
+      if (id === "off") {
+        castSetSubtitles(castClient, []);
+      } else if (id === "external") {
+        // External subtitle already loaded via buildMediaRequest mediaTracks
+      } else if (id.startsWith("embedded:")) {
+        const index = Number(id.split(":")[1]);
+        castSetSubtitles(castClient, [index]);
+      }
+    }
+
     if (ended) return;
     setIsPlaying(true);
     interactControls();
@@ -555,7 +776,8 @@ const PlayerDetailScreen = () => {
 
   return (
     <View className="flex-1 bg-black">
-      {videoSource && (
+      {/* Video source — hidden when casting (TV is the display) */}
+      {videoSource && !isCasting && (
         <Video
           ref={videoRef}
           source={{ uri: videoSource }}
@@ -577,13 +799,48 @@ const PlayerDetailScreen = () => {
         />
       )}
 
-      {(isPreparing || isBuffering) && (
+      {/* Poster background when casting */}
+      {isCasting && movie?.large_cover_image && (
+        <Image
+          source={{ uri: movie.large_cover_image }}
+          style={[StyleSheet.absoluteFill, { opacity: 0.4 }]}
+          resizeMode="cover"
+          blurRadius={20}
+        />
+      )}
+
+      {(isPreparing || isBuffering) && !isCasting && (
         <View
           className="absolute inset-0 items-center justify-center"
           pointerEvents="none"
         >
           <ActivityIndicator size="large" color="#c97742" />
         </View>
+      )}
+
+      {/* Cast overlay — device name + volume slider */}
+      {isCasting && castDevice && (
+        <CastOverlay
+          deviceName={castDevice.friendlyName}
+          volume={castVolume}
+          onVolumeChange={(v) => {
+            setCastVolume(v);
+            if (castClient) castSetVolume(castClient, v);
+          }}
+          muted={castMuted}
+          onToggleMute={() => {
+            const next = !castMuted;
+            setCastMuted(next);
+            if (castClient) castSetMuted(castClient, next);
+          }}
+          activeSubtitleLabel={
+            selectedSubtitleTrack !== "off"
+              ? (subtitleTracks.find((t) => t.id === selectedSubtitleTrack)
+                  ?.label ?? null)
+              : null
+          }
+          onStopCast={handleStopCast}
+        />
       )}
 
       <GestureLayer
@@ -606,7 +863,11 @@ const PlayerDetailScreen = () => {
         onReplay={handleReplay}
         onCycleRate={cycleRate}
         onSeek={(time) => {
-          videoRef.current?.seek(time);
+          if (isCasting && castClient) {
+            castSeek(castClient, time);
+          } else {
+            videoRef.current?.seek(time);
+          }
           setCurrentTime(time);
         }}
         onBack={handleBack}

@@ -45,6 +45,10 @@ interface TorrentDaemonInterface {
   startDownloadNotifications(downloads: DownloadNotification[]): Promise<void>;
   updateDownloadNotifications(downloads: DownloadNotification[]): Promise<void>;
   stopDownloadNotifications(): Promise<void>;
+  startLanServing(fileDir: string): Promise<void>;
+  stopLanServing(): Promise<void>;
+  getLanStreamURL(infoHash: string): string;
+  getLanFileURL(filePath: string): string;
 }
 
 export default requireNativeModule<TorrentDaemonInterface>("TorrentDaemon");

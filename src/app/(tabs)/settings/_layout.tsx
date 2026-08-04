@@ -16,6 +16,12 @@ const SettingsLayout: React.FC = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="about"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 };

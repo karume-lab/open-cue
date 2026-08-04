@@ -1,5 +1,6 @@
 import type { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { ChevronRight, Plane, Subtitles } from "lucide-react-native";
+import { router } from "expo-router";
+import { ChevronRight, Info, Plane, Subtitles } from "lucide-react-native";
 import { useRef } from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
@@ -87,6 +88,35 @@ const SettingsScreen = () => {
         <View className="mt-8">
           <View className="bg-card border border-border/50 rounded-md">
             <BackupManager />
+          </View>
+        </View>
+
+        <View className="mt-8">
+          <View className="bg-card border border-border/50 rounded-md overflow-hidden">
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/settings/about")}
+              activeOpacity={0.7}
+              className="flex-row items-center justify-between p-5"
+            >
+              <View className="flex-row items-center gap-4">
+                <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
+                  <Icon as={Info} className="text-primary" size={20} />
+                </View>
+                <View>
+                  <Text className="text-base font-semibold text-foreground">
+                    About
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    App info and developer
+                  </Text>
+                </View>
+              </View>
+              <Icon
+                as={ChevronRight}
+                className="text-muted-foreground/50"
+                size={18}
+              />
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
