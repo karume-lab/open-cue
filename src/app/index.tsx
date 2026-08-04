@@ -185,6 +185,13 @@ const OnboardingScreen: React.FC = () => {
   const [folderPath, setFolderPath] = useState<string | null>(
     () => getCueDirectoryPath() ?? null,
   );
+  const folderPathRef = useRef(folderPath);
+  const previousIndexRef = useRef(0);
+
+  const updateFolderPath = (path: string | null) => {
+    folderPathRef.current = path;
+    setFolderPath(path);
+  };
   const [permissions, setPermissions] = useState<
     Record<PermissionSlideType, boolean>
   >({ notifications: false, writeSettings: false });
@@ -208,7 +215,31 @@ const OnboardingScreen: React.FC = () => {
         viewableItems[0].index !== null &&
         viewableItems[0].index !== undefined
       ) {
-        setCurrentIndex(viewableItems[0].index);
+        const prevIdx = previousIndexRef.current;
+        const newIdx = viewableItems[0].index;
+        previousIndexRef.current = newIdx;
+        setCurrentIndex(newIdx);
+
+        // The folder slide is at index 2. If the user swiped away from it
+        // without ever picking (or creating) a folder, create the default now.
+        const folderSlideIndex = BASE_SLIDES.findIndex(
+          (s) => s.type === "folder",
+        );
+        if (
+          prevIdx === folderSlideIndex &&
+          newIdx !== folderSlideIndex &&
+          !folderPathRef.current &&
+          !getCueDirectoryPath()
+        ) {
+          setDefaultCueDirectory()
+            .then((p) => {
+              folderPathRef.current = p;
+              setFolderPath(p);
+            })
+            .catch((err) =>
+              console.error("Failed to create default Cue directory:", err),
+            );
+        }
       }
     },
   ).current;
@@ -266,7 +297,19 @@ const OnboardingScreen: React.FC = () => {
     [currentSlideReady, currentIndex],
   );
 
-  const handleFinishOnboarding = () => {
+  const handleFinishOnboarding = async () => {
+    // Ensure the Cue folder exists even if the user swiped past the folder
+    // slide without tapping "Next" (which is where the default was previously
+    // created). Without this, no folder is persisted and features like backup
+    // think no folder was ever chosen.
+    if (!folderPath && !getCueDirectoryPath()) {
+      try {
+        const defaultPath = await setDefaultCueDirectory();
+        updateFolderPath(defaultPath);
+      } catch (error) {
+        console.error("Failed to create default Cue directory:", error);
+      }
+    }
     completeOnboarding(selectedTags);
     router.replace("/(tabs)/discover");
   };
@@ -341,7 +384,7 @@ const OnboardingScreen: React.FC = () => {
                 />
               )}
               {item.type === "folder" && (
-                <FolderSelectionSlide onFolderSelected={setFolderPath} />
+                <FolderSelectionSlide onFolderSelected={updateFolderPath} />
               )}
             </View>
           );
@@ -372,7 +415,7 @@ const OnboardingScreen: React.FC = () => {
             // If folder slide and no folder picked yet, create the default.
             if (slide.type === "folder" && !folderPath) {
               const defaultPath = await setDefaultCueDirectory();
-              setFolderPath(defaultPath);
+              updateFolderPath(defaultPath);
             }
             if (currentIndex < slides.length - 1) {
               flatListRef.current?.scrollToIndex({
