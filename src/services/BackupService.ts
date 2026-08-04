@@ -6,6 +6,7 @@ import { APP_STORAGE_NAME } from "@/lib/constants";
 import {
   BACKUPS_DIR_NAME,
   getCueDirectoryPath,
+  getCueDirectoryUri,
   getCueSubdirectoryUri,
   pickCueDirectory,
 } from "@/services/StorageLocation";
@@ -85,35 +86,51 @@ const writeBackupFile = (
 ): void => {
   const content = JSON.stringify(backup, null, 2);
 
-  // A leftover directory (e.g. from an earlier broken version) can sit at the
-  // backup path and make the file write fail with "A folder with the same name
-  // already exists". Remove it first so the file can be (re)created.
-  const removeConflictingDirectory = (uri: string): void => {
-    try {
-      const existing = new Directory(uri);
-      if (existing.exists) existing.delete();
-    } catch {
-      // Nothing blocking there — the write below surfaces any real error.
-    }
-  };
-
   if (dirUri) {
-    const dir = new Directory(dirUri);
-    let file: File;
-    try {
-      file = dir.createFile("application/json", BACKUP_FILE_NAME);
-    } catch {
-      file = new File(`${dirUri}/${BACKUP_FILE_NAME}`);
+    // SAF content URI. `File.write()` internally calls `create()` when the
+    // target is missing, which Android rejects for SAF documents — so the file
+    // must already exist before writing. Overwrite semantics are kept by
+    // re-creating the file through the SAF-aware `createFile` API.
+    const fileUri = getCueSubdirectoryUri(
+      `${BACKUPS_DIR_NAME}/${BACKUP_FILE_NAME}`,
+    );
+    const file = fileUri ? new File(fileUri) : undefined;
+    if (file?.exists) {
+      file.write(content);
+      return;
     }
-    removeConflictingDirectory(file.uri);
-    file.write(content);
+    // A leftover directory (e.g. from an earlier broken version) can sit at the
+    // backup path and make file creation fail with "A folder with the same name
+    // already exists". Remove it first so the file can be (re)created.
+    if (fileUri) {
+      try {
+        const leftover = new Directory(fileUri);
+        if (leftover.exists) leftover.delete();
+      } catch {
+        // Nothing blocking there — createFile below surfaces any real error.
+      }
+    }
+    const dir = new Directory(dirUri);
+    if (!dir.exists) {
+      const treeUri = getCueDirectoryUri();
+      if (treeUri) new Directory(treeUri).createDirectory(BACKUPS_DIR_NAME);
+    }
+    dir.createFile("application/json", BACKUP_FILE_NAME).write(content);
     return;
   }
   const dir = new Directory(`file://${dirPath}`);
   if (!dir.exists) dir.create({ idempotent: true, intermediates: true });
-  removeConflictingDirectory(`file://${dirPath}/${BACKUP_FILE_NAME}`);
   const file = new File(dir, BACKUP_FILE_NAME);
-  if (!file.exists) file.create({ overwrite: true, intermediates: true });
+  if (!file.exists) {
+    // A leftover directory at the backup path blocks file creation; clear it.
+    try {
+      const leftover = new Directory(file.uri);
+      if (leftover.exists) leftover.delete();
+    } catch {
+      // Nothing blocking there — create below surfaces any real error.
+    }
+    file.create({ overwrite: true, intermediates: true });
+  }
   file.write(content);
 };
 

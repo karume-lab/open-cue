@@ -38,12 +38,27 @@ export const getCueDirectoryUri = (): string | undefined =>
   storage.getString(CUE_DIR_URI_KEY);
 
 // Content URI of a child document under the Cue folder tree (e.g. `media/`).
+// SAF documents are addressed as `content://<authority>/document/<documentId>`
+// with the full document ID (the path below the tree root) percent-encoded into
+// a single path segment. expo-file-system resolves URIs whose first path
+// segment is `document` through `DocumentFile.fromSingleUri`; the picker's
+// `tree/…` form is re-anchored to the tree root by `fromTreeUri` instead, so
+// children must not be built on top of it.
 export const getCueSubdirectoryUri = (name: string): string | undefined => {
   const treeUri = getCueDirectoryUri();
   if (!treeUri) return undefined;
   const treeId = treeUri.split("/tree/")[1];
   if (!treeId) return undefined;
-  return `${treeUri}/document/${treeId}/${name}`;
+  const authority = treeUri.split("/tree/")[0].replace("content://", "");
+  let decodedTreeId: string;
+  try {
+    decodedTreeId = decodeURIComponent(treeId);
+  } catch {
+    decodedTreeId = treeId;
+  }
+  return `content://${authority}/document/${encodeURIComponent(
+    `${decodedTreeId}/${name}`,
+  )}`;
 };
 
 // Creates a subfolder under the Cue folder through the SAF grant. No-op (or
