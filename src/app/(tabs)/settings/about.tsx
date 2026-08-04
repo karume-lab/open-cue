@@ -1,6 +1,8 @@
+import Constants from "expo-constants";
 import { router } from "expo-router";
-import { ArrowLeft, Globe, Info } from "lucide-react-native";
+import { ChevronLeft, Globe } from "lucide-react-native";
 import {
+  Image,
   Linking,
   ScrollView,
   StatusBar,
@@ -11,9 +13,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 
-const PORTFOLIO_URL = "https://karume.vercel.app";
+import { PORTFOLIO_URL } from "@/lib/constants";
 
 const AboutScreen = () => {
+  const version = Constants.expoConfig?.version ?? "1.0.0";
+
   return (
     <View className="flex-1 bg-background">
       <StatusBar translucent backgroundColor="transparent" />
@@ -23,7 +27,7 @@ const AboutScreen = () => {
             onPress={() => router.back()}
             className="size-10 bg-muted/60 items-center justify-center rounded-md border border-border/10"
           >
-            <Icon as={ArrowLeft} size={20} className="text-foreground" />
+            <Icon as={ChevronLeft} size={20} className="text-foreground" />
           </TouchableOpacity>
           <Text className="text-lg font-bold text-foreground">About</Text>
         </View>
@@ -36,11 +40,15 @@ const AboutScreen = () => {
       >
         <View className="items-center mb-8">
           <View className="size-20 rounded-2xl bg-primary/15 items-center justify-center mb-4">
-            <Icon as={Info} className="text-primary" size={36} />
+            <Image
+              source={require("@/../public/core/icon.png")}
+              className="w-full h-full rounded-2xl"
+              resizeMode="contain"
+            />
           </View>
           <Text className="text-2xl font-bold text-foreground">Cue</Text>
           <Text className="text-sm text-muted-foreground mt-1">
-            Version 1.0.0
+            Version {version}
           </Text>
         </View>
 
@@ -59,11 +67,10 @@ const AboutScreen = () => {
           Developer
         </Text>
         <View className="bg-card border border-border/50 rounded-md p-5 mb-6">
-          <Text className="text-base font-semibold text-foreground mb-1">
-            Karume
-          </Text>
           <Text className="text-sm text-muted-foreground leading-6">
-            Built with care by Karume.
+            Powered by{" "}
+            <Text className="line-through">coffee and sleepless nights</Text>{" "}
+            <Text className="underline">karume-lab.</Text>
           </Text>
         </View>
 

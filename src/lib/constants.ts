@@ -26,3 +26,5 @@ export const APP_STORAGE_ID = "cue-app-storage";
 // v4 (in-place): watchHistory entries carry the full Movie so Continue Watching
 // works for any watched title; legacy numeric entries are migrated in the store.
 export const APP_STORAGE_NAME = "cue-storage-v3";
+
+export const PORTFOLIO_URL = "https://karume.vercel.app";

@@ -46,6 +46,7 @@ const TabLayout: React.FC = () => {
         name="settings"
         options={{
           title: "Settings",
+          headerShown: false,
           tabBarIcon: ({ color }) => <Icon as={Settings} color={color} />,
         }}
       />

@@ -7,7 +7,11 @@ const SettingsLayout: React.FC = () => {
       <Stack.Screen
         name="index"
         options={{
-          headerShown: false,
+          headerTitle: "Settings",
+          headerShown: true,
+          headerStyle: { backgroundColor: "#0f1114" },
+          headerShadowVisible: false,
+          headerTintColor: "#eceff1",
         }}
       />
       <Stack.Screen

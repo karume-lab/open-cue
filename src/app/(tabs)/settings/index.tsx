@@ -75,23 +75,23 @@ const SettingsScreen = () => {
           </View>
         </View>
 
-        <View className="mt-8">
+        <View className="mt-8 px-5">
           <StorageManager />
         </View>
 
-        <View className="mt-8">
+        <View className="mt-8 px-5">
           <View className="bg-card border border-border/50 rounded-md">
             <DownloadStorage />
           </View>
         </View>
 
-        <View className="mt-8">
+        <View className="mt-8 px-5">
           <View className="bg-card border border-border/50 rounded-md">
             <BackupManager />
           </View>
         </View>
 
-        <View className="mt-8">
+        <View className="mt-8 px-5">
           <View className="bg-card border border-border/50 rounded-md overflow-hidden">
             <TouchableOpacity
               onPress={() => router.push("/(tabs)/settings/about")}

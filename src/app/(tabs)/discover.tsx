@@ -75,7 +75,7 @@ const DiscoverScreen = () => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="flex-grow-0 pt-3"
+        className="grow-0 py-3"
         contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
       >
         {GENRE_CHIPS.map((chip) => {
@@ -93,7 +93,7 @@ const DiscoverScreen = () => {
               }`}
             >
               <Text
-                className={`text-sm font-medium ${
+                className={`text-sm font-medium pb-0.5 ${
                   selected ? "text-primary-foreground" : "text-foreground"
                 }`}
               >
