@@ -26,10 +26,18 @@ export interface GlobalStats {
   uploadedBytes: number;
 }
 
+// Result of the SAF folder picker: the real filesystem `path` (used by the Go
+// daemon) and the persisted `content://` tree `uri` (used for SAF file
+// operations in JS). Either may be null when the folder can't be mapped.
+export interface StorageDirectoryResult {
+  path: string | null;
+  uri: string | null;
+}
+
 interface TorrentDaemonInterface {
   startDaemon(storagePath: string): Promise<void>;
   stopDaemon(): Promise<void>;
-  pickStorageDirectory(): Promise<string | null>;
+  pickStorageDirectory(): Promise<StorageDirectoryResult | null>;
   addMagnet(uri: string): Promise<string>;
   getProgress(infoHash: string): number;
   getDownloadSpeed(infoHash: string): number;

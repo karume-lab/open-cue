@@ -6,6 +6,7 @@ import { APP_STORAGE_NAME } from "@/lib/constants";
 import {
   BACKUPS_DIR_NAME,
   getCueDirectoryPath,
+  getCueSubdirectoryUri,
   pickCueDirectory,
 } from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
@@ -74,12 +75,31 @@ export const pickBackupDirectory = async (): Promise<string | null> => {
   return getBackupDirectoryPath();
 };
 
-const writeBackupFile = (backup: BackupFile, dirPath: string): void => {
+// Writes the backup JSON into the backups/ subfolder. Prefers the SAF content
+// URI (needed for write access to shared storage on modern Android); falls
+// back to the raw path for legacy folders chosen before the cue-folder layout.
+const writeBackupFile = (
+  backup: BackupFile,
+  dirPath: string,
+  dirUri?: string,
+): void => {
+  const content = JSON.stringify(backup, null, 2);
+  if (dirUri) {
+    const dir = new Directory(dirUri);
+    let file: File;
+    try {
+      file = dir.createFile("application/json", BACKUP_FILE_NAME);
+    } catch {
+      file = new File(`${dirUri}/${BACKUP_FILE_NAME}`);
+    }
+    file.write(content);
+    return;
+  }
   const dir = new Directory(`file://${dirPath}`);
   if (!dir.exists) dir.create({ idempotent: true, intermediates: true });
   const file = new File(dir, BACKUP_FILE_NAME);
   if (!file.exists) file.create({ overwrite: true, intermediates: true });
-  file.write(JSON.stringify(backup, null, 2));
+  file.write(content);
 };
 
 // Writes the backup to the configured folder. When run manually (not silent)
@@ -99,7 +119,11 @@ export const exportBackup = async (options?: {
   }
 
   try {
-    writeBackupFile(collectBackup(), dirPath);
+    writeBackupFile(
+      collectBackup(),
+      dirPath,
+      getCueSubdirectoryUri(BACKUPS_DIR_NAME),
+    );
     storage.set(LAST_BACKUP_KEY, new Date().toISOString());
     return {
       ok: true,

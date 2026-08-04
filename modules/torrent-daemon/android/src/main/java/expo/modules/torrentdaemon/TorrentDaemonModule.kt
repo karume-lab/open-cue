@@ -26,9 +26,10 @@ class TorrentDaemonModule : Module() {
     }
 
     // Picks a folder on shared/external storage via Android's SAF picker and
-    // returns its real filesystem path, or null if the user cancels or the
-    // folder can't be mapped to a path. The SAF grant is persisted so the Go
-    // daemon can keep writing to the folder across app restarts and updates.
+    // returns its real filesystem path (for the Go daemon) plus the content
+    // tree URI (for SAF-backed file operations in JS), or null if the user
+    // cancels or the folder can't be mapped to a path. The SAF grant is
+    // persisted so the app keeps write access across restarts and updates.
     AsyncFunction("pickStorageDirectory") Coroutine { ->
       val uri = storageDirectoryLauncher.launch("") ?: return@Coroutine null
       val context = appContext.reactContext ?: return@Coroutine null
@@ -36,7 +37,10 @@ class TorrentDaemonModule : Module() {
         uri,
         Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
       )
-      resolveTreeUriToPath(uri)
+      mapOf(
+        "path" to resolveTreeUriToPath(uri),
+        "uri" to uri.toString(),
+      )
     }
 
     AsyncFunction("startDaemon") { storagePath: String ->

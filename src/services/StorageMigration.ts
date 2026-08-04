@@ -20,7 +20,10 @@ export const hasActiveTransfers = (): boolean => {
 // Moves the entire downloads directory into the media/ subfolder of a new Cue
 // folder on shared/external storage. Refuses while any torrent is actively
 // transferring so the daemon never holds mmap handles across a move.
-export const moveDownloadsStorage = async (cueRoot: string): Promise<void> => {
+export const moveDownloadsStorage = async (
+  cueRoot: string,
+  cueUri?: string,
+): Promise<void> => {
   const newPath = `${cueRoot}/${MEDIA_DIR_NAME}`;
   const currentPath = getDownloadsStoragePath();
   if (currentPath === newPath) return;
@@ -38,7 +41,7 @@ export const moveDownloadsStorage = async (cueRoot: string): Promise<void> => {
   const newDir = new Directory(`file://${newPath}`);
 
   if (!oldDir.exists) {
-    setCueDirectory(cueRoot);
+    setCueDirectory(cueRoot, cueUri);
     return;
   }
 
@@ -50,5 +53,5 @@ export const moveDownloadsStorage = async (cueRoot: string): Promise<void> => {
 
   if (newDir.exists) newDir.delete();
   oldDir.move(newDir);
-  setCueDirectory(cueRoot);
+  setCueDirectory(cueRoot, cueUri);
 };

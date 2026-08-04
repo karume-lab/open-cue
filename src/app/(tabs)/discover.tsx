@@ -75,7 +75,7 @@ const DiscoverScreen = () => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="grow-0 py-3"
+        className="grow-0 shrink-0 py-3"
         contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
       >
         {GENRE_CHIPS.map((chip) => {

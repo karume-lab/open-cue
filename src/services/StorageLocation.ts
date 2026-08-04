@@ -7,9 +7,15 @@ import TorrentDaemon from "~/modules/torrent-daemon";
 // backups in `<cue>/backups`, so both survive uninstalls. Without a cue folder
 // the Go daemon falls back to app-internal storage (survives `adb install -r`
 // updates but NOT uninstall).
+//
+// Shared-storage folders are accessed through Android's SAF grant (a persisted
+// content:// tree URI). JS must use content URIs for create/write — raw
+// `file://` paths on external storage fail the WRITE permission check on
+// modern Android, even when the SAF grant exists.
 
 const STORAGE_PATH_KEY = "downloadStoragePath";
 const CUE_DIR_PATH_KEY = "cueDirectoryPath";
+const CUE_DIR_URI_KEY = "cueDirectoryUri";
 const INTERNAL_DOWNLOADS_DIR = "downloads";
 
 export const MEDIA_DIR_NAME = "media";
@@ -27,14 +33,43 @@ export const getStoredStoragePath = (): string | undefined =>
 export const getCueDirectoryPath = (): string | undefined =>
   storage.getString(CUE_DIR_PATH_KEY);
 
-// Persists a chosen folder as the Cue folder and ensures the media/ and
-// backups/ subfolders exist.
-export const setCueDirectory = (path: string): void => {
-  storage.set(CUE_DIR_PATH_KEY, path);
-  for (const name of [MEDIA_DIR_NAME, BACKUPS_DIR_NAME]) {
-    const dir = new Directory(`file://${path}/${name}`);
-    if (!dir.exists) dir.create({ idempotent: true, intermediates: true });
+// Persisted `content://` tree URI of the Cue folder, held via SAF grant.
+export const getCueDirectoryUri = (): string | undefined =>
+  storage.getString(CUE_DIR_URI_KEY);
+
+// Content URI of a child document under the Cue folder tree (e.g. `media/`).
+export const getCueSubdirectoryUri = (name: string): string | undefined => {
+  const treeUri = getCueDirectoryUri();
+  if (!treeUri) return undefined;
+  const treeId = treeUri.split("/tree/")[1];
+  if (!treeId) return undefined;
+  return `${treeUri}/document/${treeId}/${name}`;
+};
+
+// Creates a subfolder under the Cue folder through the SAF grant. No-op (or
+// skipped) when the folder is already there or no content URI is available.
+const ensureCueSubdirectory = (name: string): void => {
+  const treeUri = getCueDirectoryUri();
+  const childUri = getCueSubdirectoryUri(name);
+  if (!treeUri || !childUri) return;
+  try {
+    const child = new Directory(childUri);
+    if (!child.exists) {
+      new Directory(treeUri).createDirectory(name);
+    }
+  } catch (error) {
+    console.error(`Failed to create ${name}/ in the Cue folder:`, error);
   }
+};
+
+// Persists a chosen folder as the Cue folder and ensures the media/ and
+// backups/ subfolders exist. `uri` is the SAF content tree URI; when absent
+// (legacy folders) subfolder creation is skipped.
+export const setCueDirectory = (path: string, uri = ""): void => {
+  storage.set(CUE_DIR_PATH_KEY, path);
+  storage.set(CUE_DIR_URI_KEY, uri);
+  ensureCueSubdirectory(MEDIA_DIR_NAME);
+  ensureCueSubdirectory(BACKUPS_DIR_NAME);
 };
 
 // Absolute path downloads are written to (`<cue>/media`, or the legacy
@@ -59,12 +94,13 @@ export const getDownloadsStoragePath = (): string =>
   getDownloadsDirectory().uri.replace("file://", "");
 
 // Prompts the user for the Cue folder (SAF picker) and persists it with its
-// media/ + backups/ subfolders. Returns null when cancelled or the folder
-// can't be mapped to a real path.
+// media/ + backups/ subfolders. Returns the folder path, or null when
+// cancelled or the folder can't be mapped to a real path.
 export const pickCueDirectory = async (): Promise<string | null> => {
-  const path = await TorrentDaemon.pickStorageDirectory();
+  const result = await TorrentDaemon.pickStorageDirectory();
+  const path = result?.path;
   if (!path) return null;
-  setCueDirectory(path);
+  setCueDirectory(path, result.uri ?? "");
   return path;
 };
 

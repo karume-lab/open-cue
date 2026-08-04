@@ -26,17 +26,17 @@ const DownloadStorage = () => {
   const locationLabel = mediaPath ?? INTERNAL_LABEL;
   const isShared = Boolean(mediaPath);
 
-  const applyCue = (path: string) => {
-    setCueDirectory(path);
+  const applyCue = (path: string, uri: string) => {
+    setCueDirectory(path, uri);
     setResult({
       ok: true,
       text: `Cue folder set. Downloads go to ${MEDIA_DIR_NAME}/, backups to backups/.`,
     });
   };
 
-  const runMove = async (path: string) => {
+  const runMove = async (path: string, uri: string) => {
     try {
-      await moveDownloadsStorage(path);
+      await moveDownloadsStorage(path, uri);
       setResult({
         ok: true,
         text: "Downloads moved into the new Cue folder. They now survive uninstalls.",
@@ -54,7 +54,9 @@ const DownloadStorage = () => {
     setBusy(true);
     setResult(null);
     try {
-      const path = await TorrentDaemon.pickStorageDirectory();
+      const result = await TorrentDaemon.pickStorageDirectory();
+      const path = result?.path;
+      const uri = result?.uri ?? "";
       if (!path) {
         setResult({ ok: false, text: "Folder selection cancelled." });
         return;
@@ -76,13 +78,13 @@ const DownloadStorage = () => {
             {
               text: "Keep them where they are",
               style: "destructive",
-              onPress: () => applyCue(path),
+              onPress: () => applyCue(path, uri),
             },
-            { text: "Move", onPress: () => runMove(path) },
+            { text: "Move", onPress: () => runMove(path, uri) },
           ],
         );
       } else {
-        applyCue(path);
+        applyCue(path, uri);
       }
     } catch (error) {
       setResult({

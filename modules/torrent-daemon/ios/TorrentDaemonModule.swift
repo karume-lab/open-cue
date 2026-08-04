@@ -18,7 +18,7 @@ public class TorrentDaemonModule: Module {
     }
 
     // Shared-storage folder picking is Android-only (SAF). No-op on iOS.
-    AsyncFunction("pickStorageDirectory") { () -> String? in
+    AsyncFunction("pickStorageDirectory") { () -> [String: Any?]? in
       return nil
     }
 

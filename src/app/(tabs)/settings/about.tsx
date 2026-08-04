@@ -10,10 +10,20 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  GithubIcon,
+  LinkedinIcon,
+  TwitterIcon,
+} from "@/components/ui/brand-icons";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 
-import { PORTFOLIO_URL } from "@/lib/constants";
+import {
+  GITHUB_URL,
+  LINKEDIN_URL,
+  PORTFOLIO_URL,
+  TWITTER_URL,
+} from "@/lib/constants";
 
 const AboutScreen = () => {
   const version = Constants.expoConfig?.version ?? "1.0.0";
@@ -81,7 +91,7 @@ const AboutScreen = () => {
           <TouchableOpacity
             onPress={() => Linking.openURL(PORTFOLIO_URL)}
             activeOpacity={0.7}
-            className="flex-row items-center justify-between p-5"
+            className="flex-row items-center justify-between p-5 border-b border-border/10"
           >
             <View className="flex-row items-center gap-4">
               <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
@@ -93,6 +103,66 @@ const AboutScreen = () => {
                 </Text>
                 <Text className="text-xs text-muted-foreground">
                   karume.vercel.app
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL(GITHUB_URL)}
+            activeOpacity={0.7}
+            className="flex-row items-center justify-between p-5 border-b border-border/10"
+          >
+            <View className="flex-row items-center gap-4">
+              <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
+                <GithubIcon color="#c97742" size={20} />
+              </View>
+              <View>
+                <Text className="text-base font-semibold text-foreground">
+                  GitHub
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  @Karume-lab
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL(LINKEDIN_URL)}
+            activeOpacity={0.7}
+            className="flex-row items-center justify-between p-5 border-b border-border/10"
+          >
+            <View className="flex-row items-center gap-4">
+              <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
+                <LinkedinIcon color="#c97742" size={20} />
+              </View>
+              <View>
+                <Text className="text-base font-semibold text-foreground">
+                  LinkedIn
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  Daniel Karume
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL(TWITTER_URL)}
+            activeOpacity={0.7}
+            className="flex-row items-center justify-between p-5"
+          >
+            <View className="flex-row items-center gap-4">
+              <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
+                <TwitterIcon color="#c97742" size={20} />
+              </View>
+              <View>
+                <Text className="text-base font-semibold text-foreground">
+                  Twitter
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  @karume_lab
                 </Text>
               </View>
             </View>
