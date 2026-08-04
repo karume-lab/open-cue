@@ -7,28 +7,22 @@ import { Text } from "@/components/ui/text";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 
-const calculateSizeMB = (runtime: number) => runtime * 15;
+const GB = 1024 * 1024 * 1024;
 
 const StorageManager = () => {
   const { storageInfo } = useSettings();
   const { downloads } = useAppStore();
-  const downloadedMovies = Object.values(downloads)
-    .filter((d) => d.state === "complete")
-    .map((d) => d.movie);
 
-  const movieSizes = useMemo(
-    () =>
-      downloadedMovies.map((m) => ({
-        id: m.id,
-        title: m.title,
-        sizeMB: calculateSizeMB(m.runtime),
-      })),
-    [downloadedMovies],
+  const totalMoviesSizeGB = useMemo(() => {
+    const bytes = Object.values(downloads)
+      .filter((d) => d.state === "complete")
+      .reduce((acc, d) => acc + (d.totalBytes ?? 0), 0);
+    return bytes / GB;
+  }, [downloads]);
+  const otherUsedGB = Math.max(0, storageInfo.usedGB - totalMoviesSizeGB);
+  const downloadedMovies = Object.values(downloads).filter(
+    (d) => d.state === "complete",
   );
-
-  const totalMoviesSizeGB =
-    movieSizes.reduce((acc, curr) => acc + curr.sizeMB, 0) / 1024;
-  const otherUsedGB = storageInfo.usedGB - totalMoviesSizeGB;
 
   return (
     <View className="px-5 py-4">

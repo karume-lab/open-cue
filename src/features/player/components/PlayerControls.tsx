@@ -1,9 +1,11 @@
 import Slider from "@react-native-community/slider";
 import {
   ArrowLeft,
+  Gauge,
   Pause,
   PictureInPicture2,
   Play,
+  RotateCcw,
   Subtitles,
 } from "lucide-react-native";
 import type React from "react";
@@ -16,11 +18,15 @@ import { Text } from "@/components/ui/text";
 export interface PlayerControlsProps {
   title: string;
   isPlaying: boolean;
+  ended: boolean;
   currentTime: number;
   duration: number;
   playableDuration: number;
   showControls: boolean;
+  rate: number;
   onPlayPause: () => void;
+  onReplay: () => void;
+  onCycleRate: () => void;
   onSeek: (time: number) => void;
   onBack: () => void;
   onOpenSubtitles: () => void;
@@ -41,11 +47,15 @@ const formatTime = (seconds: number) => {
 const PlayerControls: React.FC<PlayerControlsProps> = ({
   title,
   isPlaying,
+  ended,
   currentTime,
   duration,
   playableDuration,
   showControls,
+  rate,
   onPlayPause,
+  onReplay,
+  onCycleRate,
   onSeek,
   onBack,
   onOpenSubtitles,
@@ -95,6 +105,19 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
               <Icon as={PictureInPicture2} size={20} className="text-white" />
             </TouchableOpacity>
           )}
+          {!ended && (
+            <TouchableOpacity
+              onPress={onCycleRate}
+              className="h-10 px-3 rounded-full bg-black/40 items-center justify-center border border-white/10"
+            >
+              <View className="flex-row items-center gap-1.5">
+                <Icon as={Gauge} size={16} className="text-white" />
+                <Text className="text-white font-semibold text-xs">
+                  {rate}x
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={onOpenSubtitles}
             className="size-10 rounded-full bg-black/40 items-center justify-center border border-white/10"
@@ -106,18 +129,28 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
 
       {/* Center Play/Pause */}
       <View className="flex-1 items-center justify-center pointer-events-box-none">
-        <TouchableOpacity
-          onPress={onPlayPause}
-          disabled={!showControls}
-          className="size-20 rounded-full bg-black/50 items-center justify-center border border-white/20"
-        >
-          <Icon
-            as={isPlaying ? Pause : Play}
-            size={36}
-            className="text-white fill-white"
-            style={isPlaying ? {} : { marginLeft: 6 }}
-          />
-        </TouchableOpacity>
+        {ended ? (
+          <TouchableOpacity
+            onPress={onReplay}
+            disabled={!showControls}
+            className="size-20 rounded-full bg-black/50 items-center justify-center border border-white/20"
+          >
+            <Icon as={RotateCcw} size={32} className="text-white" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={onPlayPause}
+            disabled={!showControls}
+            className="size-20 rounded-full bg-black/50 items-center justify-center border border-white/20"
+          >
+            <Icon
+              as={isPlaying ? Pause : Play}
+              size={36}
+              className="text-white fill-white"
+              style={isPlaying ? {} : { marginLeft: 6 }}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Bottom Bar */}

@@ -2,14 +2,16 @@ import type { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { router, useLocalSearchParams } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   BackHandler,
   Platform,
   StatusBar,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
 import Video, {
@@ -18,19 +20,27 @@ import Video, {
   type OnPictureInPictureStatusChangedData,
   type OnProgressData,
   type OnVideoErrorData,
+  type SelectedTrack,
+  SelectedTrackType,
+  type TextTrack,
 } from "react-native-video";
+import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
 import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
-import SubtitlePreferencesSheet from "@/features/settings/components/SubtitlePreferencesSheet";
+import SubtitleOverlay from "@/features/player/components/SubtitleOverlay";
+import SubtitleSheet, {
+  type SubtitleTrackOption,
+} from "@/features/player/components/SubtitleSheet";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useAppStore } from "@/features/shared/store/useAppStore";
+import { loadSubtitleCues, type SubtitleCue } from "@/lib/subtitles";
 import { resolveDownloadFileUri } from "@/services/DownloadService";
 import { StreamService } from "@/services/StreamService";
+import { episodeLabel } from "@/services/torrents";
 import type { MediaType } from "@/types/movie";
 
-const DEMO_VIDEO_URL =
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+const PLAYBACK_RATES = [1, 1.25, 1.5, 2];
 
 const decodeParam = (
   value: string | string[] | undefined,
@@ -43,6 +53,8 @@ const decodeParam = (
     return raw;
   }
 };
+
+type ResumeMode = "prompt" | "resume" | "restart" | "none";
 
 const PlayerDetailScreen = () => {
   const { type, id, mode, magnet, hash, downloadId } = useLocalSearchParams<{
@@ -57,9 +69,45 @@ const PlayerDetailScreen = () => {
     (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
   const tmdbId = Number(Array.isArray(id) ? id[0] : id);
   const mediaId = `${mediaType}:${tmdbId}`;
+  const isLocal = mode === "local";
 
-  const { data: movie, isLoading } = useMovieDetailsQuery(mediaType, tmdbId);
-  const { watchHistory, updateWatchHistory } = useAppStore();
+  const {
+    watchHistory,
+    downloads,
+    settings,
+    updateSettings,
+    updateWatchHistory,
+    updateSubtitlePrefs,
+  } = useAppStore();
+
+  // Series episodes share the same mediaId, so progress must be tracked per
+  // episode (e.g. "tv:123:s01e02") instead of one slot per show.
+  const watchKey = useMemo(() => {
+    if (!isLocal || !downloadId) return mediaId;
+    const torrent = downloads[downloadId]?.movie.torrents?.[0];
+    const label = episodeLabel(torrent);
+    if (!label) return mediaId;
+    return `${mediaId}:${label.toLowerCase()}`;
+  }, [isLocal, downloadId, downloads, mediaId]);
+
+  const { data: queryMovie, isLoading: isQueryLoading } = useMovieDetailsQuery(
+    mediaType,
+    tmdbId,
+    { enabled: !isLocal },
+  );
+
+  // Local playback must not depend on the network: resolve the movie from the
+  // persisted download/watch-history snapshot instead of the TMDB query.
+  const localMovie = useMemo(() => {
+    if (!isLocal) return undefined;
+    if (downloadId) {
+      const download = downloads[downloadId];
+      if (download) return download.movie;
+    }
+    return watchHistory[mediaId]?.movie;
+  }, [isLocal, downloadId, downloads, watchHistory, mediaId]);
+
+  const movie = localMovie ?? queryMovie;
 
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const subtitleSheetRef = useRef<BottomSheetModal>(null);
@@ -70,15 +118,38 @@ const PlayerDetailScreen = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
   const [isInPip, setIsInPip] = useState(false);
+  const [ended, setEnded] = useState(false);
+  const [rate, setRate] = useState<number>(
+    settings.playbackRate > 0 ? settings.playbackRate : 1,
+  );
   const [playbackError, setPlaybackError] = useState<{
     title: string;
     message: string;
   } | null>(null);
 
-  const savedCurrentTime = watchHistory[mediaId]?.currentTime || 0;
+  const savedCurrentTime = watchHistory[watchKey]?.currentTime || 0;
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playableDuration, setPlayableDuration] = useState(0);
+
+  // Subtitles — embedded tracks surface via onLoad; an external .srt/.vtt is
+  // parsed and rendered through SubtitleOverlay (works on every platform).
+  const subtitlePrefs = settings.subtitlePrefs;
+  const externalSubtitleUri =
+    isLocal && downloadId
+      ? downloads[downloadId]?.localSubtitlePath
+      : undefined;
+  const [subtitleCues, setSubtitleCues] = useState<SubtitleCue[]>([]);
+  const [embeddedTracks, setEmbeddedTracks] = useState<TextTrack[]>([]);
+  const [selectedSubtitleTrack, setSelectedSubtitleTrack] =
+    useState<string>("off");
+
+  // Resume flow: prompt the user when there's meaningful progress, otherwise
+  // auto-resume (or start from the beginning for brand-new plays).
+  const [resumeMode, setResumeMode] = useState<ResumeMode>(() =>
+    savedCurrentTime > 30 ? "prompt" : savedCurrentTime > 0 ? "resume" : "none",
+  );
+  const didPromptRef = useRef(false);
 
   const controlsTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -89,10 +160,16 @@ const PlayerDetailScreen = () => {
 
   const saveProgress = useCallback(
     (time: number) => {
-      if (movie) updateWatchHistory(mediaId, time, movie);
+      if (!movie) return;
+      updateWatchHistory(watchKey, time, movie);
+      // Keep the media-level slot in sync so cards and the Continue Watching
+      // rail still reflect the most recently watched episode of the show.
+      if (watchKey !== mediaId) {
+        updateWatchHistory(mediaId, time, movie);
+      }
       lastSavedTime.current = time;
     },
-    [mediaId, movie, updateWatchHistory],
+    [watchKey, mediaId, movie, updateWatchHistory],
   );
 
   const handleBack = useCallback(() => {
@@ -152,16 +229,26 @@ const PlayerDetailScreen = () => {
   }, []);
 
   // Resolve the video source: a live stream URL, a completed local download,
-  // or the demo video as a fallback.
+  // or an error dialog — never a silent demo video.
   useEffect(() => {
     let cancelled = false;
+
+    const fail = (title: string, message: string) => {
+      if (!cancelled) {
+        setPlaybackError({ title, message });
+        setIsPreparing(false);
+      }
+    };
 
     const resolveSource = async () => {
       try {
         if (mode === "stream" && hash) {
           const magnetUri = decodeParam(magnet);
           if (!magnetUri) {
-            setVideoSource(DEMO_VIDEO_URL);
+            fail(
+              "Playback unavailable",
+              "No torrent source was provided for this title.",
+            );
             return;
           }
           const url = await StreamService.startStreaming(magnetUri, hash);
@@ -171,23 +258,39 @@ const PlayerDetailScreen = () => {
 
         if (mode === "local" && downloadId) {
           const download = useAppStore.getState().downloads[downloadId];
-          if (download) {
-            const uri = await resolveDownloadFileUri(download);
-            if (!cancelled) setVideoSource(uri ?? DEMO_VIDEO_URL);
+          if (!download) {
+            fail(
+              "Playback unavailable",
+              "This download is no longer on the device.",
+            );
             return;
           }
+          const uri = await resolveDownloadFileUri(download);
+          if (!cancelled) {
+            if (uri) {
+              setVideoSource(uri);
+            } else {
+              fail(
+                "Playback unavailable",
+                "The video file could not be located on this device.",
+              );
+            }
+          }
+          return;
         }
 
-        setVideoSource(DEMO_VIDEO_URL);
+        fail(
+          "Playback unavailable",
+          "Could not start playback. Please try again.",
+        );
       } catch (error) {
         console.error("Failed to prepare video source:", error);
-        if (!cancelled) {
-          setPlaybackError({
-            title: "Playback unavailable",
-            message: "Could not start playback. Please try again.",
-          });
-          setVideoSource(DEMO_VIDEO_URL);
-        }
+        fail(
+          "Playback unavailable",
+          error instanceof Error
+            ? error.message
+            : "Could not start playback. Please try again.",
+        );
       } finally {
         if (!cancelled) setIsPreparing(false);
       }
@@ -218,7 +321,7 @@ const PlayerDetailScreen = () => {
 
   const handleHardwareBackRef = useRef<() => boolean>(() => false);
   handleHardwareBackRef.current = () => {
-    if (Platform.OS === "android" && isPlaying && !isInPip) {
+    if (Platform.OS === "android" && isPlaying && !isInPip && !ended) {
       // First back enters PIP while the video keeps playing; the next back
       // (after the PIP window is dismissed) exits the screen normally.
       if (hasEnteredPipRef.current) {
@@ -246,13 +349,42 @@ const PlayerDetailScreen = () => {
     };
   }, []);
 
+  // Ask whether to resume when there's meaningful saved progress.
   useEffect(() => {
-    if (movie && savedCurrentTime > 0 && currentTime === 0) {
-      setTimeout(() => {
+    if (resumeMode !== "prompt" || didPromptRef.current || !movie) return;
+    didPromptRef.current = true;
+    const mins = Math.floor(savedCurrentTime / 60);
+    const secs = Math.floor(savedCurrentTime % 60)
+      .toString()
+      .padStart(2, "0");
+    Alert.alert(
+      "Resume playback?",
+      `You left off at ${mins}:${secs}.`,
+      [
+        {
+          text: "Start over",
+          style: "cancel",
+          onPress: () => setResumeMode("restart"),
+        },
+        { text: "Resume", onPress: () => setResumeMode("resume") },
+      ],
+      { cancelable: false },
+    );
+  }, [resumeMode, movie, savedCurrentTime]);
+
+  // Seek once the source is ready, honoring the resume decision.
+  useEffect(() => {
+    if (!movie || !videoSource) return;
+    if (resumeMode === "resume" && savedCurrentTime > 0 && currentTime === 0) {
+      const timer = setTimeout(() => {
         videoRef.current?.seek(savedCurrentTime);
       }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [movie, savedCurrentTime, currentTime]);
+    if (resumeMode === "restart") {
+      videoRef.current?.seek(0);
+    }
+  }, [movie, videoSource, resumeMode, savedCurrentTime, currentTime]);
 
   useEffect(() => {
     interactControls();
@@ -272,7 +404,30 @@ const PlayerDetailScreen = () => {
 
   const handleLoad = (data: OnLoadData) => {
     setDuration(data.duration);
+    setEmbeddedTracks(data.textTracks ?? []);
   };
+
+  // Load an external subtitle file next to a downloaded video and default to it
+  // when one exists (embedded-first otherwise).
+  useEffect(() => {
+    let cancelled = false;
+    if (!externalSubtitleUri) {
+      setSubtitleCues([]);
+      return;
+    }
+    loadSubtitleCues(externalSubtitleUri).then((cues) => {
+      if (cancelled) return;
+      setSubtitleCues(cues);
+      if (cues.length > 0) {
+        setSelectedSubtitleTrack((prev) =>
+          prev === "off" ? "external" : prev,
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [externalSubtitleUri]);
 
   const handleBuffer = (data: OnBufferData) => {
     setIsBuffering(data.isBuffering);
@@ -290,6 +445,38 @@ const PlayerDetailScreen = () => {
     });
   };
 
+  const handleEnd = useCallback(() => {
+    saveProgress(currentTimeRef.current);
+    setIsPlaying(false);
+    setEnded(true);
+    setShowControls(true);
+  }, [saveProgress]);
+
+  const handleReplay = useCallback(() => {
+    setEnded(false);
+    setIsPlaying(true);
+    setCurrentTime(0);
+    videoRef.current?.seek(0);
+    interactControls();
+  }, [interactControls]);
+
+  const handlePlayPause = useCallback(() => {
+    if (ended) {
+      handleReplay();
+      return;
+    }
+    setIsPlaying((prev) => !prev);
+  }, [ended, handleReplay]);
+
+  const cycleRate = useCallback(() => {
+    setRate((prev) => {
+      const index = PLAYBACK_RATES.indexOf(prev);
+      const next = PLAYBACK_RATES[(index + 1) % PLAYBACK_RATES.length];
+      updateSettings({ playbackRate: next });
+      return next;
+    });
+  }, [updateSettings]);
+
   const seekForward = () => {
     const newTime = Math.min(currentTime + 10, duration);
     videoRef.current?.seek(newTime);
@@ -302,7 +489,69 @@ const PlayerDetailScreen = () => {
     setCurrentTime(newTime);
   };
 
-  if (isLoading || !movie) return <View className="flex-1 bg-black" />;
+  const subtitleTracks = useMemo<SubtitleTrackOption[]>(() => {
+    const tracks: SubtitleTrackOption[] = [{ id: "off", label: "Off" }];
+    if (externalSubtitleUri) {
+      tracks.push({
+        id: "external",
+        label: "External file",
+        detail:
+          subtitleCues.length > 0
+            ? `${subtitleCues.length} cues`
+            : "Sidecar subtitle from download",
+      });
+    }
+    embeddedTracks.forEach((track, index) => {
+      tracks.push({
+        id: `embedded:${index}`,
+        label: track.title || track.language || `Embedded track ${index + 1}`,
+        detail: track.language ? `Embedded · ${track.language}` : "Embedded",
+      });
+    });
+    return tracks;
+  }, [externalSubtitleUri, subtitleCues.length, embeddedTracks]);
+
+  const videoTextTrack: SelectedTrack =
+    subtitlePrefs.enabled && selectedSubtitleTrack.startsWith("embedded")
+      ? {
+          type: SelectedTrackType.INDEX,
+          value:
+            embeddedTracks[Number(selectedSubtitleTrack.split(":")[1])]
+              ?.index ?? 0,
+        }
+      : { type: SelectedTrackType.DISABLED };
+
+  const handleSelectSubtitleTrack = (id: string) => {
+    setSelectedSubtitleTrack(id);
+    if (ended) return;
+    setIsPlaying(true);
+    interactControls();
+  };
+
+  // Local playback resolves its movie from persisted state, so never block on
+  // the network query; only the stream flow waits for TMDB metadata.
+  if (isLocal && !movie) {
+    return (
+      <View className="flex-1 bg-black items-center justify-center gap-4">
+        <Text className="text-white font-bold text-lg">
+          Playback unavailable
+        </Text>
+        <Text className="text-white/60 text-sm text-center px-8">
+          This download could not be found on the device.
+        </Text>
+        <TouchableOpacity
+          onPress={handleBack}
+          className="bg-white/10 rounded-md px-6 py-3"
+        >
+          <Text className="text-white font-semibold">Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!isLocal && (isQueryLoading || !movie)) {
+    return <View className="flex-1 bg-black" />;
+  }
 
   return (
     <View className="flex-1 bg-black">
@@ -313,6 +562,8 @@ const PlayerDetailScreen = () => {
           style={StyleSheet.absoluteFill}
           resizeMode="contain"
           paused={!isPlaying || isPreparing}
+          rate={rate}
+          selectedTextTrack={videoTextTrack}
           playInBackground
           enterPictureInPictureOnLeave
           onPictureInPictureStatusChanged={handlePiPStatusChanged}
@@ -320,6 +571,7 @@ const PlayerDetailScreen = () => {
           onLoad={handleLoad}
           onBuffer={handleBuffer}
           onError={handleError}
+          onEnd={handleEnd}
           onLoadStart={() => setIsBuffering(true)}
           progressUpdateInterval={1000}
         />
@@ -342,13 +594,17 @@ const PlayerDetailScreen = () => {
       />
 
       <PlayerControls
-        title={movie.title}
+        title={movie?.title ?? ""}
         isPlaying={isPlaying}
+        ended={ended}
         currentTime={currentTime}
         duration={duration}
         playableDuration={playableDuration}
         showControls={showControls}
-        onPlayPause={() => setIsPlaying(!isPlaying)}
+        rate={rate}
+        onPlayPause={handlePlayPause}
+        onReplay={handleReplay}
+        onCycleRate={cycleRate}
         onSeek={(time) => {
           videoRef.current?.seek(time);
           setCurrentTime(time);
@@ -362,7 +618,30 @@ const PlayerDetailScreen = () => {
         onControlsInteract={interactControls}
       />
 
-      <SubtitlePreferencesSheet ref={subtitleSheetRef} />
+      {selectedSubtitleTrack === "external" && (
+        <SubtitleOverlay
+          cues={subtitleCues}
+          currentTime={currentTime}
+          delay={subtitlePrefs.delay}
+          enabled={subtitlePrefs.enabled}
+          fontSize={subtitlePrefs.fontSize}
+          color={subtitlePrefs.color}
+          backgroundOpacity={subtitlePrefs.backgroundOpacity}
+        />
+      )}
+
+      <SubtitleSheet
+        ref={subtitleSheetRef}
+        tracks={subtitleTracks}
+        selectedTrackId={selectedSubtitleTrack}
+        onSelectTrack={handleSelectSubtitleTrack}
+        enabled={subtitlePrefs.enabled}
+        onToggleEnabled={(enabled) => updateSubtitlePrefs({ enabled })}
+        delay={subtitlePrefs.delay}
+        onChangeDelay={(delay) =>
+          updateSubtitlePrefs({ delay: Math.min(10, Math.max(-10, delay)) })
+        }
+      />
 
       {playbackError && (
         <MessageDialog
@@ -370,7 +649,10 @@ const PlayerDetailScreen = () => {
           title={playbackError.title}
           message={playbackError.message}
           onOpenChange={(open) => {
-            if (!open) setPlaybackError(null);
+            if (!open) {
+              setPlaybackError(null);
+              handleBack();
+            }
           }}
         />
       )}

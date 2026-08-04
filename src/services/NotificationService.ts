@@ -36,12 +36,27 @@ export const requestNotificationPermissions = async () => {
 export const scheduleLocalNotification = async (
   title: string,
   body: string,
+  data?: Record<string, unknown>,
 ) => {
   await Notifications.scheduleNotificationAsync({
     content: {
       title,
       body,
+      data,
     },
     trigger: null, // trigger immediately
   });
 };
+
+export const NOTIFICATION_ROUTE_KEY = "route";
+
+/**
+ * Turns a deep-link path into notification data. When the notification is
+ * tapped, the route is pushed so the user lands on the relevant screen
+ * (e.g. a media title) instead of the app's home tab.
+ */
+export const routeNotificationData = (
+  route: string,
+): { [NOTIFICATION_ROUTE_KEY]: string } => ({
+  [NOTIFICATION_ROUTE_KEY]: route,
+});

@@ -55,6 +55,22 @@ class TorrentDaemonModule : Module() {
       Daemon.getProgress(infoHash)
     }
 
+    Function("getDownloadSpeed") { infoHash: String ->
+      Daemon.getDownloadSpeed(infoHash)
+    }
+
+    Function("getUploadSpeed") { infoHash: String ->
+      Daemon.getUploadSpeed(infoHash)
+    }
+
+    Function("getTorrentStats") { infoHash: String ->
+      Daemon.getTorrentStats(infoHash)
+    }
+
+    Function("getGlobalStats") {
+      Daemon.getGlobalStats()
+    }
+
     Function("getFiles") { infoHash: String ->
       Daemon.getFiles(infoHash)
     }
@@ -65,6 +81,10 @@ class TorrentDaemonModule : Module() {
 
     AsyncFunction("resume") { infoHash: String ->
       Daemon.resume(infoHash)
+    }
+
+    AsyncFunction("deleteTorrent") { infoHash: String ->
+      Daemon.deleteTorrent(infoHash)
     }
 
     AsyncFunction("streamTorrent") { uri: String ->

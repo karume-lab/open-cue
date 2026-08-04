@@ -70,7 +70,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.8.0 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
-	golang.org/x/mobile v0.0.0-20260730202154-c700fe717e6e // indirect
+	golang.org/x/mobile v0.0.0-20260803200217-62cee1672c8e // indirect
 	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect

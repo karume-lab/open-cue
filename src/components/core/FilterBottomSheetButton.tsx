@@ -12,11 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import {
+  activeFilterCount,
+  DEFAULT_FILTERS,
+  type DownloadFilter,
+  type FilterState,
+  type SortOption,
+} from "@/lib/filtering";
 
 // Raw hex values for native-only props — must match global.css
-
-type SortOption = "rating" | "year" | "title";
-type DownloadFilter = "downloading" | "complete" | "queued";
 
 const GENRES = [
   "Action",
@@ -45,20 +49,6 @@ const DOWNLOAD_STATES: { label: string; value: DownloadFilter }[] = [
   { label: "Queued", value: "queued" },
 ];
 
-export interface FilterState {
-  offlineOnly: boolean;
-  genres: string[];
-  sortBy: SortOption;
-  downloadStates: DownloadFilter[];
-}
-
-const DEFAULT_FILTERS: FilterState = {
-  offlineOnly: false,
-  genres: [],
-  sortBy: "rating",
-  downloadStates: [],
-};
-
 interface FilterBottomSheetButtonProps {
   onFilterChange?: (filters: FilterState) => void;
 }
@@ -72,11 +62,8 @@ const FilterBottomSheetButton = ({
   const [applied, setApplied] = useState<FilterState>(DEFAULT_FILTERS);
   const [draft, setDraft] = useState<FilterState>(DEFAULT_FILTERS);
 
-  const activeFilterCount =
-    (applied.offlineOnly ? 1 : 0) +
-    applied.genres.length +
-    applied.downloadStates.length +
-    (applied.sortBy !== "rating" ? 1 : 0);
+  const appliedCount = activeFilterCount(applied);
+  const draftCount = activeFilterCount(draft);
 
   const handleOpenPress = useCallback(() => {
     setDraft(applied);
@@ -125,12 +112,6 @@ const FilterBottomSheetButton = ({
     [],
   );
 
-  const draftFilterCount =
-    (draft.offlineOnly ? 1 : 0) +
-    draft.genres.length +
-    draft.downloadStates.length +
-    (draft.sortBy !== "rating" ? 1 : 0);
-
   return (
     <View>
       <View>
@@ -140,10 +121,10 @@ const FilterBottomSheetButton = ({
         >
           <Icon as={ListFilterIcon} className="text-foreground" size={18} />
         </Button>
-        {activeFilterCount > 0 && (
+        {appliedCount > 0 && (
           <View className="absolute -top-1 -right-1 bg-primary rounded-full size-4 items-center justify-center">
             <Text className="text-primary-foreground text-[10px] font-bold">
-              {activeFilterCount}
+              {appliedCount}
             </Text>
           </View>
         )}
@@ -229,8 +210,8 @@ const FilterBottomSheetButton = ({
             className="bg-primary rounded-md py-5 items-center mt-2"
           >
             <Text className="text-primary-foreground font-bold text-sm">
-              {draftFilterCount > 0
-                ? `Apply ${draftFilterCount} filter${draftFilterCount > 1 ? "s" : ""}`
+              {draftCount > 0
+                ? `Apply ${draftCount} filter${draftCount > 1 ? "s" : ""}`
                 : "Apply"}
             </Text>
           </TouchableOpacity>

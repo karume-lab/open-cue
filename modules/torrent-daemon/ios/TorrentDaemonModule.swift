@@ -35,6 +35,22 @@ public class TorrentDaemonModule: Module {
       return DaemonGetProgress(infoHash)
     }
 
+    Function("getDownloadSpeed") { (infoHash: String) -> Double in
+      return DaemonGetDownloadSpeed(infoHash)
+    }
+
+    Function("getUploadSpeed") { (infoHash: String) -> Double in
+      return DaemonGetUploadSpeed(infoHash)
+    }
+
+    Function("getTorrentStats") { (infoHash: String) -> String in
+      return DaemonGetTorrentStats(infoHash)
+    }
+
+    Function("getGlobalStats") { () -> String in
+      return DaemonGetGlobalStats()
+    }
+
     Function("getFiles") { (infoHash: String) -> String in
       return DaemonGetFiles(infoHash)
     }
@@ -50,6 +66,14 @@ public class TorrentDaemonModule: Module {
     AsyncFunction("resume") { (infoHash: String) in
       var error: NSError?
       DaemonResume(infoHash, &error)
+      if let err = error {
+        throw err
+      }
+    }
+
+    AsyncFunction("deleteTorrent") { (infoHash: String) in
+      var error: NSError?
+      DaemonDeleteTorrent(infoHash, &error)
       if let err = error {
         throw err
       }

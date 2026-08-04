@@ -1,3 +1,4 @@
+import { Paths } from "expo-file-system";
 import {
   createContext,
   type FC,
@@ -10,6 +11,8 @@ import {
   type SubtitlePreferences,
   useAppStore,
 } from "@/features/shared/store/useAppStore";
+
+const GB = 1024 * 1024 * 1024;
 
 interface SettingsContextType {
   isOfflineMode: boolean;
@@ -47,13 +50,20 @@ export const SettingsProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [updateStoreSubtitlePrefs],
   );
 
-  const storageInfo = useMemo(
-    () => ({
-      totalGB: 128,
-      usedGB: 45.5,
-    }),
-    [],
-  );
+  // Real on-device numbers from the file system, not hardcoded values.
+  const storageInfo = useMemo(() => {
+    let totalGB = 0;
+    let usedGB = 0;
+    try {
+      const total = Paths.totalDiskSpace;
+      const available = Paths.availableDiskSpace;
+      totalGB = total / GB;
+      usedGB = Math.max(0, total - available) / GB;
+    } catch {
+      // Non-native environments (e.g. web preview) report no disk info.
+    }
+    return { totalGB, usedGB };
+  }, []);
 
   const value = useMemo(
     () => ({

@@ -253,6 +253,28 @@ export const searchMulti = async (
   return { items, totalPages: data.total_pages };
 };
 
+export const trending = async (
+  mediaType: "movie" | "tv",
+  window: "day" | "week" = "week",
+): Promise<Movie[]> => {
+  const data = await tmdbFetch<TMDBPaginated<TMDBResultItem>>(
+    `/trending/${mediaType}/${window}`,
+    { page: 1 },
+  );
+  return data.results.slice(0, 10).map((item) => toMovie(item, mediaType));
+};
+
+export const recommendationsFor = async (
+  mediaType: MediaType,
+  tmdbId: number,
+): Promise<Movie[]> => {
+  const data = await tmdbFetch<TMDBPaginated<TMDBResultItem>>(
+    `/${mediaType}/${tmdbId}/recommendations`,
+    { page: 1 },
+  );
+  return data.results.slice(0, 10).map((item) => toMovie(item, mediaType));
+};
+
 const detailToMovie = (
   detail: TMDBMovieDetail,
   mediaType: MediaType,

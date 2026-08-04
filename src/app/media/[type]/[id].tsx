@@ -19,11 +19,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import MediaRow from "@/components/core/MediaRow";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
-import { useMovieDetailsQuery } from "@/features/discover/services/queries";
+import {
+  useMovieDetailsQuery,
+  useRecommendationsQuery,
+} from "@/features/discover/services/queries";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import {
   downloadsForMedia,
@@ -126,6 +130,8 @@ const MediaDetailScreen = () => {
     refetch,
     isRefetching,
   } = useMovieDetailsQuery(mediaType, tmdbId);
+  const { data: recommendations, isLoading: isRecsLoading } =
+    useRecommendationsQuery(mediaType, tmdbId);
   const { bookmarks, downloads, watchHistory, toggleBookmark } = useAppStore();
 
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
@@ -516,6 +522,16 @@ const MediaDetailScreen = () => {
             </View>
           )}
         </View>
+
+        {recommendations && recommendations.length > 0 && (
+          <View className="mb-8">
+            <MediaRow
+              title="More Like This"
+              movies={recommendations}
+              loading={isRecsLoading}
+            />
+          </View>
+        )}
       </ScrollView>
       {exportResult && (
         <MessageDialog

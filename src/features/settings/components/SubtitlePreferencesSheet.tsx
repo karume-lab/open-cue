@@ -19,6 +19,13 @@ const SUBTITLE_COLORS = [
   { name: "Red", hex: "#F44336" },
 ];
 
+const BACKGROUND_OPACITIES = [
+  { label: "None", value: 0 },
+  { label: "50%", value: 0.5 },
+  { label: "75%", value: 0.75 },
+  { label: "Solid", value: 1 },
+];
+
 const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
   const { subtitlePrefs, updateSubtitlePrefs } = useSettings();
 
@@ -95,7 +102,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
         </View>
 
         {/* Color Section */}
-        <View className="mb-0">
+        <View className="mb-8">
           <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
             Subtitle Color
           </Text>
@@ -120,6 +127,40 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
           </View>
         </View>
 
+        {/* Background Section */}
+        <View className="mb-8">
+          <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
+            Background
+          </Text>
+          <View className="flex-row gap-x-2 gap-y-1 flex-wrap">
+            {BACKGROUND_OPACITIES.map((bg) => {
+              const selected = subtitlePrefs.backgroundOpacity === bg.value;
+              return (
+                <TouchableOpacity
+                  key={bg.label}
+                  onPress={() =>
+                    updateSubtitlePrefs({ backgroundOpacity: bg.value })
+                  }
+                  activeOpacity={0.7}
+                  className={`py-2 px-3 rounded-full border ${
+                    selected
+                      ? "bg-primary border-primary"
+                      : "bg-card border-border/50"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm ${
+                      selected ? "text-primary-foreground" : "text-foreground"
+                    }`}
+                  >
+                    {bg.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Preview Section */}
         <View className="mt-auto items-center justify-center p-6 bg-background/50 border border-border/50 rounded-md">
           <Text
@@ -131,6 +172,11 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               textShadowColor: "rgba(0,0,0,0.75)",
               textShadowOffset: { width: 2, height: 2 },
               textShadowRadius: 2,
+              backgroundColor: `rgba(0, 0, 0, ${subtitlePrefs.backgroundOpacity})`,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 4,
+              overflow: "hidden",
             }}
           >
             This is how subtitles will look.

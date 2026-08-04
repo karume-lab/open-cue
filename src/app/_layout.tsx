@@ -12,6 +12,7 @@ import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 export { ErrorBoundary } from "expo-router";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Notifications from "expo-notifications";
 import { useRouter, useSegments } from "expo-router";
 import type React from "react";
 import { useEffect } from "react";
@@ -22,6 +23,7 @@ import {
   runStartupBackups,
 } from "@/services/BackgroundTasks";
 import { DownloadService } from "@/services/DownloadService";
+import { NOTIFICATION_ROUTE_KEY } from "@/services/NotificationService";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
 // Register background task in the global scope
@@ -72,6 +74,36 @@ const RootLayout: React.FC = () => {
       router.replace("/");
     }
   }, [hasSeenOnboarding, segments, router]);
+
+  // Tapping a notification navigates to the route it carried (e.g. the media
+  // detail for a new 4K release) instead of dropping the user at the home tab.
+  useEffect(() => {
+    const openRoute = (route: unknown) => {
+      if (typeof route !== "string" || !route.startsWith("/")) return;
+      router.push(route as never);
+    };
+
+    // Cold start: the app launched from a notification tap.
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response)
+          openRoute(
+            response.notification.request.content.data?.[
+              NOTIFICATION_ROUTE_KEY
+            ],
+          );
+      })
+      .catch(() => {});
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        openRoute(
+          response.notification.request.content.data?.[NOTIFICATION_ROUTE_KEY],
+        );
+      },
+    );
+    return () => subscription.remove();
+  }, [router]);
 
   // Lift the splash as soon as a screen is focused. The Protected guards below
   // make the correct screen the initial route, so there is no redirect

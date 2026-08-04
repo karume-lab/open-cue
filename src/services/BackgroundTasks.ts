@@ -2,7 +2,10 @@ import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { runDailyBackupIfDue } from "@/services/BackupService";
-import { scheduleLocalNotification } from "@/services/NotificationService";
+import {
+  routeNotificationData,
+  scheduleLocalNotification,
+} from "@/services/NotificationService";
 import { searchTorrents } from "@/services/torrents";
 
 const BACKGROUND_MOVIE_UPDATER = "BACKGROUND_MOVIE_UPDATER";
@@ -39,6 +42,7 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
         await scheduleLocalNotification(
           "New Quality Available!",
           `${movie.title} is now available in 4K!`,
+          routeNotificationData(`/media/${movie.mediaType}/${movie.tmdbId}`),
         );
         break; // Stop after first finding to prevent notification spam
       }

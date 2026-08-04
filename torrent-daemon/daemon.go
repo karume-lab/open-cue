@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -398,12 +399,141 @@ func GetProgress(infoHashHex string) float64 {
 	return 0.0
 }
 
-// GetDownloadSpeed returns the download speed in bytes per second.
+// ── Transfer-rate sampling ──────────────────────────────────
+// anacrolix exposes cumulative byte counters per torrent. Rates are derived by
+// differencing those counters across calls; a per-hash sample table keeps the
+// last seen counters so consecutive polls yield real, stable speeds.
+
+type rateState struct {
+	at time.Time
+	dl int64
+	ul int64
+}
+
+var (
+	ratesMu  sync.Mutex
+	rateSeen = map[string]*rateState{}
+)
+
+// sampleRates computes the download/upload rate in bytes/sec since the last
+// call for a torrent, seeding the tracker on first sight.
+func sampleRates(hash string, st torrent.TorrentStats) (dlSpeed, ulSpeed float64) {
+	now := time.Now()
+	dl := st.BytesReadUsefulData.Int64()
+	ul := st.BytesWrittenData.Int64()
+
+	ratesMu.Lock()
+	defer ratesMu.Unlock()
+
+	prev := rateSeen[hash]
+	rateSeen[hash] = &rateState{at: now, dl: dl, ul: ul}
+	if prev == nil {
+		return 0, 0
+	}
+
+	dt := now.Sub(prev.at).Seconds()
+	if dt <= 0 {
+		return 0, 0
+	}
+	if dl >= prev.dl {
+		dlSpeed = float64(dl-prev.dl) / dt
+	}
+	if ul >= prev.ul {
+		ulSpeed = float64(ul-prev.ul) / dt
+	}
+	return dlSpeed, ulSpeed
+}
+
+func findTorrentLocked(infoHashHex string) *torrent.Torrent {
+	if client == nil {
+		return nil
+	}
+	for _, t := range client.Torrents() {
+		if t.InfoHash().HexString() == infoHashHex {
+			return t
+		}
+	}
+	return nil
+}
+
+// GetDownloadSpeed returns the torrent's current download speed in bytes/sec.
 func GetDownloadSpeed(infoHashHex string) float64 {
-	// In a real robust implementation, we'd track the rate over time.
-	// For this prototype, we'll return a mock value or rely on the JS side
-	// to calculate the derivative of progress over time, which is simpler!
-	return 0.0
+	mu.RLock()
+	defer mu.RUnlock()
+
+	t := findTorrentLocked(infoHashHex)
+	if t == nil {
+		return 0.0
+	}
+	dl, _ := sampleRates(infoHashHex, t.Stats())
+	return dl
+}
+
+// GetUploadSpeed returns the torrent's current upload speed in bytes/sec.
+func GetUploadSpeed(infoHashHex string) float64 {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	t := findTorrentLocked(infoHashHex)
+	if t == nil {
+		return 0.0
+	}
+	_, ul := sampleRates(infoHashHex, t.Stats())
+	return ul
+}
+
+// GetTorrentStats returns a JSON blob with a torrent's live stats. A string
+// return keeps the gomobile binding simple (nested structs don't bind well).
+// Returns "{}" when the torrent is unknown or its metadata is unresolved.
+func GetTorrentStats(infoHashHex string) string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	t := findTorrentLocked(infoHashHex)
+	if t == nil {
+		return "{}"
+	}
+	info := t.Info()
+	if info == nil {
+		return "{}"
+	}
+	total := info.TotalLength()
+	completed := t.BytesCompleted()
+	st := t.Stats()
+	dl, ul := sampleRates(infoHashHex, st)
+	progress := 0.0
+	if total > 0 {
+		progress = float64(completed) / float64(total)
+	}
+	return fmt.Sprintf(
+		`{"progress":%f,"download_speed":%f,"upload_speed":%f,"bytes_completed":%d,"total_bytes":%d,"seeds":%d,"peers":%d}`,
+		progress, dl, ul, completed, total, st.ConnectedSeeders, st.ActivePeers,
+	)
+}
+
+// GetGlobalStats returns aggregate byte counters across every torrent, used by
+// the storage UI to show real on-device usage instead of hardcoded numbers.
+func GetGlobalStats() string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	if client == nil {
+		return "{}"
+	}
+	var completed, total, uploaded int64
+	for _, t := range client.Torrents() {
+		if t.Info() == nil {
+			continue
+		}
+		total += t.Info().TotalLength()
+		completed += t.BytesCompleted()
+		stats := t.Stats()
+		uploaded += stats.BytesWrittenData.Int64()
+	}
+	return fmt.Sprintf(
+		`{"bytes_completed":%d,"total_bytes":%d,"uploaded_bytes":%d}`,
+		completed, total, uploaded,
+	)
 }
 
 // GetFiles returns the absolute on-disk paths of a torrent's files as a
@@ -435,6 +565,44 @@ func GetFiles(infoHashHex string) string {
 	}
 
 	return ""
+}
+
+// DeleteTorrent drops a torrent from the client and removes its on-disk data
+// directory, reclaiming storage. The directory is derived from the torrent's
+// metainfo name scoped under the configured data dir, so it can't escape the
+// storage root.
+func DeleteTorrent(infoHashHex string) error {
+	mu.RLock()
+	if client == nil {
+		mu.RUnlock()
+		return errors.New("torrent client not started")
+	}
+	clientRef := client
+	mu.RUnlock()
+
+	for _, t := range clientRef.Torrents() {
+		if t.InfoHash().HexString() != infoHashHex {
+			continue
+		}
+
+		name := ""
+		if info := t.Info(); info != nil {
+			name = info.Name
+		}
+
+		// Stop streaming this torrent too, if it was being streamed.
+		stopStreamingEntry(infoHashHex)
+
+		t.Drop()
+
+		if name == "" || name == "." || name == ".." {
+			return nil
+		}
+		dir := filepath.Join(dataDir, filepath.Base(name))
+		return os.RemoveAll(dir)
+	}
+
+	return errors.New("torrent not found")
 }
 
 // Pause pauses the download.
@@ -559,16 +727,29 @@ func StreamTorrent(uri string) (string, error) {
 func StopStreaming(infoHashHex string) error {
 	streamsMu.Lock()
 	defer streamsMu.Unlock()
+	return stopStreamingEntryLocked(infoHashHex)
+}
 
+// stopStreamingEntry closes an active stream's reader and drops its torrent.
+// Callers must hold streamsMu. A missing stream is not an error here, so
+// cleanup during torrent deletion is best-effort.
+func stopStreamingEntryLocked(infoHashHex string) error {
 	entry := streams[infoHashHex]
 	if entry == nil {
-		return errors.New("stream not found")
+		return nil
 	}
-
 	entry.reader.Close()
 	entry.t.Drop()
 	delete(streams, infoHashHex)
 	return nil
+}
+
+// stopStreamingEntry closes an active stream without requiring the caller to
+// hold the streams lock.
+func stopStreamingEntry(infoHashHex string) {
+	streamsMu.Lock()
+	defer streamsMu.Unlock()
+	stopStreamingEntryLocked(infoHashHex)
 }
 
 // largestVideoFile returns the biggest video file in a torrent, which is the

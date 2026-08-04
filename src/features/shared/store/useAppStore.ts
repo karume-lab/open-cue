@@ -33,6 +33,7 @@ export interface DownloadState {
   state: "queued" | "downloading" | "complete" | "paused";
   progress: number;
   speed: number;
+  totalBytes?: number;
   localVideoPath?: string;
   localSubtitlePath?: string;
 }
@@ -40,11 +41,23 @@ export interface DownloadState {
 export interface SubtitlePreferences {
   fontSize: number;
   color: string;
+  backgroundOpacity: number; // 0.0–1.0
+  enabled: boolean;
+  delay: number; // seconds, applied at cue lookup time
 }
+
+const DEFAULT_SUBTITLE_PREFS: SubtitlePreferences = {
+  fontSize: 18,
+  color: "#FFFFFF",
+  backgroundOpacity: 0.6,
+  enabled: true,
+  delay: 0,
+};
 
 export interface AppSettings {
   isOfflineMode: boolean;
   subtitlePrefs: SubtitlePreferences;
+  playbackRate: number;
 }
 
 export interface WatchHistoryEntry {
@@ -57,6 +70,7 @@ export interface AppState {
   watchHistory: Record<string, WatchHistoryEntry>;
   downloads: Record<string, DownloadState>;
   settings: AppSettings;
+  recentSearches: string[];
 
   toggleBookmark: (movie: Movie) => void;
   updateWatchHistory: (
@@ -68,6 +82,9 @@ export interface AppState {
   removeDownload: (movieId: string) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   updateSubtitlePrefs: (prefs: Partial<SubtitlePreferences>) => void;
+  addRecentSearch: (query: string) => void;
+  removeRecentSearch: (query: string) => void;
+  clearRecentSearches: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -76,12 +93,11 @@ export const useAppStore = create<AppState>()(
       bookmarks: [],
       watchHistory: {},
       downloads: {},
+      recentSearches: [],
       settings: {
         isOfflineMode: false,
-        subtitlePrefs: {
-          fontSize: 18,
-          color: "#FFFFFF",
-        },
+        subtitlePrefs: DEFAULT_SUBTITLE_PREFS,
+        playbackRate: 1,
       },
 
       toggleBookmark: (movie: Movie) =>
@@ -141,22 +157,60 @@ export const useAppStore = create<AppState>()(
             subtitlePrefs: { ...state.settings.subtitlePrefs, ...prefs },
           },
         })),
+
+      addRecentSearch: (query) =>
+        set((state) => {
+          const trimmed = query.trim();
+          if (!trimmed) return state;
+          const withoutMatch = state.recentSearches.filter(
+            (q) => q.toLowerCase() !== trimmed.toLowerCase(),
+          );
+          return {
+            recentSearches: [trimmed, ...withoutMatch].slice(0, 10),
+          };
+        }),
+
+      removeRecentSearch: (query) =>
+        set((state) => ({
+          recentSearches: state.recentSearches.filter((q) => q !== query),
+        })),
+
+      clearRecentSearches: () => set({ recentSearches: [] }),
     }),
     {
       name: APP_STORAGE_NAME,
       storage: createJSONStorage(() => zustandStorage),
-      version: 1,
+      version: 2,
       migrate: (persistedState, version) => {
-        if (version >= 1) return persistedState as AppState;
-        const state = (persistedState ?? {}) as Partial<AppState> & {
-          watchHistory?: Record<string, number>;
+        const state = (persistedState ?? {}) as Partial<AppState>;
+        const settings = {
+          ...state.settings,
+          subtitlePrefs: {
+            ...DEFAULT_SUBTITLE_PREFS,
+            ...(state.settings?.subtitlePrefs ?? {}),
+          },
         };
-        const legacy = state.watchHistory ?? {};
+        if (version >= 1) {
+          return {
+            ...state,
+            settings,
+            recentSearches: state.recentSearches ?? [],
+          } as AppState;
+        }
+        const legacy = (state.watchHistory ?? {}) as unknown as Record<
+          string,
+          number
+        >;
         const watchHistory: Record<string, WatchHistoryEntry> = {};
         for (const [id, currentTime] of Object.entries(legacy)) {
           watchHistory[id] = { currentTime };
         }
-        return { ...state, watchHistory } as AppState;
+        return {
+          ...state,
+          settings,
+          watchHistory,
+          recentSearches: state.recentSearches ?? [],
+        } as AppState;
       },
     },
   ),

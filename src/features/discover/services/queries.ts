@@ -4,7 +4,9 @@ import {
   discoverTv,
   fetchMediaDetail,
   normalizeGenre,
+  recommendationsFor,
   searchMulti,
+  trending,
 } from "@/services/tmdb";
 import { searchTorrents } from "@/services/torrents";
 import type { MediaType, Movie, MovieResponse } from "@/types/movie";
@@ -123,10 +125,38 @@ export const useDiscoverMoviesInfiniteQuery = (
   });
 };
 
-export const useMovieDetailsQuery = (mediaType: MediaType, id: number) => {
+export const useMovieDetailsQuery = (
+  mediaType: MediaType,
+  id: number,
+  options?: { enabled?: boolean },
+) => {
   return useQuery({
     queryKey: discoverKeys.detail(mediaType, id),
     queryFn: () => fetchMediaDetailWithTorrents(mediaType, id),
+    enabled: options?.enabled ?? Boolean(mediaType && id),
+  });
+};
+
+// Interleaved trending movies + TV for the Discover rail.
+export const useTrendingQuery = () => {
+  return useQuery({
+    queryKey: ["trending"] as const,
+    queryFn: async () => {
+      const [movies, tv] = await Promise.all([
+        trending("movie"),
+        trending("tv"),
+      ]);
+      return interleave(movies, tv);
+    },
+    staleTime: 5 * 60_000,
+  });
+};
+
+export const useRecommendationsQuery = (mediaType: MediaType, id: number) => {
+  return useQuery({
+    queryKey: [...discoverKeys.details(), "similar", mediaType, id] as const,
+    queryFn: () => recommendationsFor(mediaType, id),
     enabled: Boolean(mediaType && id),
+    staleTime: 5 * 60_000,
   });
 };
