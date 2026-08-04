@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { ConfirmDialog } from "@/features/shared/components/ConfirmDialog";
 import {
   getCueDirectoryPath,
   getDownloadsDirectory,
@@ -20,6 +21,11 @@ const DownloadStorage = () => {
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+  const [moveDialog, setMoveDialog] = useState<{
+    open: boolean;
+    path: string;
+    uri: string;
+  }>({ open: false, path: "", uri: "" });
 
   const cuePath = getCueDirectoryPath();
   const mediaPath = getMediaDirectoryPath();
@@ -70,21 +76,7 @@ const DownloadStorage = () => {
         oldDir.list().length > 0;
 
       if (hasExisting) {
-        Alert.alert(
-          "Move existing downloads?",
-          "Move your already-downloaded movies into the new Cue folder so they also survive uninstalls.",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Keep them where they are",
-              style: "destructive",
-              onPress: () => {
-                void applyCue(path, uri);
-              },
-            },
-            { text: "Move", onPress: () => void runMove(path, uri) },
-          ],
-        );
+        setMoveDialog({ open: true, path, uri });
       } else {
         await applyCue(path, uri);
       }
@@ -148,6 +140,26 @@ const DownloadStorage = () => {
           {result.text}
         </Text>
       )}
+
+      <ConfirmDialog
+        open={moveDialog.open}
+        title="Move existing downloads?"
+        message="Move your already-downloaded movies into the new Cue folder so they also survive uninstalls."
+        actions={[
+          {
+            label: "Keep them where they are",
+            variant: "destructive",
+            onPress: () => {
+              void applyCue(moveDialog.path, moveDialog.uri);
+            },
+          },
+          {
+            label: "Move",
+            onPress: () => void runMove(moveDialog.path, moveDialog.uri),
+          },
+        ]}
+        onOpenChange={(open) => setMoveDialog((prev) => ({ ...prev, open }))}
+      />
     </View>
   );
 };

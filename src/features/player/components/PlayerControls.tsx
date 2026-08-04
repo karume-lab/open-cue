@@ -9,7 +9,7 @@ import {
   Subtitles,
 } from "lucide-react-native";
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Platform, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/icon";
@@ -24,6 +24,7 @@ export interface PlayerControlsProps {
   playableDuration: number;
   showControls: boolean;
   rate: number;
+  isSeeking?: boolean;
   onPlayPause: () => void;
   onReplay: () => void;
   onCycleRate: () => void;
@@ -53,6 +54,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
   playableDuration,
   showControls,
   rate,
+  isSeeking,
   onPlayPause,
   onReplay,
   onCycleRate,
@@ -64,6 +66,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
 }) => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const insets = useSafeAreaInsets();
+  const [showRemaining, setShowRemaining] = useState(false);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -159,15 +162,41 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
         style={{ paddingBottom: Math.max(insets.bottom, 24) }}
         pointerEvents={showControls ? "auto" : "none"}
       >
+        {isSeeking && (
+          <View className="items-center mb-2">
+            <Text className="text-primary text-xs font-bold">
+              Fast Forwarding…
+            </Text>
+          </View>
+        )}
         <View className="flex-row items-center justify-between mb-2 px-1">
           <Text className="text-white font-medium text-sm">
             {formatTime(currentTime)}
           </Text>
-          <Text className="text-white/60 font-medium text-sm">
-            {formatTime(duration)}
-          </Text>
+          <TouchableOpacity
+            onPress={() => setShowRemaining((prev) => !prev)}
+            activeOpacity={0.7}
+          >
+            <Text className="text-white/60 font-medium text-sm">
+              {showRemaining
+                ? `-${formatTime(Math.max(0, duration - currentTime))}`
+                : formatTime(duration)}
+            </Text>
+          </TouchableOpacity>
         </View>
         <View className="relative" style={{ height: 40 }}>
+          {/* Lighter orange remaining bar (full width) */}
+          <View
+            className="absolute rounded-full"
+            style={{
+              left: 0,
+              top: 18,
+              height: 4,
+              width: "100%",
+              backgroundColor: "rgba(201,119,66,0.25)",
+            }}
+          />
+          {/* Buffered progress (lighter) */}
           <View
             className="absolute rounded-full bg-white/25"
             style={{

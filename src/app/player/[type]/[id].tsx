@@ -5,7 +5,6 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   BackHandler,
   Image,
@@ -42,6 +41,7 @@ import SubtitleOverlay from "@/features/player/components/SubtitleOverlay";
 import SubtitleSheet, {
   type SubtitleTrackOption,
 } from "@/features/player/components/SubtitleSheet";
+import { ConfirmDialog } from "@/features/shared/components/ConfirmDialog";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { loadSubtitleCues, type SubtitleCue } from "@/lib/subtitles";
@@ -151,6 +151,12 @@ const PlayerDetailScreen = () => {
     title: string;
     message: string;
   } | null>(null);
+  const [isLongPressSeeking, setIsLongPressSeeking] = useState(false);
+  const longPressIntervalRef = useRef<
+    ReturnType<typeof setInterval> | undefined
+  >(undefined);
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [resumeTimeLabel, setResumeTimeLabel] = useState("");
 
   const savedCurrentTime = watchHistory[watchKey]?.currentTime || 0;
   const [currentTime, setCurrentTime] = useState(0);
@@ -568,19 +574,8 @@ const PlayerDetailScreen = () => {
     const secs = Math.floor(savedCurrentTime % 60)
       .toString()
       .padStart(2, "0");
-    Alert.alert(
-      "Resume playback?",
-      `You left off at ${mins}:${secs}.`,
-      [
-        {
-          text: "Start over",
-          style: "cancel",
-          onPress: () => setResumeMode("restart"),
-        },
-        { text: "Resume", onPress: () => setResumeMode("resume") },
-      ],
-      { cancelable: false },
-    );
+    setResumeTimeLabel(`${mins}:${secs}`);
+    setShowResumeDialog(true);
   }, [resumeMode, movie, savedCurrentTime]);
 
   // Seek once the source is ready, honoring the resume decision.
@@ -720,6 +715,27 @@ const PlayerDetailScreen = () => {
     setCurrentTime(newTime);
   };
 
+  const handleLongPressStart = useCallback(() => {
+    setIsLongPressSeeking(true);
+    let seekTime = currentTimeRef.current;
+    longPressIntervalRef.current = setInterval(() => {
+      seekTime = Math.min(seekTime + 5, duration);
+      if (videoRef.current) {
+        videoRef.current.seek(seekTime);
+      }
+      setCurrentTime(seekTime);
+      currentTimeRef.current = seekTime;
+    }, 200);
+  }, [duration]);
+
+  const handleLongPressEnd = useCallback(() => {
+    setIsLongPressSeeking(false);
+    if (longPressIntervalRef.current) {
+      clearInterval(longPressIntervalRef.current);
+      longPressIntervalRef.current = undefined;
+    }
+  }, []);
+
   const videoTextTrack: SelectedTrack =
     subtitlePrefs.enabled && selectedSubtitleTrack.startsWith("embedded")
       ? {
@@ -848,6 +864,8 @@ const PlayerDetailScreen = () => {
         onDoubleTapLeft={seekBackward}
         onDoubleTapRight={seekForward}
         onControlsInteract={interactControls}
+        onLongPressStart={handleLongPressStart}
+        onLongPressEnd={handleLongPressEnd}
       />
 
       <PlayerControls
@@ -859,6 +877,7 @@ const PlayerDetailScreen = () => {
         playableDuration={playableDuration}
         showControls={showControls}
         rate={rate}
+        isSeeking={isLongPressSeeking}
         onPlayPause={handlePlayPause}
         onReplay={handleReplay}
         onCycleRate={cycleRate}
@@ -917,6 +936,24 @@ const PlayerDetailScreen = () => {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={showResumeDialog}
+        title="Resume playback?"
+        message={`You left off at ${resumeTimeLabel}.`}
+        actions={[
+          {
+            label: "Start over",
+            variant: "outline",
+            onPress: () => setResumeMode("restart"),
+          },
+          {
+            label: "Resume",
+            onPress: () => setResumeMode("resume"),
+          },
+        ]}
+        onOpenChange={setShowResumeDialog}
+      />
     </View>
   );
 };

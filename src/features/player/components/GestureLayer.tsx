@@ -17,6 +17,8 @@ interface GestureLayerProps {
   onDoubleTapLeft: () => void;
   onDoubleTapRight: () => void;
   onControlsInteract: () => void;
+  onLongPressStart: () => void;
+  onLongPressEnd: () => void;
 }
 
 const GestureLayer: React.FC<GestureLayerProps> = ({
@@ -24,6 +26,8 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
   onDoubleTapLeft,
   onDoubleTapRight,
   onControlsInteract,
+  onLongPressStart,
+  onLongPressEnd,
 }) => {
   const [startBrightness, setStartBrightness] = useState(0.5);
   const [startVolume, setStartVolume] = useState(0.5);
@@ -113,10 +117,23 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
     })
     .runOnJS(true);
 
+  const longPress = Gesture.LongPress()
+    .minDuration(300)
+    .onStart(() => {
+      onLongPressStart();
+    })
+    .onEnd(() => {
+      onLongPressEnd();
+    })
+    .onFinalize(() => {
+      onLongPressEnd();
+    })
+    .runOnJS(true);
+
   // Simultaneous (not exclusive) so the single tap fires immediately instead of
   // waiting ~300ms for the double tap to fail. The timestamp guard above keeps a
   // double-tap's second tap from also toggling the controls.
-  const composed = Gesture.Simultaneous(pan, doubleTap, singleTap);
+  const composed = Gesture.Simultaneous(pan, longPress, doubleTap, singleTap);
 
   return (
     <GestureDetector gesture={composed}>
