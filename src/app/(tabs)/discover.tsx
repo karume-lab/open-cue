@@ -4,6 +4,7 @@ import BrowseMoviesGrid from "@/components/core/BrowseMoviesGrid";
 import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
 import MediaRow from "@/components/core/MediaRow";
 import Search from "@/components/core/Search";
+import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
 import ContinueWatchingCarousel from "@/features/discover/components/ContinueWatchingCarousel";
 import {
@@ -82,24 +83,31 @@ const DiscoverScreen = () => {
           const selected =
             (genre === undefined && chip.id === "All") || genre === chip.id;
           return (
-            <TouchableOpacity
+            <Badge
               key={chip.id}
-              onPress={() => setGenre(chip.id === "All" ? undefined : chip.id)}
-              activeOpacity={0.7}
-              className={`py-2 px-4 rounded-full border ${
+              asChild
+              variant={selected ? "default" : "outline"}
+              className={`py-2 px-4 ${
                 selected
                   ? "bg-primary border-primary"
                   : "bg-card border-border/50"
               }`}
             >
-              <Text
-                className={`text-sm font-medium pb-0.5 ${
-                  selected ? "text-primary-foreground" : "text-foreground"
-                }`}
+              <TouchableOpacity
+                onPress={() =>
+                  setGenre(chip.id === "All" ? undefined : chip.id)
+                }
+                activeOpacity={0.7}
               >
-                {chip.label.replace(/^[^\p{L}]+/u, "")}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  className={`text-sm font-medium pb-0.5 ${
+                    selected ? "text-primary-foreground" : "text-foreground"
+                  }`}
+                >
+                  {chip.label.replace(/^[^\p{L}]+/u, "")}
+                </Text>
+              </TouchableOpacity>
+            </Badge>
           );
         })}
       </ScrollView>

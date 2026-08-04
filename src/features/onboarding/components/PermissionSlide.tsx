@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Check } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Platform, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -35,10 +35,18 @@ const PERMISSION_CONTENT: Record<
 
 interface PermissionSlideProps {
   type: PermissionSlideType;
+  onStatusChange?: (granted: boolean) => void;
 }
 
-export const PermissionSlide: React.FC<PermissionSlideProps> = ({ type }) => {
+export const PermissionSlide: React.FC<PermissionSlideProps> = ({
+  type,
+  onStatusChange,
+}) => {
   const [granted, setGranted] = useState(false);
+  const onStatusChangeRef = useRef(onStatusChange);
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
 
   const checkStatus = useCallback(async () => {
     let isGranted = false;
@@ -51,6 +59,7 @@ export const PermissionSlide: React.FC<PermissionSlideProps> = ({ type }) => {
       isGranted = SettingsPermission.isWriteSettingsGranted();
     }
     setGranted(isGranted);
+    onStatusChangeRef.current?.(isGranted);
   }, [type]);
 
   useEffect(() => {

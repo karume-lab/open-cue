@@ -84,6 +84,19 @@ const writeBackupFile = (
   dirUri?: string,
 ): void => {
   const content = JSON.stringify(backup, null, 2);
+
+  // A leftover directory (e.g. from an earlier broken version) can sit at the
+  // backup path and make the file write fail with "A folder with the same name
+  // already exists". Remove it first so the file can be (re)created.
+  const removeConflictingDirectory = (uri: string): void => {
+    try {
+      const existing = new Directory(uri);
+      if (existing.exists) existing.delete();
+    } catch {
+      // Nothing blocking there — the write below surfaces any real error.
+    }
+  };
+
   if (dirUri) {
     const dir = new Directory(dirUri);
     let file: File;
@@ -92,11 +105,13 @@ const writeBackupFile = (
     } catch {
       file = new File(`${dirUri}/${BACKUP_FILE_NAME}`);
     }
+    removeConflictingDirectory(file.uri);
     file.write(content);
     return;
   }
   const dir = new Directory(`file://${dirPath}`);
   if (!dir.exists) dir.create({ idempotent: true, intermediates: true });
+  removeConflictingDirectory(`file://${dirPath}/${BACKUP_FILE_NAME}`);
   const file = new File(dir, BACKUP_FILE_NAME);
   if (!file.exists) file.create({ overwrite: true, intermediates: true });
   file.write(content);

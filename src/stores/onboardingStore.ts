@@ -44,6 +44,7 @@ export interface OnboardingState {
   hasSeenOnboarding: boolean;
   preferences: string[];
   completeOnboarding: (preferences: string[]) => void;
+  resetOnboarding: () => void;
 }
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -54,6 +55,10 @@ export const useOnboardingStore = create<OnboardingState>()(
       completeOnboarding: (preferences: string[]) => {
         storage.set(ONBOARDED_KEY, true);
         return set(() => ({ hasSeenOnboarding: true, preferences }));
+      },
+      resetOnboarding: () => {
+        storage.set(ONBOARDED_KEY, false);
+        return set(() => ({ hasSeenOnboarding: false, preferences: [] }));
       },
     }),
     {

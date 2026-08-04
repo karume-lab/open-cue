@@ -36,6 +36,7 @@ import {
 } from "@/features/onboarding/components/PermissionSlide";
 import { TagSelectionSlide } from "@/features/onboarding/components/TagSelectionSlide";
 import { cn } from "@/lib/utils";
+import { getCueDirectoryPath } from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
 type SlideType =
@@ -175,6 +176,12 @@ const OnboardingScreen: React.FC = () => {
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [folderPath, setFolderPath] = useState<string | null>(
+    () => getCueDirectoryPath() ?? null,
+  );
+  const [permissions, setPermissions] = useState<
+    Record<PermissionSlideType, boolean>
+  >({ notifications: false, writeSettings: false });
   const { completeOnboarding } = useOnboardingStore();
 
   const slides =
@@ -206,6 +213,23 @@ const OnboardingScreen: React.FC = () => {
         ? prev.filter((id) => id !== tagId)
         : [...prev, tagId],
     );
+  };
+
+  // The Next button stays disabled until the current slide's action is done:
+  // a folder picked, a permission granted, or at least one interest chosen.
+  const isSlideReady = (slide: OnboardingSlide): boolean => {
+    switch (slide.type) {
+      case "folder":
+        return folderPath !== null;
+      case "notifications":
+        return permissions.notifications;
+      case "writeSettings":
+        return permissions.writeSettings;
+      case "interests":
+        return selectedTags.length > 0;
+      default:
+        return true;
+    }
   };
 
   const handleFinishOnboarding = () => {
@@ -256,7 +280,7 @@ const OnboardingScreen: React.FC = () => {
                   />
                 )}
               </View>
-              <Text className="text-4xl font-bold text-foreground text-center mb-4">
+              <Text className="text-4xl font-bold text-foreground text-center mb-4 pb-1">
                 {item.title}
               </Text>
               <Text
@@ -268,9 +292,19 @@ const OnboardingScreen: React.FC = () => {
                 {item.description}
               </Text>
               {isPermissionSlide(item.type) && (
-                <PermissionSlide type={item.type} />
+                <PermissionSlide
+                  type={item.type}
+                  onStatusChange={(granted) =>
+                    setPermissions((prev) => ({
+                      ...prev,
+                      [item.type]: granted,
+                    }))
+                  }
+                />
               )}
-              {item.type === "folder" && <FolderSelectionSlide />}
+              {item.type === "folder" && (
+                <FolderSelectionSlide onFolderSelected={setFolderPath} />
+              )}
             </View>
           );
         }}
@@ -294,6 +328,7 @@ const OnboardingScreen: React.FC = () => {
 
         <Button
           className="w-full h-14 rounded-md"
+          disabled={!isSlideReady(slides[currentIndex])}
           onPress={() => {
             if (currentIndex < slides.length - 1) {
               flatListRef.current?.scrollToIndex({
