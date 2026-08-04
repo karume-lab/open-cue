@@ -87,6 +87,20 @@ export const setCueDirectory = (path: string, uri = ""): void => {
   ensureCueSubdirectory(BACKUPS_DIR_NAME);
 };
 
+// Creates (or reuses) a "Cue" folder in the app's internal document directory
+// and persists it as the Cue folder. Used as the default when the user skips
+// the SAF picker during onboarding. The folder lives in internal storage so no
+// SAF grant is needed, but it will be removed on uninstall.
+export const setDefaultCueDirectory = (): string => {
+  const cueDir = new Directory(Paths.document, "Cue");
+  if (!cueDir.exists) {
+    cueDir.create({ idempotent: true, intermediates: true });
+  }
+  const path = cueDir.uri.replace("file://", "");
+  setCueDirectory(path);
+  return path;
+};
+
 // Absolute path downloads are written to (`<cue>/media`, or the legacy
 // download folder for users configured before the cue-folder layout).
 export const getMediaDirectoryPath = (): string | undefined => {

@@ -10,9 +10,12 @@ import {
   Sparkles,
 } from "lucide-react-native";
 import type React from "react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   type FlatList,
+  type GestureResponderEvent,
+  PanResponder,
+  type PanResponderGestureState,
   Platform,
   useWindowDimensions,
   View,
@@ -36,7 +39,10 @@ import {
 } from "@/features/onboarding/components/PermissionSlide";
 import { TagSelectionSlide } from "@/features/onboarding/components/TagSelectionSlide";
 import { cn } from "@/lib/utils";
-import { getCueDirectoryPath } from "@/services/StorageLocation";
+import {
+  getCueDirectoryPath,
+  setDefaultCueDirectory,
+} from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
 type SlideType =
@@ -215,22 +221,50 @@ const OnboardingScreen: React.FC = () => {
     );
   };
 
-  // The Next button stays disabled until the current slide's action is done:
-  // a folder picked, a permission granted, or at least one interest chosen.
+  // Slides that require an explicit user action before proceeding.
+  // The Next button stays disabled and forward swiping is locked until done.
   const isSlideReady = (slide: OnboardingSlide): boolean => {
     switch (slide.type) {
-      case "folder":
-        return folderPath !== null;
       case "notifications":
         return permissions.notifications;
       case "writeSettings":
         return permissions.writeSettings;
-      case "interests":
-        return selectedTags.length > 0;
       default:
+        // folder and interests slides: always ready
         return true;
     }
   };
+
+  const currentSlideReady = isSlideReady(slides[currentIndex]);
+
+  // When a slide requires action, lock the FlatList and intercept rightward
+  // (backward) swipes manually so the user can still go back.
+  const backSwipePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        // Claim the gesture only when: slide is locked AND the initial move is
+        // clearly horizontal-right (backward swipe).
+        onMoveShouldSetPanResponder: (
+          _: GestureResponderEvent,
+          gs: PanResponderGestureState,
+        ) =>
+          !currentSlideReady && gs.dx > 10 && Math.abs(gs.dx) > Math.abs(gs.dy),
+        onPanResponderRelease: (
+          _: GestureResponderEvent,
+          gs: PanResponderGestureState,
+        ) => {
+          // Require at least 50 px of rightward drag to count as a back-swipe.
+          if (gs.dx > 50 && currentIndex > 0) {
+            flatListRef.current?.scrollToIndex({
+              index: currentIndex - 1,
+              animated: true,
+            });
+          }
+        },
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentSlideReady, currentIndex],
+  );
 
   const handleFinishOnboarding = () => {
     completeOnboarding(selectedTags);
@@ -238,7 +272,10 @@ const OnboardingScreen: React.FC = () => {
   };
 
   return (
-    <View className="flex-1 bg-background">
+    <View
+      className="flex-1 bg-background"
+      {...backSwipePanResponder.panHandlers}
+    >
       {/* The Animated FlatList */}
       <Animated.FlatList
         ref={flatListRef}
@@ -247,6 +284,7 @@ const OnboardingScreen: React.FC = () => {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        scrollEnabled={currentSlideReady}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -328,8 +366,14 @@ const OnboardingScreen: React.FC = () => {
 
         <Button
           className="w-full h-14 rounded-md"
-          disabled={!isSlideReady(slides[currentIndex])}
+          disabled={!currentSlideReady}
           onPress={() => {
+            const slide = slides[currentIndex];
+            // If folder slide and no folder picked yet, create the default.
+            if (slide.type === "folder" && !folderPath) {
+              const defaultPath = setDefaultCueDirectory();
+              setFolderPath(defaultPath);
+            }
             if (currentIndex < slides.length - 1) {
               flatListRef.current?.scrollToIndex({
                 index: currentIndex + 1,

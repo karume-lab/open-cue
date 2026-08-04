@@ -98,6 +98,12 @@ export const FolderSelectionSlide: React.FC<FolderSelectionSlideProps> = ({
               : "Choose a folder"}
         </Text>
       </Button>
+      {!folder && (
+        <Text className="text-xs text-muted-foreground text-center mt-3 leading-5">
+          A default <Text className="font-semibold text-foreground">Cue</Text>{" "}
+          folder will be created in internal storage if you skip this step.
+        </Text>
+      )}
     </View>
   );
 };
