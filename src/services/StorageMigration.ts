@@ -41,7 +41,7 @@ export const moveDownloadsStorage = async (
   const newDir = new Directory(`file://${newPath}`);
 
   if (!oldDir.exists) {
-    setCueDirectory(cueRoot, cueUri);
+    await setCueDirectory(cueRoot, cueUri);
     return;
   }
 
@@ -53,5 +53,5 @@ export const moveDownloadsStorage = async (
 
   if (newDir.exists) newDir.delete();
   oldDir.move(newDir);
-  setCueDirectory(cueRoot, cueUri);
+  await setCueDirectory(cueRoot, cueUri);
 };

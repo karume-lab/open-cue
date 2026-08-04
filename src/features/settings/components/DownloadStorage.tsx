@@ -26,8 +26,8 @@ const DownloadStorage = () => {
   const locationLabel = mediaPath ?? INTERNAL_LABEL;
   const isShared = Boolean(mediaPath);
 
-  const applyCue = (path: string, uri: string) => {
-    setCueDirectory(path, uri);
+  const applyCue = async (path: string, uri: string) => {
+    await setCueDirectory(path, uri);
     setResult({
       ok: true,
       text: `Cue folder set. Downloads go to ${MEDIA_DIR_NAME}/, backups to backups/.`,
@@ -78,13 +78,15 @@ const DownloadStorage = () => {
             {
               text: "Keep them where they are",
               style: "destructive",
-              onPress: () => applyCue(path, uri),
+              onPress: () => {
+                void applyCue(path, uri);
+              },
             },
-            { text: "Move", onPress: () => runMove(path, uri) },
+            { text: "Move", onPress: () => void runMove(path, uri) },
           ],
         );
       } else {
-        applyCue(path, uri);
+        await applyCue(path, uri);
       }
     } catch (error) {
       setResult({

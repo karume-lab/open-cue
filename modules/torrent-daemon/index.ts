@@ -53,6 +53,17 @@ interface TorrentDaemonInterface {
    * (/storage/emulated/0/Cue) and returns its path, or null on failure.
    */
   createDefaultCueDirectory(): Promise<string | null>;
+  /**
+   * Creates a directory (including missing parents) on shared storage and
+   * returns whether it exists afterward. Native-only because expo-file-system
+   * cannot create raw file:// paths on shared storage.
+   */
+  createDirectory(dirPath: string): Promise<boolean>;
+  /**
+   * Writes a UTF-8 text file on shared storage (creating parent directories)
+   * and returns whether it succeeded. Used for backup files.
+   */
+  writeTextFile(filePath: string, content: string): Promise<boolean>;
   addMagnet(uri: string): Promise<string>;
   getProgress(infoHash: string): number;
   getDownloadSpeed(infoHash: string): number;

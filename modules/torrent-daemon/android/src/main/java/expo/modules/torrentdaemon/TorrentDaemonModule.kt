@@ -123,6 +123,40 @@ class TorrentDaemonModule : Module() {
       cueDir.absolutePath
     }
 
+    // Creates a directory (including missing parents) on shared storage and
+    // returns whether it exists afterward. Runs natively because raw-path
+    // creates/writes on shared storage must not go through expo-file-system's
+    // permission check: Java's File.canWrite() is false for paths that don't
+    // exist yet, so JS Directory.create() always fails there, even with "All
+    // files access".
+    AsyncFunction("createDirectory") Coroutine { dirPath: String ->
+      val dir = java.io.File(dirPath)
+      if (dir.exists()) {
+        true
+      } else {
+        try {
+          dir.mkdirs()
+        } catch (_: SecurityException) {
+          false
+        }
+      }
+    }
+
+    // Writes a UTF-8 text file on shared storage, creating parent directories,
+    // and returns whether it succeeded. Used for backup files, for the same
+    // reason createDirectory exists: JS file writes on raw shared-storage paths
+    // fail expo-file-system's WRITE check.
+    AsyncFunction("writeTextFile") Coroutine { filePath: String, content: String ->
+      try {
+        val file = java.io.File(filePath)
+        file.parentFile?.mkdirs()
+        file.writeText(content)
+        true
+      } catch (_: Exception) {
+        false
+      }
+    }
+
     AsyncFunction("startDaemon") { storagePath: String ->
       Daemon.start(storagePath)
     }

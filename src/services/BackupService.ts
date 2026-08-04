@@ -11,6 +11,7 @@ import {
   pickCueDirectory,
 } from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
+import TorrentDaemon from "~/modules/torrent-daemon";
 
 // Exports/imports the persisted app state (bookmarks, watch history, download
 // metadata, settings, onboarding) as a single JSON file. Backups are written to
@@ -78,12 +79,15 @@ export const pickBackupDirectory = async (): Promise<string | null> => {
 
 // Writes the backup JSON into the backups/ subfolder. Prefers the SAF content
 // URI (needed for write access to shared storage on modern Android); falls
-// back to the raw path for legacy folders chosen before the cue-folder layout.
-const writeBackupFile = (
+// back to a native write for legacy folders chosen before the cue-folder
+// layout. The raw-path branch must run natively: expo-file-system cannot write
+// file:// paths on shared storage (its WRITE check uses File.canWrite(), which
+// is false for files that don't exist yet).
+const writeBackupFile = async (
   backup: BackupFile,
   dirPath: string,
   dirUri?: string,
-): void => {
+): Promise<void> => {
   const content = JSON.stringify(backup, null, 2);
 
   if (dirUri) {
@@ -118,20 +122,14 @@ const writeBackupFile = (
     dir.createFile("application/json", BACKUP_FILE_NAME).write(content);
     return;
   }
-  const dir = new Directory(`file://${dirPath}`);
-  if (!dir.exists) dir.create({ idempotent: true, intermediates: true });
-  const file = new File(dir, BACKUP_FILE_NAME);
-  if (!file.exists) {
-    // A leftover directory at the backup path blocks file creation; clear it.
-    try {
-      const leftover = new Directory(file.uri);
-      if (leftover.exists) leftover.delete();
-    } catch {
-      // Nothing blocking there — create below surfaces any real error.
-    }
-    file.create({ overwrite: true, intermediates: true });
+
+  const ok = await TorrentDaemon.writeTextFile(
+    `${dirPath}/${BACKUP_FILE_NAME}`,
+    content,
+  );
+  if (!ok) {
+    throw new Error("Could not write the backup file.");
   }
-  file.write(content);
 };
 
 // Writes the backup to the configured folder. When run manually (not silent)
@@ -151,7 +149,7 @@ export const exportBackup = async (options?: {
   }
 
   try {
-    writeBackupFile(
+    await writeBackupFile(
       collectBackup(),
       dirPath,
       getCueSubdirectoryUri(BACKUPS_DIR_NAME),

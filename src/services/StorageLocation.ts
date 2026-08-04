@@ -63,10 +63,12 @@ export const getCueSubdirectoryUri = (name: string): string | undefined => {
 };
 
 // Creates a subfolder under the Cue folder. Prefers the SAF content URI when a
-// folder was picked via the picker; falls back to the raw filesystem path for
-// folders created directly on shared storage (default Cue folder) or legacy
-// folders. No-op when the folder is already there or no path is available.
-const ensureCueSubdirectory = (name: string): void => {
+// folder was picked via the picker; falls back to a native create for folders
+// created directly on shared storage (default Cue folder) or legacy folders.
+// The raw-path branch must run natively: expo-file-system cannot create
+// file:// paths on shared storage (its WRITE check uses File.canWrite(), which
+// is false for paths that don't exist yet).
+const ensureCueSubdirectory = async (name: string): Promise<void> => {
   const cuePath = getCueDirectoryPath();
   const treeUri = getCueDirectoryUri();
   if (treeUri) {
@@ -84,10 +86,7 @@ const ensureCueSubdirectory = (name: string): void => {
   }
   if (!cuePath) return;
   try {
-    new Directory(`file://${cuePath}/${name}`).create({
-      idempotent: true,
-      intermediates: true,
-    });
+    await TorrentDaemon.createDirectory(`${cuePath}/${name}`);
   } catch (error) {
     console.error(`Failed to create ${name}/ in the Cue folder:`, error);
   }
@@ -95,12 +94,16 @@ const ensureCueSubdirectory = (name: string): void => {
 
 // Persists a chosen folder as the Cue folder and ensures the media/ and
 // backups/ subfolders exist. `uri` is the SAF content tree URI; when absent
-// (default-created or legacy folders) the subfolders are created via raw paths.
-export const setCueDirectory = (path: string, uri = ""): void => {
+// (default-created or legacy folders) the subfolders are created natively via
+// raw paths.
+export const setCueDirectory = async (
+  path: string,
+  uri = "",
+): Promise<void> => {
   storage.set(CUE_DIR_PATH_KEY, path);
   storage.set(CUE_DIR_URI_KEY, uri);
-  ensureCueSubdirectory(MEDIA_DIR_NAME);
-  ensureCueSubdirectory(BACKUPS_DIR_NAME);
+  await ensureCueSubdirectory(MEDIA_DIR_NAME);
+  await ensureCueSubdirectory(BACKUPS_DIR_NAME);
 };
 
 // Creates (or reuses) a "Cue" folder at the root of external shared storage
@@ -121,7 +124,7 @@ export const setDefaultCueDirectory = async (): Promise<string> => {
     }
   }
   if (externalPath) {
-    setCueDirectory(externalPath);
+    await setCueDirectory(externalPath);
     return externalPath;
   }
   // Fallback: app-internal (will be wiped on uninstall)
@@ -130,7 +133,7 @@ export const setDefaultCueDirectory = async (): Promise<string> => {
     cueDir.create({ idempotent: true, intermediates: true });
   }
   const path = cueDir.uri.replace("file://", "");
-  setCueDirectory(path);
+  await setCueDirectory(path);
   return path;
 };
 
@@ -162,7 +165,7 @@ export const pickCueDirectory = async (): Promise<string | null> => {
   const result = await TorrentDaemon.pickStorageDirectory();
   const path = result?.path;
   if (!path) return null;
-  setCueDirectory(path, result.uri ?? "");
+  await setCueDirectory(path, result.uri ?? "");
   return path;
 };
 
