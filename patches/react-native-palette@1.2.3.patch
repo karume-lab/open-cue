@@ -1,0 +1,13 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index fd13302d189c659e5de53a1b85be09112a1cb73d..14f60807308fe3caf4d5a0854aa5095fdb17312e 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -58,7 +58,7 @@ repositories {
+         url "$rootDir/../node_modules/jsc-android/dist"
+     }
+     google()
+-    jcenter()
++    mavenCentral()
+ }
+ 
+ dependencies {

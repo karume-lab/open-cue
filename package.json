@@ -113,6 +113,7 @@
   },
   "private": true,
   "patchedDependencies": {
-    "react-native-video@6.19.2": "patches/react-native-video@6.19.2.patch"
+    "react-native-video@6.19.2": "patches/react-native-video@6.19.2.patch",
+    "react-native-palette@1.2.3": "patches/react-native-palette@1.2.3.patch"
   }
 }
