@@ -11,10 +11,15 @@ import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 
 export { ErrorBoundary } from "expo-router";
 
-import { DarkTheme, type Theme, ThemeProvider } from "@react-navigation/native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
-import { useRouter, useSegments } from "expo-router";
+import {
+  DarkTheme,
+  type Theme,
+  ThemeProvider,
+  useRouter,
+  useSegments,
+} from "expo-router";
 import type React from "react";
 import { useEffect } from "react";
 import { AppState } from "react-native";
