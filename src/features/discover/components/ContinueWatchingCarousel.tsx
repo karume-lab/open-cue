@@ -3,11 +3,9 @@ import MovieCard from "@/components/core/MovieCard";
 import { Text } from "@/components/ui/text";
 import { useDiscoverMoviesQuery } from "@/features/discover/services/queries";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
-import {
-  isMediaDownloaded,
-  useAppStore,
-  type WatchHistoryEntry,
-} from "@/features/shared/store/useAppStore";
+import { isMediaDownloaded } from "@/features/shared/store/selectors";
+import type { WatchHistoryEntry } from "@/features/shared/store/types";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import {
   CONTINUE_WATCHING_MAX_PERCENT,
   CONTINUE_WATCHING_MIN_PERCENT,

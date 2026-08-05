@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { BORDER, POPOVER } from "@/lib/colors";
 import {
   activeFilterCount,
   DEFAULT_FILTERS,
@@ -136,9 +137,9 @@ const FilterBottomSheetButton = ({
         enablePanDownToClose
         index={0}
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "#23282e" /* --color-popover */ }}
+        backgroundStyle={{ backgroundColor: POPOVER /* --color-popover */ }}
         handleIndicatorStyle={{
-          backgroundColor: "#333a41" /* --color-border */,
+          backgroundColor: BORDER /* --color-border */,
         }}
       >
         <BottomSheetScrollView

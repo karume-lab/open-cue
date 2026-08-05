@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { PRIMARY } from "@/lib/colors";
 
 // Set up the notification handler to show alerts even when app is active
 Notifications.setNotificationHandler({
@@ -18,7 +19,7 @@ export const requestNotificationPermissions = async () => {
       name: "default",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#c97742", // Burnt Orange
+      lightColor: PRIMARY, // Burnt Orange
     });
   }
 

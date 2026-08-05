@@ -1,1357 +1,329 @@
 import type { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { router, useLocalSearchParams } from "expo-router";
-import * as ScreenOrientation from "expo-screen-orientation";
-import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  AppState,
-  BackHandler,
-  Image,
-  Platform,
-  StatusBar,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import {
-  CastState,
-  useCastDevice,
-  useCastState,
-  useMediaStatus,
-  useRemoteMediaClient,
-  useStreamPosition,
-} from "react-native-google-cast";
-import Video, {
-  type OnBufferData,
-  type OnLoadData,
-  type OnPictureInPictureStatusChangedData,
-  type OnProgressData,
-  type OnVideoErrorData,
-  type SelectedTrack,
-  SelectedTrackType,
-  type TextTrack,
-} from "react-native-video";
-import { Badge } from "@/components/ui/badge";
-import { Text } from "@/components/ui/text";
-import {
-  useMovieDetailsQuery,
-  useSeasonEpisodesQuery,
-} from "@/features/discover/services/queries";
-import {
-  findLocalEpisodeDownload,
-  playEpisode,
-  pushToPlayer,
-  resolveEpisodeFileIndex,
-} from "@/features/media/services/pickSource";
+import { useRef } from "react";
+import { StyleSheet, View } from "react-native";
+import Video from "react-native-video";
+import CastBackdrop from "@/features/player/components/CastBackdrop";
 import CastOverlay from "@/features/player/components/CastOverlay";
 import EpisodesSheet from "@/features/player/components/EpisodesSheet";
 import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
+import PlayerSpinnerOverlay from "@/features/player/components/PlayerSpinnerOverlay";
+import PlayerUnavailable from "@/features/player/components/PlayerUnavailable";
+import SeekPill from "@/features/player/components/SeekPill";
 import SubtitleOverlay from "@/features/player/components/SubtitleOverlay";
-import SubtitleSheet, {
-  type SubtitleTrackOption,
-} from "@/features/player/components/SubtitleSheet";
+import SubtitleSheet from "@/features/player/components/SubtitleSheet";
+import UpNextCard from "@/features/player/components/UpNextCard";
+import { useControlsVisibility } from "@/features/player/hooks/useControlsVisibility";
+import { usePlaybackSession } from "@/features/player/hooks/usePlaybackSession";
+import { usePlaybackState } from "@/features/player/hooks/usePlaybackState";
+import { usePlayerCast } from "@/features/player/hooks/usePlayerCast";
+import { usePlayerMedia } from "@/features/player/hooks/usePlayerMedia";
+import { usePlayerRoute } from "@/features/player/hooks/usePlayerRoute";
+import { useSeekGestures } from "@/features/player/hooks/useSeekGestures";
+import { useSubtitleSession } from "@/features/player/hooks/useSubtitleSession";
+import { useUpNext } from "@/features/player/hooks/useUpNext";
 import { ConfirmDialog } from "@/features/shared/components/ConfirmDialog";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
-import { useAppStore } from "@/features/shared/store/useAppStore";
-import { loadSubtitleCues, type SubtitleCue } from "@/lib/subtitles";
 import {
-  buildMediaRequest,
-  castPause,
-  castPlay,
   castSeek,
   castSetMuted,
-  castSetPlaybackRate,
   castSetSubtitles,
   castSetVolume,
-  getCastDuration,
-  isCastPlaying,
-  resolveFileCastURL,
-  resolveStreamCastURL,
-  stopLanServing,
 } from "@/services/CastService";
-import { resolveDownloadFileUri } from "@/services/DownloadService";
-import { StreamService } from "@/services/StreamService";
-import { episodeLabel, parseEpisodeFromName } from "@/services/torrents";
-import type { MediaType } from "@/types/movie";
-
-const PLAYBACK_RATES = [1, 1.25, 1.5, 2];
-
-const decodeParam = (
-  value: string | string[] | undefined,
-): string | undefined => {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw) return undefined;
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-};
-
-type ResumeMode = "prompt" | "resume" | "restart" | "none";
 
 const PlayerDetailScreen = () => {
-  const {
-    type,
-    id,
-    mode,
-    magnet,
-    hash,
-    downloadId,
-    fileIndex,
-    season,
-    episode,
-    queue,
-  } = useLocalSearchParams<{
-    type: string;
-    id: string;
-    mode?: string;
-    magnet?: string;
-    hash?: string;
-    downloadId?: string;
-    fileIndex?: string;
-    season?: string;
-    episode?: string;
-    queue?: string;
-  }>();
-  const mediaType: MediaType =
-    (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
-  const tmdbId = Number(Array.isArray(id) ? id[0] : id);
-  const mediaId = `${mediaType}:${tmdbId}`;
-  const isLocal = mode === "local";
-
-  const {
-    watchHistory,
-    downloads,
-    settings,
-    updateSettings,
-    updateWatchHistory,
-    updateSubtitlePrefs,
-  } = useAppStore();
-
-  // Series episodes share the same mediaId, so progress must be tracked per
-  // episode (e.g. "tv:123:s01e02") instead of one slot per show. The episode
-  // is taken from the player route params (streaming a pack file) or parsed
-  // from the downloaded file's name (local playback of a pack file).
-  //
-  // ── Episode queue ──────────────────────────────────────────
-  // Multi-select "watch" sessions queue several episodes of a pack and
-  // auto-advance when one ends. The route's queue param carries the episodes;
-  // the active one (route params + queue position) drives the streamed file,
-  // the progress key and the header label.
-  interface QueueItem {
-    fileIndex: number;
-    season?: number;
-    episode?: number;
-  }
-  const queueItems = useMemo<QueueItem[]>(() => {
-    const raw = decodeParam(queue);
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter(
-        (item): item is QueueItem =>
-          item != null &&
-          typeof item === "object" &&
-          typeof (item as QueueItem).fileIndex === "number",
-      );
-    } catch {
-      return [];
-    }
-  }, [queue]);
-  const [queueIndex, setQueueIndex] = useState(0);
-
-  // In-player episode switching (streaming a pack): the switch target
-  // overrides the route params so the source, progress key and header all
-  // follow the newly selected episode without a fresh route.
-  const [switchTarget, setSwitchTarget] = useState<{
-    season: number;
-    episode: number;
-  } | null>(null);
-  const [switchFileIndex, setSwitchFileIndex] = useState<number | undefined>(
-    undefined,
-  );
-  const [isSwitchLoading, setIsSwitchLoading] = useState(false);
-  const episodesSheetRef = useRef<BottomSheetModal>(null);
-
-  const activeEpisode = queueItems[queueIndex] ?? null;
-  const activeFileIndex =
-    activeEpisode?.fileIndex ??
-    switchFileIndex ??
-    (fileIndex != null ? Number(fileIndex) : undefined);
-  const activeSeason =
-    switchTarget?.season ??
-    activeEpisode?.season ??
-    (season != null ? Number(season) : undefined);
-  const activeEpisodeNum =
-    switchTarget?.episode ??
-    activeEpisode?.episode ??
-    (episode != null ? Number(episode) : undefined);
-
-  const watchKey = useMemo(() => {
-    const seasonNum = activeSeason;
-    const episodeNum = activeEpisodeNum;
-    if (seasonNum != null && episodeNum != null) {
-      return `${mediaId}:s${String(seasonNum).padStart(2, "0")}e${String(
-        episodeNum,
-      ).padStart(2, "0")}`;
-    }
-    if (isLocal && downloadId) {
-      const download = downloads[downloadId];
-      const parsed = download?.torrentFileName
-        ? parseEpisodeFromName(download.torrentFileName)
-        : undefined;
-      if (parsed?.episode != null) {
-        const s =
-          parsed.season != null ? String(parsed.season).padStart(2, "0") : "??";
-        return `${mediaId}:s${s}e${String(parsed.episode).padStart(2, "0")}`;
-      }
-      const torrent = download?.movie.torrents?.[0];
-      const label = episodeLabel(torrent);
-      if (label) return `${mediaId}:${label.toLowerCase()}`;
-    }
-    return mediaId;
-  }, [isLocal, downloadId, downloads, mediaId, activeSeason, activeEpisodeNum]);
-
-  // Short "S08E09" label shown next to the show name in the player header so
-  // it's always clear which episode is actually playing.
-  const episodeSubtitle = useMemo(() => {
-    if (activeEpisodeNum == null) return null;
-    const s =
-      activeSeason != null ? String(activeSeason).padStart(2, "0") : "??";
-    return `S${s}E${String(activeEpisodeNum).padStart(2, "0")}`;
-  }, [activeSeason, activeEpisodeNum]);
-
-  const { data: queryMovie, isLoading: isQueryLoading } = useMovieDetailsQuery(
-    mediaType,
-    tmdbId,
-    { enabled: !isLocal },
-  );
-
-  // Episode metadata for the active season — powers the "Up Next" card and the
-  // in-player episode switcher.
-  const { data: seasonEpisodes } = useSeasonEpisodesQuery(
-    tmdbId,
-    activeSeason,
-    {
-      enabled: mediaType === "tv" && activeSeason != null,
-    },
-  );
-
-  // Local playback must not depend on the network: resolve the movie from the
-  // persisted download/watch-history snapshot instead of the TMDB query.
-  const localMovie = useMemo(() => {
-    if (!isLocal) return undefined;
-    if (downloadId) {
-      const download = downloads[downloadId];
-      if (download) return download.movie;
-    }
-    return watchHistory[mediaId]?.movie;
-  }, [isLocal, downloadId, downloads, watchHistory, mediaId]);
-
-  const movie = localMovie ?? queryMovie;
-
-  const videoRef = useRef<React.ElementRef<typeof Video>>(null);
+  const route = usePlayerRoute();
+  const media = usePlayerMedia({
+    mediaType: route.mediaType,
+    tmdbId: route.tmdbId,
+    isLocal: route.isLocal,
+    mediaId: route.mediaId,
+    downloadId: route.downloadId,
+    activeSeason: route.activeSeason,
+  });
+  const state = usePlaybackState(route.savedCurrentTime);
+  const controls = useControlsVisibility();
+  const subs = useSubtitleSession({
+    isLocal: route.isLocal,
+    downloadId: route.downloadId,
+    ended: state.ended,
+    setIsPlaying: state.setIsPlaying,
+    interactControls: controls.interactControls,
+  });
+  const cast = usePlayerCast({
+    movie: media.movie,
+    mode: route.mode,
+    magnet: route.magnet,
+    hash: route.hash,
+    isLocal: route.isLocal,
+    downloadId: route.downloadId,
+    savedCurrentTime: route.savedCurrentTime,
+    subtitleTracks: subs.subtitleTracks,
+    state,
+  });
+  const seeks = useSeekGestures({
+    duration: state.duration,
+    currentTime: state.currentTime,
+    isCasting: cast.isCasting,
+    castClient: cast.castClient,
+    state,
+  });
+  const upNext = useUpNext({
+    mediaType: route.mediaType,
+    movie: media.movie,
+    seasonEpisodes: media.seasonEpisodes,
+    activeEpisodeNum: route.activeEpisodeNum,
+    isLocal: route.isLocal,
+    hash: route.hash,
+    magnet: route.magnet,
+    ended: state.ended,
+    setSwitchTarget: route.setSwitchTarget,
+    setSwitchFileIndex: route.setSwitchFileIndex,
+    setIsSwitchLoading: route.setIsSwitchLoading,
+    setResumeMode: state.setResumeMode,
+    setShowControls: controls.setShowControls,
+    state,
+  });
+  const session = usePlaybackSession({
+    route,
+    movie: media.movie,
+    state,
+    cast,
+    setShowControls: controls.setShowControls,
+    interactControls: controls.interactControls,
+    setUpNextDismissed: upNext.setUpNextDismissed,
+    setEmbeddedTracks: subs.setEmbeddedTracks,
+  });
   const subtitleSheetRef = useRef<BottomSheetModal>(null);
 
-  const [videoSource, setVideoSource] = useState<string | null>(null);
-  const [isPreparing, setIsPreparing] = useState(true);
-  const [isBuffering, setIsBuffering] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [showControls, setShowControls] = useState(true);
-  const [isInPip, setIsInPip] = useState(false);
-  const [ended, setEnded] = useState(false);
-  const [rate, setRate] = useState<number>(
-    settings.playbackRate > 0 ? settings.playbackRate : 1,
-  );
-  const [playbackError, setPlaybackError] = useState<{
-    title: string;
-    message: string;
-  } | null>(null);
-  const [isLongPressSeeking, setIsLongPressSeeking] = useState(false);
-  const longPressIntervalRef = useRef<
-    ReturnType<typeof setInterval> | undefined
-  >(undefined);
-  const [showResumeDialog, setShowResumeDialog] = useState(false);
-  const [resumeTimeLabel, setResumeTimeLabel] = useState("");
+  const { nextEpisode } = upNext;
 
-  const savedCurrentTime = watchHistory[watchKey]?.currentTime || 0;
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [playableDuration, setPlayableDuration] = useState(0);
-
-  // Subtitles — embedded tracks surface via onLoad; an external .srt/.vtt is
-  // parsed and rendered through SubtitleOverlay (works on every platform).
-  const subtitlePrefs = settings.subtitlePrefs;
-  const externalSubtitleUri =
-    isLocal && downloadId
-      ? downloads[downloadId]?.localSubtitlePath
-      : undefined;
-  const [subtitleCues, setSubtitleCues] = useState<SubtitleCue[]>([]);
-  const [embeddedTracks, setEmbeddedTracks] = useState<TextTrack[]>([]);
-  const [selectedSubtitleTrack, setSelectedSubtitleTrack] =
-    useState<string>("off");
-
-  const subtitleTracks = useMemo<SubtitleTrackOption[]>(() => {
-    const tracks: SubtitleTrackOption[] = [{ id: "off", label: "Off" }];
-    if (externalSubtitleUri) {
-      tracks.push({
-        id: "external",
-        label: "External file",
-        detail:
-          subtitleCues.length > 0
-            ? `${subtitleCues.length} cues`
-            : "Sidecar subtitle from download",
-      });
-    }
-    embeddedTracks.forEach((track, index) => {
-      tracks.push({
-        id: `embedded:${index}`,
-        label: track.title || track.language || `Embedded track ${index + 1}`,
-        detail: track.language ? `Embedded · ${track.language}` : "Embedded",
-      });
-    });
-    return tracks;
-  }, [externalSubtitleUri, subtitleCues.length, embeddedTracks]);
-
-  // Resume flow: prompt the user when there's meaningful progress, otherwise
-  // auto-resume (or start from the beginning for brand-new plays).
-  const [resumeMode, setResumeMode] = useState<ResumeMode>(() =>
-    savedCurrentTime > 30 ? "prompt" : savedCurrentTime > 0 ? "resume" : "none",
-  );
-  const didPromptRef = useRef(false);
-
-  const controlsTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const lastSavedTime = useRef<number>(0);
-  const currentTimeRef = useRef<number>(0);
-  const hasEnteredPipRef = useRef(false);
-  const seekPillAnim = useRef(new Animated.Value(0)).current;
-
-  // ── Cast state ─────────────────────────────────────────────
-  const castState = useCastState();
-  const castDevice = useCastDevice();
-  const castClient = useRemoteMediaClient();
-  const castMediaStatus = useMediaStatus();
-  const castStreamPosition = useStreamPosition(1000);
-  const [isCasting, setIsCasting] = useState(false);
-  const [castVolume, setCastVolume] = useState(1);
-  const [castMuted, setCastMuted] = useState(false);
-  const castLoadingRef = useRef(false);
-  const wasCastingRef = useRef(false);
-
-  // Sync cast connection state to local flag
-  useEffect(() => {
-    const connected = castState === CastState.CONNECTED;
-    setIsCasting(connected);
-
-    if (!connected) {
-      castLoadingRef.current = false;
-
-      // If we were casting and the connection dropped unexpectedly
-      // (not via handleStopCast / handleBack), auto-resume on phone
-      if (wasCastingRef.current) {
-        wasCastingRef.current = false;
-        const position = currentTimeRef.current;
-        stopLanServing().catch(() => {});
-        setIsPlaying(true);
-        if (videoRef.current && position > 0) {
-          videoRef.current.seek(position);
-        }
-      }
-    } else {
-      wasCastingRef.current = true;
-    }
-  }, [castState]);
-
-  // Sync cast position to player seek bar
-  useEffect(() => {
-    if (!isCasting || castStreamPosition == null) return;
-    setCurrentTime(castStreamPosition);
-    currentTimeRef.current = castStreamPosition;
-    setDuration(getCastDuration(castMediaStatus));
-    setPlayableDuration(getCastDuration(castMediaStatus));
-    setIsPlaying(isCastPlaying(castMediaStatus));
-    // Sync volume from receiver
-    if (castMediaStatus?.volume != null) {
-      setCastVolume(castMediaStatus.volume);
-    }
-  }, [isCasting, castStreamPosition, castMediaStatus]);
-
-  const saveProgress = useCallback(
-    (time: number) => {
-      if (!movie) return;
-      updateWatchHistory(watchKey, time, movie);
-      // Keep the media-level slot in sync so cards and the Continue Watching
-      // rail still reflect the most recently watched episode of the show.
-      if (watchKey !== mediaId) {
-        updateWatchHistory(mediaId, time, movie);
-      }
-      lastSavedTime.current = time;
-    },
-    [watchKey, mediaId, movie, updateWatchHistory],
-  );
-
-  const handleBack = useCallback(() => {
-    wasCastingRef.current = false;
-    saveProgress(currentTimeRef.current);
-    if (isCasting && castClient) {
-      castClient.stop().catch(() => {});
-    }
-    stopLanServing().catch(() => {});
-    router.back();
-  }, [saveProgress, isCasting, castClient]);
-
-  const handleStopCast = useCallback(async () => {
-    wasCastingRef.current = false;
-    const position = castStreamPosition ?? currentTimeRef.current;
-    if (castClient) {
-      saveProgress(position);
-      await castClient.stop().catch(() => {});
-    }
-    await stopLanServing().catch(() => {});
-    // Resume local playback from the current position
-    setIsPlaying(true);
-    if (videoRef.current && position > 0) {
-      videoRef.current.seek(position);
-    }
-  }, [castClient, castStreamPosition, saveProgress]);
-
-  const enterPictureInPicture = useCallback(() => {
-    if (Platform.OS !== "android") return;
-    hasEnteredPipRef.current = true;
-    videoRef.current?.enterPictureInPicture();
-  }, []);
-
-  const handlePiPStatusChanged = useCallback(
-    (data: OnPictureInPictureStatusChangedData) => {
-      setIsInPip(data.isActive);
-      if (data.isActive) {
-        hasEnteredPipRef.current = true;
-        setShowControls(false);
-        return;
-      }
-      // PIP was dismissed — always stop playback and the daemon stream.
-      saveProgress(currentTimeRef.current);
-      setIsPlaying(false);
-      if (mode === "stream" && hash) {
-        StreamService.stopStreaming(hash).catch(() => {});
-      }
-      // If the app came back to the foreground, leave the player screen so
-      // playback is fully stopped instead of continuing in the app.
-      setTimeout(() => {
-        if (AppState.currentState === "active") {
-          router.back();
-        }
-      }, 400);
-    },
-    [mode, hash, saveProgress],
-  );
-
-  const interactControls = useCallback(() => {
-    setShowControls(true);
-    if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
-    controlsTimeout.current = setTimeout(() => {
-      setShowControls(false);
-    }, 3000);
-  }, []);
-
-  const toggleControls = useCallback(() => {
-    setShowControls((prev) => {
-      if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
-      if (!prev) {
-        controlsTimeout.current = setTimeout(() => {
-          setShowControls(false);
-        }, 3000);
-      }
-      return !prev;
-    });
-  }, []);
-
-  // Resolve the video source: a live stream URL, a completed local download,
-  // or an error dialog — never a silent demo video.
-  useEffect(() => {
-    let cancelled = false;
-
-    const fail = (title: string, message: string) => {
-      if (!cancelled) {
-        setPlaybackError({ title, message });
-        setIsPreparing(false);
-      }
-    };
-
-    const resolveSource = async () => {
-      try {
-        if (mode === "stream" && hash) {
-          const magnetUri = decodeParam(magnet);
-          if (!magnetUri) {
-            fail(
-              "Playback unavailable",
-              "No torrent source was provided for this title.",
-            );
-            return;
-          }
-          const url =
-            activeFileIndex != null
-              ? await StreamService.startStreamingFile(
-                  magnetUri,
-                  hash,
-                  activeFileIndex,
-                )
-              : await StreamService.startStreaming(magnetUri, hash);
-          if (!cancelled) setVideoSource(url);
-          return;
-        }
-
-        if (mode === "local" && downloadId) {
-          const download = useAppStore.getState().downloads[downloadId];
-          if (!download) {
-            fail(
-              "Playback unavailable",
-              "This download is no longer on the device.",
-            );
-            return;
-          }
-          const uri = await resolveDownloadFileUri(download);
-          if (!cancelled) {
-            if (uri) {
-              setVideoSource(uri);
-            } else {
-              fail(
-                "Playback unavailable",
-                "The video file could not be located on this device.",
-              );
-            }
-          }
-          return;
-        }
-
-        fail(
-          "Playback unavailable",
-          "Could not start playback. Please try again.",
-        );
-      } catch (error) {
-        console.error("Failed to prepare video source:", error);
-        fail(
-          "Playback unavailable",
-          error instanceof Error
-            ? error.message
-            : "Could not start playback. Please try again.",
-        );
-      } finally {
-        if (!cancelled) setIsPreparing(false);
-      }
-    };
-
-    resolveSource();
-
-    return () => {
-      cancelled = true;
-      if (mode === "stream" && hash) {
-        StreamService.stopStreaming(hash);
-      }
-    };
-  }, [mode, magnet, hash, activeFileIndex, downloadId]);
-
-  useEffect(() => {
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-    StatusBar.setHidden(true);
-
-    return () => {
-      ScreenOrientation.unlockAsync();
-      StatusBar.setHidden(false);
-      stopLanServing().catch(() => {});
-    };
-  }, []);
-
-  // ── Cast media loading ──────────────────────────────────────
-  // When a cast session starts, resolve the LAN URL and load the media
-  // on the Chromecast. For streaming, this creates a new stream via the
-  // daemon. For downloads, it serves the local file over LAN.
-  useEffect(() => {
-    if (!isCasting || !castClient || !movie || castLoadingRef.current) return;
-    castLoadingRef.current = true;
-
-    let cancelled = false;
-
-    const loadCastMedia = async () => {
-      try {
-        let url: string;
-
-        if (mode === "stream" && magnet && hash) {
-          url = await resolveStreamCastURL(decodeParam(magnet) ?? magnet, hash);
-        } else if (isLocal && downloadId) {
-          const download = useAppStore.getState().downloads[downloadId];
-          if (!download?.localVideoPath) {
-            setPlaybackError({
-              title: "Cast unavailable",
-              message: "Could not locate the downloaded file for casting.",
-            });
-            return;
-          }
-          const fileUri = await resolveDownloadFileUri(download);
-          if (!fileUri) {
-            setPlaybackError({
-              title: "Cast unavailable",
-              message: "Could not access the downloaded file.",
-            });
-            return;
-          }
-          url = resolveFileCastURL(fileUri.replace("file://", ""));
-        } else {
-          return;
-        }
-
-        if (cancelled) return;
-
-        // Stop local video playback — the TV is now the display
-        setIsPlaying(false);
-
-        const subtitleTrackOptions = subtitleTracks.filter(
-          (t) => t.id !== "off",
-        );
-
-        const request = buildMediaRequest({
-          movie,
-          url,
-          subtitleTracks: subtitleTrackOptions,
-          startTime: savedCurrentTime,
-        });
-
-        await castClient.loadMedia(request);
-
-        // Apply persisted playback rate
-        if (settings.playbackRate !== 1) {
-          await castClient.setPlaybackRate(settings.playbackRate);
-        }
-      } catch (error) {
-        console.error("Failed to load cast media:", error);
-        if (!cancelled) {
-          setPlaybackError({
-            title: "Cast failed",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Could not start casting. Try again.",
-          });
-        }
-      }
-    };
-
-    loadCastMedia();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    isCasting,
-    castClient,
-    movie,
-    mode,
-    magnet,
-    hash,
-    isLocal,
-    downloadId,
-    savedCurrentTime,
-    settings.playbackRate,
-    subtitleTracks,
-  ]);
-
-  const handleBackRef = useRef(handleBack);
-  handleBackRef.current = handleBack;
-
-  const handleHardwareBackRef = useRef<() => boolean>(() => false);
-  handleHardwareBackRef.current = () => {
-    if (Platform.OS === "android" && isPlaying && !isInPip && !ended) {
-      // First back enters PIP while the video keeps playing; the next back
-      // (after the PIP window is dismissed) exits the screen normally.
-      if (hasEnteredPipRef.current) {
-        handleBackRef.current();
-      } else {
-        enterPictureInPicture();
-      }
-      return true;
-    }
-    handleBackRef.current();
-    return true;
-  };
-
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        handleHardwareBackRef.current();
-        return true;
-      },
-    );
-
-    return () => {
-      backHandler.remove();
-    };
-  }, []);
-
-  // Ask whether to resume when there's meaningful saved progress.
-  useEffect(() => {
-    if (resumeMode !== "prompt" || didPromptRef.current || !movie) return;
-    didPromptRef.current = true;
-    const mins = Math.floor(savedCurrentTime / 60);
-    const secs = Math.floor(savedCurrentTime % 60)
-      .toString()
-      .padStart(2, "0");
-    setResumeTimeLabel(`${mins}:${secs}`);
-    setShowResumeDialog(true);
-  }, [resumeMode, movie, savedCurrentTime]);
-
-  // Seek once the source is ready, honoring the resume decision.
-  useEffect(() => {
-    if (!movie || !videoSource) return;
-    if (resumeMode === "resume" && savedCurrentTime > 0 && currentTime === 0) {
-      const timer = setTimeout(() => {
-        videoRef.current?.seek(savedCurrentTime);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-    if (resumeMode === "restart") {
-      videoRef.current?.seek(0);
-    }
-  }, [movie, videoSource, resumeMode, savedCurrentTime, currentTime]);
-
-  useEffect(() => {
-    interactControls();
-    return () => {
-      if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
-    };
-  }, [interactControls]);
-
-  const handleProgress = (data: OnProgressData) => {
-    currentTimeRef.current = data.currentTime;
-    setCurrentTime(data.currentTime);
-    setPlayableDuration(data.playableDuration);
-    if (Math.abs(data.currentTime - lastSavedTime.current) >= 10) {
-      saveProgress(data.currentTime);
-    }
-  };
-
-  const handleLoad = (data: OnLoadData) => {
-    setDuration(data.duration);
-    setEmbeddedTracks(data.textTracks ?? []);
-    if (data.videoTracks.length === 0) {
-      setPlaybackError({
-        title: "No video track found",
-        message:
-          "The video track could not be decoded. Try a different torrent or quality.",
-      });
-    }
-  };
-
-  // Load an external subtitle file next to a downloaded video and default to it
-  // when one exists (embedded-first otherwise).
-  useEffect(() => {
-    let cancelled = false;
-    if (!externalSubtitleUri) {
-      setSubtitleCues([]);
-      return;
-    }
-    loadSubtitleCues(externalSubtitleUri).then((cues) => {
-      if (cancelled) return;
-      setSubtitleCues(cues);
-      if (cues.length > 0) {
-        setSelectedSubtitleTrack((prev) =>
-          prev === "off" ? "external" : prev,
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [externalSubtitleUri]);
-
-  const handleBuffer = (data: OnBufferData) => {
-    setIsBuffering(data.isBuffering);
-  };
-
-  const handleError = (data: OnVideoErrorData) => {
-    console.error("Video error:", data.error);
-    const errorCode = data.error.errorCode;
-    // ExoPlayer error codes:
-    // 2002 = FAILED_DECODER_QUERY (no suitable decoder found)
-    // 2003 = FAILED_RENDERER_ERROR
-    // 24003 = ERROR_CODE_DECODING_FAILED (decoder crashes mid-playback)
-    const isCodecIssue =
-      errorCode === "24003" || errorCode === "2002" || errorCode === "2003";
-    setPlaybackError({
-      title: isCodecIssue ? "Codec not supported" : "Playback error",
-      message: isCodecIssue
-        ? "This video's codec isn't supported by your device. Try a different quality or encode."
-        : `Could not play this video. (Error ${errorCode})`,
-    });
-  };
-
-  // The next episode in the active season, shown in an "Up Next" card when the
-  // current one ends (only for shows, outside a multi-select watch queue).
-  const nextEpisode = useMemo(() => {
-    if (mediaType !== "tv" || !seasonEpisodes || !activeEpisodeNum) {
-      return undefined;
-    }
-    const index = seasonEpisodes.findIndex(
-      (ep) => ep.episodeNumber === activeEpisodeNum,
-    );
-    if (index === -1 || index === seasonEpisodes.length - 1) {
-      return undefined;
-    }
-    return seasonEpisodes[index + 1];
-  }, [mediaType, seasonEpisodes, activeEpisodeNum]);
-
-  // Switch to another episode in place: a local download wins, then the active
-  // pack (stream mode), then fall back to a fresh auto-picked source.
-  const switchToEpisode = useCallback(
-    async (targetSeason: number, targetEpisode: number) => {
-      if (!movie || movie.mediaType !== "tv") return;
-      const local = findLocalEpisodeDownload(
-        movie,
-        targetSeason,
-        targetEpisode,
-        useAppStore.getState().downloads,
-      );
-      if (local) {
-        pushToPlayer(movie, {
-          mode: "local",
-          downloadId: local.id,
-          season: targetSeason,
-          episode: targetEpisode,
-        });
-        return;
-      }
-      if (!isLocal && hash) {
-        const magnetUri = decodeParam(magnet);
-        if (magnetUri) {
-          setIsSwitchLoading(true);
-          try {
-            const fileIndex = await resolveEpisodeFileIndex(
-              movie,
-              hash,
-              magnetUri,
-              targetSeason,
-              targetEpisode,
-            );
-            if (fileIndex != null) {
-              setSwitchFileIndex(fileIndex);
-              setSwitchTarget({ season: targetSeason, episode: targetEpisode });
-              setResumeMode("resume");
-              setEnded(false);
-              setIsPlaying(true);
-              setCurrentTime(0);
-              currentTimeRef.current = 0;
-              setUpNextDismissed(false);
-              setShowControls(true);
-              return;
-            }
-          } catch (error) {
-            console.error("Failed to switch episode in pack:", error);
-          } finally {
-            setIsSwitchLoading(false);
-          }
-        }
-      }
-      const preferredQuality =
-        useAppStore.getState().settings.preferredQuality ?? "1080p";
-      playEpisode(movie, targetSeason, targetEpisode, { preferredQuality });
-    },
-    [movie, isLocal, hash, magnet],
-  );
-
-  const [upNextCountdown, setUpNextCountdown] = useState<number | null>(null);
-  const [upNextDismissed, setUpNextDismissed] = useState(false);
-
-  const nextEpisodeRef = useRef<() => void>(() => {});
-  nextEpisodeRef.current = () => {
-    if (!nextEpisode) return;
-    switchToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
-  };
-
-  // Netflix-style countdown: auto-play the next episode unless the user
-  // dismisses or picks another action.
-  useEffect(() => {
-    if (!nextEpisode || !ended || upNextDismissed) {
-      setUpNextCountdown(null);
-      return;
-    }
-    setUpNextCountdown(10);
-    const timer = setInterval(() => {
-      setUpNextCountdown((prev) => {
-        if (prev == null) return prev;
-        if (prev <= 1) {
-          clearInterval(timer);
-          nextEpisodeRef.current?.();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [nextEpisode, ended, upNextDismissed]);
-
-  const handleEnd = useCallback(() => {
-    saveProgress(currentTimeRef.current);
-    // Auto-advance through a queued batch of episodes (multi-select watch).
-    if (queueItems.length > 1 && queueIndex < queueItems.length - 1) {
-      const nextIndex = queueIndex + 1;
-      setQueueIndex(nextIndex);
-      setResumeMode("resume");
-      setEnded(false);
-      setIsPlaying(true);
-      setCurrentTime(0);
-      currentTimeRef.current = 0;
-      setShowControls(true);
-      return;
-    }
-    setIsPlaying(false);
-    setEnded(true);
-    setShowControls(true);
-  }, [saveProgress, queueItems.length, queueIndex]);
-
-  const handleReplay = useCallback(() => {
-    setEnded(false);
-    setIsPlaying(true);
-    setCurrentTime(0);
-    setUpNextDismissed(false);
-    videoRef.current?.seek(0);
-    interactControls();
-  }, [interactControls]);
-
-  const handlePlayPause = useCallback(() => {
-    if (ended) {
-      handleReplay();
-      return;
-    }
-    if (isCasting && castClient) {
-      if (isPlaying) {
-        castPause(castClient);
-      } else {
-        castPlay(castClient);
-      }
-      setIsPlaying((prev) => !prev);
-    } else {
-      setIsPlaying((prev) => !prev);
-    }
-  }, [ended, handleReplay, isCasting, castClient, isPlaying]);
-
-  const cycleRate = useCallback(() => {
-    setRate((prev) => {
-      const index = PLAYBACK_RATES.indexOf(prev);
-      const next = PLAYBACK_RATES[(index + 1) % PLAYBACK_RATES.length];
-      updateSettings({ playbackRate: next });
-      if (isCasting && castClient) {
-        castSetPlaybackRate(castClient, next);
-      }
-      return next;
-    });
-  }, [updateSettings, isCasting, castClient]);
-
-  const seekForward = () => {
-    const newTime = Math.min(currentTime + 10, duration);
-    if (isCasting && castClient) {
-      castSeek(castClient, newTime);
-    } else {
-      videoRef.current?.seek(newTime);
-    }
-    setCurrentTime(newTime);
-  };
-
-  const seekBackward = () => {
-    const newTime = Math.max(currentTime - 10, 0);
-    if (isCasting && castClient) {
-      castSeek(castClient, newTime);
-    } else {
-      videoRef.current?.seek(newTime);
-    }
-    setCurrentTime(newTime);
-  };
-
-  const handleLongPressStart = useCallback(() => {
-    setIsLongPressSeeking(true);
-    let seekTime = currentTimeRef.current;
-    longPressIntervalRef.current = setInterval(() => {
-      seekTime = Math.min(seekTime + 5, duration);
-      if (videoRef.current) {
-        videoRef.current.seek(seekTime);
-      }
-      setCurrentTime(seekTime);
-      currentTimeRef.current = seekTime;
-    }, 200);
-  }, [duration]);
-
-  const handleLongPressEnd = useCallback(() => {
-    setIsLongPressSeeking(false);
-    if (longPressIntervalRef.current) {
-      clearInterval(longPressIntervalRef.current);
-      longPressIntervalRef.current = undefined;
-    }
-  }, []);
-
-  // Animate seeking pill in/out
-  useEffect(() => {
-    Animated.timing(seekPillAnim, {
-      toValue: isLongPressSeeking ? 1 : 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start();
-  }, [isLongPressSeeking, seekPillAnim]);
-
-  const videoTextTrack: SelectedTrack =
-    subtitlePrefs.enabled && selectedSubtitleTrack.startsWith("embedded")
-      ? {
-          type: SelectedTrackType.INDEX,
-          value:
-            embeddedTracks[Number(selectedSubtitleTrack.split(":")[1])]
-              ?.index ?? 0,
-        }
-      : { type: SelectedTrackType.DISABLED };
-
+  // The cast receiver owns subtitle track selection while casting.
   const handleSelectSubtitleTrack = (id: string) => {
-    setSelectedSubtitleTrack(id);
-
-    if (isCasting && castClient) {
+    if (cast.isCasting && cast.castClient) {
       if (id === "off") {
-        castSetSubtitles(castClient, []);
+        castSetSubtitles(cast.castClient, []);
       } else if (id === "external") {
         // External subtitle already loaded via buildMediaRequest mediaTracks
       } else if (id.startsWith("embedded:")) {
         const index = Number(id.split(":")[1]);
-        castSetSubtitles(castClient, [index]);
+        castSetSubtitles(cast.castClient, [index]);
       }
     }
-
-    if (ended) return;
-    setIsPlaying(true);
-    interactControls();
+    subs.handleSelectSubtitleTrack(id);
   };
+
+  const handleSeek = (time: number) => {
+    if (cast.isCasting && cast.castClient) {
+      castSeek(cast.castClient, time);
+    } else {
+      state.videoRef.current?.seek(time);
+    }
+    state.setCurrentTime(time);
+  };
+
+  const title = route.episodeSubtitle
+    ? `${media.movie?.title ?? ""} · ${route.episodeSubtitle}`
+    : (media.movie?.title ?? "");
 
   // Local playback resolves its movie from persisted state, so never block on
   // the network query; only the stream flow waits for TMDB metadata.
-  if (isLocal && !movie) {
-    return (
-      <View className="flex-1 bg-black items-center justify-center gap-4">
-        <Text className="text-white font-bold text-lg">
-          Playback unavailable
-        </Text>
-        <Text className="text-white/60 text-sm text-center px-8">
-          This download could not be found on the device.
-        </Text>
-        <TouchableOpacity
-          onPress={handleBack}
-          className="bg-white/10 rounded-md px-6 py-3"
-        >
-          <Text className="text-white font-semibold">Go back</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  if (route.isLocal && !media.movie) {
+    return <PlayerUnavailable onBack={session.handleBack} />;
   }
 
-  if (!isLocal && (isQueryLoading || !movie)) {
+  if (!route.isLocal && (media.isQueryLoading || !media.movie)) {
     return <View className="flex-1 bg-black" />;
   }
 
   return (
     <View className="flex-1 bg-black">
       {/* Video source — hidden when casting (TV is the display) */}
-      {videoSource && !isCasting && (
+      {state.videoSource && !cast.isCasting && (
         <Video
-          ref={videoRef}
-          source={{ uri: videoSource }}
+          ref={state.videoRef}
+          source={{ uri: state.videoSource }}
           style={StyleSheet.absoluteFill}
           resizeMode="contain"
-          paused={!isPlaying || isPreparing}
-          rate={rate}
-          selectedTextTrack={videoTextTrack}
+          paused={!state.isPlaying || state.isPreparing}
+          rate={state.rate}
+          selectedTextTrack={subs.videoTextTrack}
           playInBackground
           enterPictureInPictureOnLeave
-          onPictureInPictureStatusChanged={handlePiPStatusChanged}
-          onProgress={handleProgress}
-          onLoad={handleLoad}
-          onBuffer={handleBuffer}
-          onError={handleError}
-          onEnd={handleEnd}
-          onLoadStart={() => setIsBuffering(true)}
+          onPictureInPictureStatusChanged={session.handlePiPStatusChanged}
+          onProgress={session.handleProgress}
+          onLoad={session.handleLoad}
+          onBuffer={session.handleBuffer}
+          onError={session.handleError}
+          onEnd={session.handleEnd}
+          onLoadStart={() => state.setIsBuffering(true)}
           progressUpdateInterval={1000}
         />
       )}
 
-      {/* YouTube-style seeking pill */}
-      <Animated.View
-        style={{
-          position: "absolute",
-          top: "40%",
-          alignSelf: "center",
-          opacity: seekPillAnim,
-          transform: [
-            {
-              scale: seekPillAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.8, 1],
-              }),
-            },
-          ],
-          zIndex: 20,
-        }}
-        pointerEvents="none"
-      >
-        <Badge
-          variant="secondary"
-          className="bg-black/70 border-white/20 px-3 py-1.5"
-        >
-          <Text className="text-white text-sm font-bold">10s {">>"}</Text>
-        </Badge>
-      </Animated.View>
+      <SeekPill anim={seeks.seekPillAnim} />
 
-      {/* Poster background when casting */}
-      {isCasting && movie?.large_cover_image && (
-        <Image
-          source={{ uri: movie.large_cover_image }}
-          style={[StyleSheet.absoluteFill, { opacity: 0.4 }]}
-          resizeMode="cover"
-          blurRadius={20}
-        />
+      {cast.isCasting && (
+        <CastBackdrop imageUrl={media.movie?.large_cover_image} />
       )}
 
-      {(isPreparing || isBuffering) && !isCasting && (
-        <View
-          className="absolute inset-0 items-center justify-center"
-          pointerEvents="none"
-        >
-          <ActivityIndicator size="large" color="#c97742" />
-        </View>
-      )}
+      <PlayerSpinnerOverlay
+        show={(state.isPreparing || state.isBuffering) && !cast.isCasting}
+      />
 
       {/* Cast overlay — device name + volume slider */}
-      {isCasting && castDevice && (
+      {cast.isCasting && cast.castDevice && (
         <CastOverlay
-          deviceName={castDevice.friendlyName}
-          volume={castVolume}
+          deviceName={cast.castDevice.friendlyName}
+          volume={cast.castVolume}
           onVolumeChange={(v) => {
-            setCastVolume(v);
-            if (castClient) castSetVolume(castClient, v);
+            cast.setCastVolume(v);
+            if (cast.castClient) castSetVolume(cast.castClient, v);
           }}
-          muted={castMuted}
+          muted={cast.castMuted}
           onToggleMute={() => {
-            const next = !castMuted;
-            setCastMuted(next);
-            if (castClient) castSetMuted(castClient, next);
+            const next = !cast.castMuted;
+            cast.setCastMuted(next);
+            if (cast.castClient) castSetMuted(cast.castClient, next);
           }}
           activeSubtitleLabel={
-            selectedSubtitleTrack !== "off"
-              ? (subtitleTracks.find((t) => t.id === selectedSubtitleTrack)
-                  ?.label ?? null)
+            subs.selectedSubtitleTrack !== "off"
+              ? (subs.subtitleTracks.find(
+                  (t) => t.id === subs.selectedSubtitleTrack,
+                )?.label ?? null)
               : null
           }
-          onStopCast={handleStopCast}
+          onStopCast={session.handleStopCast}
         />
       )}
 
       <GestureLayer
-        onSingleTap={toggleControls}
-        onDoubleTapLeft={seekBackward}
-        onDoubleTapRight={seekForward}
-        onControlsInteract={interactControls}
-        onLongPressStart={handleLongPressStart}
-        onLongPressEnd={handleLongPressEnd}
+        onSingleTap={controls.toggleControls}
+        onDoubleTapLeft={seeks.seekBackward}
+        onDoubleTapRight={seeks.seekForward}
+        onControlsInteract={controls.interactControls}
+        onLongPressStart={seeks.handleLongPressStart}
+        onLongPressEnd={seeks.handleLongPressEnd}
       />
 
       <PlayerControls
-        title={
-          episodeSubtitle
-            ? `${movie?.title ?? ""} · ${episodeSubtitle}`
-            : (movie?.title ?? "")
-        }
-        isPlaying={isPlaying}
-        ended={ended}
-        currentTime={currentTime}
-        duration={duration}
-        playableDuration={playableDuration}
-        showControls={showControls}
-        rate={rate}
-        onPlayPause={handlePlayPause}
-        onReplay={handleReplay}
-        onCycleRate={cycleRate}
-        onSeek={(time) => {
-          if (isCasting && castClient) {
-            castSeek(castClient, time);
-          } else {
-            videoRef.current?.seek(time);
-          }
-          setCurrentTime(time);
-        }}
-        onBack={handleBack}
+        title={title}
+        isPlaying={state.isPlaying}
+        ended={state.ended}
+        currentTime={state.currentTime}
+        duration={state.duration}
+        playableDuration={state.playableDuration}
+        showControls={controls.showControls}
+        rate={state.rate}
+        onPlayPause={session.handlePlayPause}
+        onReplay={session.handleReplay}
+        onCycleRate={session.cycleRate}
+        onSeek={handleSeek}
+        onBack={session.handleBack}
         onOpenSubtitles={() => {
-          setIsPlaying(false);
+          state.setIsPlaying(false);
           subtitleSheetRef.current?.present();
         }}
         onOpenEpisodes={
-          mediaType === "tv"
+          route.mediaType === "tv"
             ? () => {
-                setIsPlaying(false);
-                episodesSheetRef.current?.present();
+                state.setIsPlaying(false);
+                route.episodesSheetRef.current?.present();
               }
             : undefined
         }
-        onPip={enterPictureInPicture}
-        onControlsInteract={interactControls}
+        onPip={session.enterPictureInPicture}
+        onControlsInteract={controls.interactControls}
       />
 
       {/* Up Next — shown when an episode ends (shows only, outside a queue) */}
-      {ended && nextEpisode && !upNextDismissed && (
-        <View
-          className="absolute bottom-24 right-5 z-30"
-          style={{ width: 280 }}
-        >
-          <View className="bg-black/80 border border-white/15 rounded-lg overflow-hidden">
-            <View className="flex-row items-center justify-between px-3 pt-3 pb-2">
-              <Text className="text-white/80 text-xs font-semibold uppercase tracking-widest">
-                Up next
-              </Text>
-              <TouchableOpacity
-                onPress={() => setUpNextDismissed(true)}
-                activeOpacity={0.7}
-                className="size-7 rounded-full bg-white/10 items-center justify-center"
-              >
-                <Text className="text-white text-sm font-bold leading-none">
-                  ×
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View className="flex-row gap-3 px-3 pb-3">
-              {nextEpisode.stillUrl ? (
-                <Image
-                  source={{ uri: nextEpisode.stillUrl }}
-                  className="w-24 h-16 rounded-md bg-white/10"
-                  resizeMode="cover"
-                />
-              ) : (
-                <View className="w-24 h-16 rounded-md bg-white/10 items-center justify-center">
-                  <Text className="text-white/60 text-lg font-bold">
-                    {nextEpisode.episodeNumber}
-                  </Text>
-                </View>
-              )}
-              <View className="flex-1 justify-center">
-                <Text
-                  className="text-white font-bold text-sm"
-                  numberOfLines={2}
-                >
-                  S{String(nextEpisode.seasonNumber).padStart(2, "0")}E
-                  {String(nextEpisode.episodeNumber).padStart(2, "0")} ·{" "}
-                  {nextEpisode.name || `Episode ${nextEpisode.episodeNumber}`}
-                </Text>
-                {upNextCountdown != null && (
-                  <Text className="text-white/60 text-xs mt-1">
-                    Playing in {upNextCountdown}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            <TouchableOpacity
-              onPress={() =>
-                switchToEpisode(
-                  nextEpisode.seasonNumber,
-                  nextEpisode.episodeNumber,
-                )
-              }
-              activeOpacity={0.8}
-              className="flex-row items-center justify-center gap-2 bg-primary py-3 mx-3 mb-3 rounded-md"
-            >
-              <Text className="text-primary-foreground font-bold text-sm">
-                Play
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      {state.ended && nextEpisode && !upNext.upNextDismissed && (
+        <UpNextCard
+          episode={nextEpisode}
+          countdown={upNext.upNextCountdown}
+          onDismiss={() => upNext.setUpNextDismissed(true)}
+          onPlay={() =>
+            upNext.switchToEpisode(
+              nextEpisode.seasonNumber,
+              nextEpisode.episodeNumber,
+            )
+          }
+        />
       )}
 
-      {isSwitchLoading && (
-        <View
-          className="absolute inset-0 items-center justify-center bg-black/50 z-40"
-          pointerEvents="none"
-        >
-          <ActivityIndicator size="large" color="#c97742" />
-        </View>
-      )}
+      <PlayerSpinnerOverlay show={route.isSwitchLoading} dimmed />
 
-      {selectedSubtitleTrack === "external" && (
+      {subs.selectedSubtitleTrack === "external" && (
         <SubtitleOverlay
-          cues={subtitleCues}
-          currentTime={currentTime}
-          delay={subtitlePrefs.delay}
-          enabled={subtitlePrefs.enabled}
-          fontSize={subtitlePrefs.fontSize}
-          color={subtitlePrefs.color}
-          backgroundOpacity={subtitlePrefs.backgroundOpacity}
+          cues={subs.subtitleCues}
+          currentTime={state.currentTime}
+          delay={subs.subtitlePrefs.delay}
+          enabled={subs.subtitlePrefs.enabled}
+          fontSize={subs.subtitlePrefs.fontSize}
+          color={subs.subtitlePrefs.color}
+          backgroundOpacity={subs.subtitlePrefs.backgroundOpacity}
         />
       )}
 
       <SubtitleSheet
         ref={subtitleSheetRef}
-        tracks={subtitleTracks}
-        selectedTrackId={selectedSubtitleTrack}
+        tracks={subs.subtitleTracks}
+        selectedTrackId={subs.selectedSubtitleTrack}
         onSelectTrack={handleSelectSubtitleTrack}
-        enabled={subtitlePrefs.enabled}
-        onToggleEnabled={(enabled) => updateSubtitlePrefs({ enabled })}
-        delay={subtitlePrefs.delay}
+        enabled={subs.subtitlePrefs.enabled}
+        onToggleEnabled={(enabled) => subs.updateSubtitlePrefs({ enabled })}
+        delay={subs.subtitlePrefs.delay}
         onChangeDelay={(delay) =>
-          updateSubtitlePrefs({ delay: Math.min(10, Math.max(-10, delay)) })
+          subs.updateSubtitlePrefs({
+            delay: Math.min(10, Math.max(-10, delay)),
+          })
         }
       />
 
-      {mediaType === "tv" && movie && (
+      {route.mediaType === "tv" && media.movie && (
         <EpisodesSheet
-          key={activeSeason ?? 1}
-          ref={episodesSheetRef}
-          movie={movie}
-          initialSeason={activeSeason ?? 1}
+          key={route.activeSeason ?? 1}
+          ref={route.episodesSheetRef}
+          movie={media.movie}
+          initialSeason={route.activeSeason ?? 1}
           onSelect={(targetSeason, targetEpisode) => {
-            episodesSheetRef.current?.dismiss();
-            setUpNextDismissed(false);
-            switchToEpisode(targetSeason, targetEpisode);
+            route.episodesSheetRef.current?.dismiss();
+            upNext.setUpNextDismissed(false);
+            upNext.switchToEpisode(targetSeason, targetEpisode);
           }}
         />
       )}
 
-      {playbackError && (
+      {state.playbackError && (
         <MessageDialog
           open
-          title={playbackError.title}
-          message={playbackError.message}
+          title={state.playbackError.title}
+          message={state.playbackError.message}
           onOpenChange={(open) => {
             if (!open) {
-              setPlaybackError(null);
-              handleBack();
+              state.setPlaybackError(null);
+              session.handleBack();
             }
           }}
         />
       )}
 
       <ConfirmDialog
-        open={showResumeDialog}
+        open={state.showResumeDialog}
         title="Resume playback?"
-        message={`You left off at ${resumeTimeLabel}.`}
+        message={`You left off at ${state.resumeTimeLabel}.`}
         actions={[
           {
             label: "Start over",
             variant: "outline",
-            onPress: () => setResumeMode("restart"),
+            onPress: () => state.setResumeMode("restart"),
           },
           {
             label: "Resume",
-            onPress: () => setResumeMode("resume"),
+            onPress: () => state.setResumeMode("resume"),
           },
         ]}
-        onOpenChange={setShowResumeDialog}
+        onOpenChange={state.setShowResumeDialog}
       />
     </View>
   );

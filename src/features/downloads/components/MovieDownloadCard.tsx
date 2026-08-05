@@ -11,9 +11,13 @@ import { Animated, Image, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { fileBaseName } from "@/features/media/services/packFiles";
-import type { DownloadState } from "@/features/shared/store/useAppStore";
+import type { DownloadState } from "@/features/shared/store/types";
+import { formatSpeed } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { episodeLabel, parseEpisodeFromName } from "@/services/torrents";
+import {
+  episodeLabel,
+  parseEpisodeFromName,
+} from "@/services/torrents/structure";
 
 interface MovieDownloadCardProps {
   download: DownloadState;
@@ -40,13 +44,6 @@ const MovieDownloadCard = ({
       useNativeDriver: false,
     }).start();
   }, [progress, progressAnim]);
-
-  const formatSpeed = (s: number) => {
-    if (!s || s === 0) return "0 B/s";
-    if (s < 1024) return `${s} B/s`;
-    if (s < 1024 * 1024) return `${(s / 1024).toFixed(1)} KB/s`;
-    return `${(s / (1024 * 1024)).toFixed(1)} MB/s`;
-  };
 
   const isDownloading = state === "downloading";
   const isPaused = state === "paused";

@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import type React from "react";
+import { BACKGROUND, FOREGROUND } from "@/lib/colors";
 
 const SettingsLayout: React.FC = () => {
   return (
@@ -9,9 +10,9 @@ const SettingsLayout: React.FC = () => {
         options={{
           headerTitle: "Settings",
           headerShown: true,
-          headerStyle: { backgroundColor: "#0f1114" },
+          headerStyle: { backgroundColor: BACKGROUND },
           headerShadowVisible: false,
-          headerTintColor: "#eceff1",
+          headerTintColor: FOREGROUND,
         }}
       />
       <Stack.Screen

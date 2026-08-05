@@ -10,10 +10,8 @@ import {
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { BACKGROUND } from "@/lib/colors";
 import type { Movie } from "@/types/movie";
-
-// Raw hex for LinearGradient — must match --color-background in global.css
-const BG = "#0f1114";
 
 interface MediaRowProps {
   title: string;
@@ -38,7 +36,7 @@ const MediaCard = ({ movie }: { movie: Movie }) => {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={["transparent", `${BG}99`, BG]}
+          colors={["transparent", `${BACKGROUND}99`, BACKGROUND]}
           locations={[0, 0.55, 1]}
           style={{
             position: "absolute",
@@ -54,7 +52,7 @@ const MediaCard = ({ movie }: { movie: Movie }) => {
             numberOfLines={2}
             style={{
               height: 30,
-              textShadowColor: BG,
+              textShadowColor: BACKGROUND,
               textShadowRadius: 6,
               textShadowOffset: { width: 0, height: 1 },
             }}

@@ -1,138 +1,37 @@
-import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
-import {
-  ArrowLeft,
-  Bookmark,
-  Download,
-  Pause,
-  Play,
-  Save,
-  Trash2,
-} from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  Dimensions,
-  Image,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import { useState } from "react";
+import { RefreshControl, ScrollView, StatusBar, View } from "react-native";
 import MediaRow from "@/components/core/MediaRow";
-import { RatingBadge } from "@/components/core/RatingBadge";
-import { Icon } from "@/components/ui/icon";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Text } from "@/components/ui/text";
 import {
   useMovieDetailsQuery,
   useRecommendationsQuery,
-  useSeasonEpisodesQuery,
 } from "@/features/discover/services/queries";
-import { SeasonEpisodesSection } from "@/features/media/components/SeasonEpisodesSection";
-import {
-  downloadEpisode,
-  findLocalEpisodeDownload,
-  nextEpisodeToPlay,
-  openSources,
-  playEpisode,
-  playMovie,
-  pushToPlayer,
-} from "@/features/media/services/pickSource";
+import { ContinueWatchingProgress } from "@/features/media/components/ContinueWatchingProgress";
+import { EpisodesSection } from "@/features/media/components/EpisodesSection";
+import { MediaDetailSkeleton } from "@/features/media/components/MediaDetailSkeleton";
+import { MediaHero } from "@/features/media/components/MediaHero";
+import { MediaPrimaryAction } from "@/features/media/components/MediaPrimaryAction";
+import { StoredDownloadsCard } from "@/features/media/components/StoredDownloadsCard";
+import { SynopsisSection } from "@/features/media/components/SynopsisSection";
+import { useMediaDetailActions } from "@/features/media/hooks/useMediaDetailActions";
+import { useMediaSeasons } from "@/features/media/hooks/useMediaSeasons";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
-import {
-  downloadsForMedia,
-  useAppStore,
-} from "@/features/shared/store/useAppStore";
+import { downloadsForMedia } from "@/features/shared/store/selectors";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import {
   CONTINUE_WATCHING_MAX_PERCENT,
   CONTINUE_WATCHING_MIN_PERCENT,
 } from "@/lib/constants";
-import { DownloadService } from "@/services/DownloadService";
+import { useDebounceCallback } from "@/lib/hooks/useDebounceCallback";
 import { ExportService } from "@/services/ExportService";
-import { episodeLabel } from "@/services/torrents";
-import type { MediaType, TvEpisode } from "@/types/movie";
-
-// Raw hex for LinearGradient — must match --color-background in global.css
-const BG = "#0f1114";
-
-const { width, height } = Dimensions.get("window");
-const HERO_HEIGHT = height * 0.62;
-
-const useDebounceCallback = <T extends (...args: unknown[]) => void>(
-  callback: T,
-  delay: number,
-) => {
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  return React.useCallback(
-    (...args: Parameters<T>) => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => callback(...args), delay);
-    },
-    [callback, delay],
-  );
-};
-
-const MediaDetailSkeleton = () => {
-  return (
-    <View className="flex-1 bg-background">
-      <StatusBar
-        translucent
-        backgroundColor="transparent"
-        barStyle="light-content"
-      />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={{ height: HERO_HEIGHT }}>
-          <Skeleton
-            className="w-full rounded-none"
-            style={{ height: HERO_HEIGHT }}
-          />
-
-          <Skeleton className="absolute top-14 left-4 size-10 rounded-md" />
-          <Skeleton className="absolute top-14 right-4 size-10 rounded-md" />
-
-          <View className="absolute bottom-0 left-0 right-0 px-5 pb-6">
-            <View className="flex-row items-center gap-2 mb-3">
-              <Skeleton className="size-7 rounded" />
-              <Skeleton className="w-10 h-3" />
-              <Skeleton className="size-1.5 rounded-full" />
-              <Skeleton className="w-14 h-3" />
-            </View>
-            <Skeleton className="w-3/4 h-8 mb-3" />
-            <View className="flex-row flex-wrap gap-2">
-              <Skeleton className="w-16 h-6 rounded-md" />
-              <Skeleton className="w-20 h-6 rounded-md" />
-              <Skeleton className="w-14 h-6 rounded-md" />
-            </View>
-          </View>
-        </View>
-
-        <View className="px-5 pt-6 pb-16">
-          <View className="flex-row gap-3 mb-8">
-            <Skeleton className="flex-1 h-12 rounded-2xl" />
-            <Skeleton className="flex-1 h-12 rounded-2xl" />
-          </View>
-
-          <View className="mb-8">
-            <Skeleton className="w-20 h-5 mb-2" />
-            <Skeleton className="w-full h-4 mb-2" />
-            <Skeleton className="w-full h-4 mb-2" />
-            <Skeleton className="w-4/5 h-4 mb-2" />
-            <Skeleton className="w-2/5 h-4" />
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  );
-};
+import type { MediaType } from "@/types/movie";
 
 const MediaDetailScreen = () => {
   const { type, id } = useLocalSearchParams<{ type: string; id: string }>();
   const mediaType: MediaType =
     (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
   const tmdbId = Number(Array.isArray(id) ? id[0] : id);
+  const mediaId = `${mediaType}:${tmdbId}`;
 
   const {
     data: movie,
@@ -145,76 +44,38 @@ const MediaDetailScreen = () => {
   const { bookmarks, downloads, watchHistory, settings, toggleBookmark } =
     useAppStore();
 
-  const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [exportResult, setExportResult] = useState<{
     title: string;
     message: string;
   } | null>(null);
-  const [activeSeason, setActiveSeason] = useState<number | undefined>(
-    undefined,
-  );
   const [loadingEpisode, setLoadingEpisode] = useState<number | null>(null);
   const handleToggleBookmark = useDebounceCallback(() => {
     if (movie) toggleBookmark(movie);
   }, 300);
   const preferredQuality = settings.preferredQuality ?? "1080p";
-  const mediaId = `${mediaType}:${tmdbId}`;
 
-  // Seasons known from TMDB metadata or the highest season referenced by the
-  // show's torrents. Every listed season opens an episode screen.
-  // Torrent seasons are clamped to the TMDB count so a bogus or unrelated
-  // torrent can't balloon the list (e.g. EZTV returning wrong shows).
-  const seasons = useMemo(() => {
-    if (movie?.mediaType !== "tv") return [];
-    const tmdbSeasons = movie.numberOfSeasons ?? 0;
-    const fromTorrents =
-      tmdbSeasons > 0
-        ? Math.max(
-            0,
-            ...(movie.torrents ?? [])
-              .map((torrent) => torrent.season)
-              .filter(
-                (season): season is number =>
-                  season != null && season > 0 && season <= tmdbSeasons,
-              ),
-          )
-        : Math.max(
-            0,
-            ...(movie.torrents ?? [])
-              .map((torrent) => torrent.season)
-              .filter((season): season is number => season != null),
-          );
-    const count = Math.max(tmdbSeasons, fromTorrents);
-    if (count <= 0) return [];
-    return Array.from({ length: count }, (_, index) => index + 1);
-  }, [movie]);
+  const {
+    seasons,
+    activeSeason,
+    setActiveSeason,
+    activeEpisodes,
+    episodesLoading,
+  } = useMediaSeasons({ movie, tmdbId, mediaId, watchHistory });
 
-  // Default the inline episode list to the most recently watched season, or the
-  // first season if the show was never watched.
-  useEffect(() => {
-    if (movie?.mediaType !== "tv" || activeSeason != null) return;
-    let latest = seasons.length > 0 ? seasons[0] : undefined;
-    for (const key of Object.keys(watchHistory)) {
-      if (!key.startsWith(`${mediaId}:s`)) continue;
-      const match = key.match(/s(\d{2})e\d{2}$/);
-      if (!match) continue;
-      const seasonNum = Number(match[1]);
-      if (seasonNum > (latest ?? 0) && seasons.includes(seasonNum)) {
-        latest = seasonNum;
-      }
-    }
-    setActiveSeason(latest);
-  }, [movie, activeSeason, seasons, mediaId, watchHistory]);
-
-  const activeEpisodesQuery = useSeasonEpisodesQuery(
-    tmdbId,
-    activeSeason ?? 0,
-    {
-      enabled: movie?.mediaType === "tv" && activeSeason != null,
-    },
-  );
-  const activeEpisodes = activeEpisodesQuery.data;
-  const episodesLoading = activeEpisodesQuery.isLoading;
+  const {
+    playEpisodeRef,
+    handlePrimaryPlay,
+    handleDownloadEpisode,
+    handleOpenEpisodeSources,
+    handleDownloadPress,
+  } = useMediaDetailActions({
+    movie,
+    mediaId,
+    seasons,
+    activeSeason,
+    preferredQuality,
+    setLoadingEpisode,
+  });
 
   if (isLoading || !movie) return <MediaDetailSkeleton />;
 
@@ -231,84 +92,11 @@ const MediaDetailScreen = () => {
     (download) => download.state === "complete",
   );
   const isOffline = completeDownloads.length > 0;
-  const currentTime = watchHistory[movie.id]?.currentTime || 0;
-
-  const releaseYear = movie.year ? movie.year.toString() : "";
-  const runtimeFormatted =
-    movie.runtime >= 60
-      ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`
-      : movie.runtime > 0
-        ? `${movie.runtime}m`
-        : movie.mediaType === "tv"
-          ? "Series"
-          : "";
-  const genres = movie.genres || [];
   const duration = movie.runtime * 60;
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  const handlePrimaryPlay = () => {
-    if (!movie) return;
-    if (movie.mediaType === "movie") {
-      playMovie(movie, preferredQuality);
-      return;
-    }
-    if (seasons.length === 0) {
-      openSources(movie, "stream");
-      return;
-    }
-    const target = nextEpisodeToPlay(
-      mediaId,
-      seasons.map((season) => ({ season, count: Number.MAX_SAFE_INTEGER })),
-      watchHistory,
-    ) ?? { season: seasons[0], episode: 1 };
-    playEpisodeRef(target.season, target.episode);
-  };
-
-  const playEpisodeRef = async (season: number, episode: number) => {
-    if (!movie || movie.mediaType !== "tv") return;
-    const local = findLocalEpisodeDownload(movie, season, episode, downloads);
-    if (local) {
-      pushToPlayer(movie, {
-        mode: "local",
-        downloadId: local.id,
-        season,
-        episode,
-      });
-      return;
-    }
-    await playEpisode(movie, season, episode, {
-      preferredQuality,
-      onLoading: (loading) => setLoadingEpisode(loading ? episode : null),
-    });
-  };
-
-  const handleDownloadEpisode = async (episode: TvEpisode) => {
-    if (!movie || movie.mediaType !== "tv" || activeSeason == null) return;
-    const started = await downloadEpisode(
-      movie,
-      activeSeason,
-      episode.episodeNumber,
-      preferredQuality,
-    );
-    if (!started) {
-      openSources(movie, "download", {
-        season: activeSeason,
-        episode: episode.episodeNumber,
-      });
-    }
-  };
-
-  const handleOpenEpisodeSources = (episode: TvEpisode) => {
-    if (!movie || movie.mediaType !== "tv" || activeSeason == null) return;
-    openSources(movie, "stream", {
-      season: activeSeason,
-      episode: episode.episodeNumber,
-    });
-  };
-
-  const handleDownloadPress = () => {
-    if (movie) openSources(movie, "download");
-  };
+  const progress =
+    duration > 0
+      ? ((watchHistory[movie.id]?.currentTime || 0) / duration) * 100
+      : 0;
 
   const handleExportDownload = async (downloadId: string) => {
     const result = await ExportService.exportDownload(downloadId);
@@ -316,125 +104,6 @@ const MediaDetailScreen = () => {
       title: result.ok ? "Saved to device" : "Could not save",
       message: result.message,
     });
-  };
-
-  const renderPrimaryAction = () => {
-    if (activeDownload) {
-      return (
-        <View className="flex-1">
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-xs font-semibold text-foreground">
-              {activeDownload.state === "queued"
-                ? "Queued..."
-                : "Downloading..."}
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              {(activeDownload.speed / 1000000).toFixed(1)} MB/s
-            </Text>
-          </View>
-          <View className="h-1 w-full bg-muted rounded-full overflow-hidden mb-3">
-            <View
-              className="h-full bg-primary rounded-full"
-              style={{ width: `${activeDownload.progress * 100}%` }}
-            />
-          </View>
-          <TouchableOpacity
-            onPress={() => DownloadService.pauseDownload(activeDownload.id)}
-            className="flex-row items-center justify-center gap-2 bg-muted rounded-md py-4"
-          >
-            <Icon as={Pause} size={18} className="text-foreground" />
-            <Text className="text-foreground font-bold">Pause</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (pausedDownload) {
-      return (
-        <View className="flex-1">
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-xs font-semibold text-foreground">
-              Paused
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              {(pausedDownload.progress * 100).toFixed(0)}%
-            </Text>
-          </View>
-          <View className="h-1 w-full bg-muted rounded-full overflow-hidden mb-3">
-            <View
-              className="h-full bg-muted-foreground/50 rounded-full"
-              style={{ width: `${pausedDownload.progress * 100}%` }}
-            />
-          </View>
-          <TouchableOpacity
-            onPress={() => DownloadService.resumeDownload(pausedDownload.id)}
-            className="flex-row items-center justify-center gap-2 bg-primary rounded-md py-4"
-          >
-            <Icon
-              as={Play}
-              size={18}
-              className="text-primary-foreground fill-primary-foreground"
-            />
-            <Text className="text-primary-foreground font-bold">Resume</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (completeDownloads.length > 0) {
-      return (
-        <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
-          onPress={() =>
-            router.push({
-              pathname: "/player/[type]/[id]",
-              params: {
-                type: movie.mediaType,
-                id: movie.tmdbId,
-                mode: "local",
-                downloadId: completeDownloads[0].id,
-              },
-            })
-          }
-        >
-          <Icon
-            as={Play}
-            size={20}
-            className="text-primary-foreground fill-primary-foreground"
-          />
-          <Text className="text-primary-foreground font-bold text-base">
-            {progress > CONTINUE_WATCHING_MIN_PERCENT
-              ? "Continue Watching"
-              : "Play"}
-          </Text>
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <View className="flex-1 flex-row gap-3">
-        <TouchableOpacity
-          onPress={handlePrimaryPlay}
-          className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
-        >
-          <Icon
-            as={Play}
-            size={20}
-            className="text-primary-foreground fill-primary-foreground"
-          />
-          <Text className="text-primary-foreground font-bold text-base">
-            Watch Now
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleDownloadPress}
-          className="flex-1 flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4"
-        >
-          <Icon as={Download} size={20} className="text-foreground" />
-          <Text className="text-foreground font-bold text-base">Download</Text>
-        </TouchableOpacity>
-      </View>
-    );
   };
 
   return (
@@ -450,259 +119,52 @@ const MediaDetailScreen = () => {
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
         }
       >
-        {/* ── HERO ── */}
-        <View style={{ height: HERO_HEIGHT }}>
-          <Image
-            source={{
-              uri: movie.large_cover_image || movie.medium_cover_image,
-            }}
-            style={{ width, height: HERO_HEIGHT }}
-            resizeMode="cover"
-          />
+        <MediaHero
+          movie={movie}
+          isBookmarked={isBookmarked}
+          onToggleBookmark={handleToggleBookmark}
+        />
 
-          <LinearGradient
-            colors={["transparent", "transparent", `${BG}B3`, BG]}
-            locations={[0, 0.6, 0.9, 1]}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-          />
-
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="absolute top-14 left-4 size-10 bg-background/40 items-center justify-center rounded-md border border-border/10"
-            style={{ zIndex: 10 }}
-          >
-            <Icon as={ArrowLeft} size={20} className="text-foreground" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleToggleBookmark}
-            className={`absolute top-14 right-4 size-10 items-center justify-center rounded-md border ${
-              isBookmarked
-                ? "bg-primary/20 border-primary/40"
-                : "bg-background/40 border-border/10"
-            }`}
-            style={{ zIndex: 10 }}
-          >
-            <Icon
-              as={Bookmark}
-              size={20}
-              className={
-                isBookmarked ? "text-primary fill-primary" : "text-foreground"
-              }
-            />
-          </TouchableOpacity>
-
-          <View
-            className="absolute bottom-0 left-0 right-0 px-5 pb-6"
-            style={{ zIndex: 5 }}
-          >
-            <View className="flex-row items-center gap-2 mb-3">
-              <RatingBadge rating={movie.rating} />
-              <Text className="text-foreground/50 text-xs">{releaseYear}</Text>
-              <Text className="text-foreground/30 text-xs">•</Text>
-              <Text className="text-foreground/50 text-xs">
-                {runtimeFormatted}
-              </Text>
-            </View>
-
-            <Text
-              className="text-foreground font-bold mb-3"
-              style={{
-                fontSize: 28,
-                lineHeight: 34,
-              }}
-            >
-              {movie.title}
-            </Text>
-
-            <View className="flex-row flex-wrap gap-2">
-              {genres.map((genre) => (
-                <View
-                  key={genre}
-                  className="bg-muted border border-border rounded-md px-3 py-1"
-                >
-                  <Text className="text-muted-foreground text-xs font-medium">
-                    {genre}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* ── CONTENT ── */}
         <View className="px-5 pt-6 pb-16">
-          <View className="flex-row gap-3 mb-8">{renderPrimaryAction()}</View>
+          <View className="flex-row gap-3 mb-8">
+            <MediaPrimaryAction
+              movie={movie}
+              activeDownload={activeDownload}
+              pausedDownload={pausedDownload}
+              completeDownloads={completeDownloads}
+              progress={progress}
+              onPrimaryPlay={handlePrimaryPlay}
+              onDownloadPress={handleDownloadPress}
+            />
+          </View>
 
           {progress > CONTINUE_WATCHING_MIN_PERCENT &&
             progress < CONTINUE_WATCHING_MAX_PERCENT && (
-              <View className="mb-8">
-                <View className="flex-row justify-between mb-1.5">
-                  <Text className="text-xs text-muted-foreground">
-                    Progress
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {Math.round(progress)}%
-                  </Text>
-                </View>
-                <View className="h-1 bg-muted rounded-full">
-                  <View
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${progress}%` }}
-                  />
-                </View>
-              </View>
+              <ContinueWatchingProgress progress={progress} />
             )}
 
-          <View className="mb-8">
-            <Text className="text-base font-bold text-foreground mb-2">
-              Synopsis
-            </Text>
-            <Text
-              className="text-muted-foreground text-sm leading-relaxed"
-              numberOfLines={isSynopsisExpanded ? undefined : 4}
-            >
-              {movie.description_full || movie.summary}
-            </Text>
-            {(movie.description_full?.length > 200 ||
-              movie.summary?.length > 200) && (
-              <TouchableOpacity
-                onPress={() => setIsSynopsisExpanded(!isSynopsisExpanded)}
-                className="mt-2"
-              >
-                <Text className="text-primary font-semibold text-sm">
-                  {isSynopsisExpanded ? "Show less" : "Read more"}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <SynopsisSection movie={movie} />
 
           {movie.mediaType === "tv" && seasons.length > 0 && (
-            <View className="mb-8">
-              <Text className="text-base font-bold text-foreground mb-3">
-                Episodes
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="mb-3"
-                contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
-              >
-                {seasons.map((season) => {
-                  const selected = season === activeSeason;
-                  return (
-                    <TouchableOpacity
-                      key={season}
-                      onPress={() => setActiveSeason(season)}
-                      activeOpacity={0.7}
-                      className={`px-4 py-2 rounded-md border ${
-                        selected
-                          ? "bg-primary border-primary"
-                          : "bg-muted border-border"
-                      }`}
-                    >
-                      <Text
-                        className={`text-sm font-semibold ${
-                          selected
-                            ? "text-primary-foreground"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {season}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              <SeasonEpisodesSection
-                movie={movie}
-                season={activeSeason ?? seasons[0]}
-                episodes={activeEpisodes}
-                isLoading={episodesLoading}
-                loadingEpisode={loadingEpisode}
-                onPlayEpisode={(episode) =>
-                  playEpisodeRef(
-                    activeSeason ?? seasons[0],
-                    episode.episodeNumber,
-                  )
-                }
-                onDownloadEpisode={handleDownloadEpisode}
-                onOpenSources={handleOpenEpisodeSources}
-              />
-            </View>
+            <EpisodesSection
+              movie={movie}
+              seasons={seasons}
+              activeSeason={activeSeason}
+              episodes={activeEpisodes}
+              episodesLoading={episodesLoading}
+              loadingEpisode={loadingEpisode}
+              onSelectSeason={setActiveSeason}
+              onPlayEpisode={playEpisodeRef}
+              onDownloadEpisode={handleDownloadEpisode}
+              onOpenSources={handleOpenEpisodeSources}
+            />
           )}
 
           {isOffline && (
-            <View className="bg-card rounded-md border border-border p-4">
-              <Text className="text-sm font-bold text-foreground mb-4">
-                Stored on device
-              </Text>
-              {completeDownloads.map((download) => {
-                const label =
-                  episodeLabel(download.movie.torrents?.[0]) ?? "Video file";
-                return (
-                  <View
-                    key={download.id}
-                    className="flex-row items-center justify-between mb-3 last:mb-0"
-                  >
-                    <View className="flex-row items-center gap-3 flex-1">
-                      <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
-                        <Icon
-                          as={Download}
-                          size={16}
-                          className="text-primary"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text
-                          className="text-sm font-medium text-foreground"
-                          numberOfLines={1}
-                        >
-                          {label}
-                        </Text>
-                        <Text className="text-xs text-muted-foreground mt-0.5">
-                          {download.localSubtitlePath
-                            ? "With subtitles"
-                            : "No subtitles"}
-                        </Text>
-                      </View>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <TouchableOpacity
-                        onPress={() => handleExportDownload(download.id)}
-                        className="flex-row items-center gap-1.5 bg-primary/10 px-3 py-2 rounded-md"
-                      >
-                        <Icon as={Save} size={14} className="text-primary" />
-                        <Text className="text-primary text-xs font-bold">
-                          Save
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() =>
-                          DownloadService.cancelDownload(download.id)
-                        }
-                        className="flex-row items-center gap-1.5 bg-destructive/10 px-3 py-2 rounded-md"
-                      >
-                        <Icon
-                          as={Trash2}
-                          size={14}
-                          className="text-destructive"
-                        />
-                        <Text className="text-destructive text-xs font-bold">
-                          Remove
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
+            <StoredDownloadsCard
+              downloads={completeDownloads}
+              onExport={handleExportDownload}
+            />
           )}
         </View>
 

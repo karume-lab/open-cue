@@ -1,4 +1,5 @@
-import { magnetFromHash, parseEpisodeFromName } from "@/services/torrents";
+import { magnetFromHash } from "@/services/torrents/magnet";
+import { parseEpisodeFromName } from "@/services/torrents/structure";
 import type { MovieTorrent, TorrentFileInfo } from "@/types/movie";
 import TorrentDaemon from "~/modules/torrent-daemon";
 

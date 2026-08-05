@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Text } from "@/components/ui/text";
 import { EpisodeRow } from "@/features/media/components/EpisodeRow";
-import { watchKeyFor } from "@/features/media/services/pickSource";
+import { watchKeyFor } from "@/features/media/services/pickSource/nextEpisode";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import type { Movie, TvEpisode } from "@/types/movie";
 

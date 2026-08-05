@@ -6,10 +6,8 @@ import MovieCard, { SkeletonCard } from "@/components/core/MovieCard";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
-import {
-  isMediaDownloaded,
-  useAppStore,
-} from "@/features/shared/store/useAppStore";
+import { isMediaDownloaded } from "@/features/shared/store/selectors";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import type { Movie } from "@/types/movie";
 
 interface BrowseMoviesGridProps {

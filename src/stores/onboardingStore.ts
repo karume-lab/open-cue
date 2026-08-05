@@ -4,7 +4,7 @@ import {
   persist,
   type StateStorage,
 } from "zustand/middleware";
-import { storage } from "@/features/shared/store/useAppStore";
+import { storage } from "@/features/shared/store/storage";
 
 const zustandStorage: StateStorage = {
   setItem: (name, value) => {

@@ -30,7 +30,11 @@ const Root: React.FC<PropsWithChildren> = ({ children }) => {
 
         {/* Add any additional <head> elements that you want globally available on web... */}
       </head>
-      <body style={{ backgroundColor: "#0f1114" }}>{children}</body>
+      <body
+        style={{ backgroundColor: "#0f1114" /* BACKGROUND in lib/colors */ }}
+      >
+        {children}
+      </body>
     </html>
   );
 };

@@ -96,7 +96,7 @@ const PlaylistDetailScreen = () => {
             <PlaylistEpisodeRow
               item={item}
               index={index}
-              onPress={(pressed, i) => handlePlay(playlist.items, i)}
+              onPress={(_pressed, i) => handlePlay(playlist.items, i)}
               onRemove={(pressed) =>
                 removePlaylistItems(playlist.id, [pressed.id])
               }

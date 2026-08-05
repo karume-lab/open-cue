@@ -14,7 +14,8 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { searchMulti } from "@/services/tmdb";
+import { PRIMARY } from "@/lib/colors";
+import { searchMulti } from "@/services/tmdb/endpoints";
 
 const SearchScreen = () => {
   const insets = useSafeAreaInsets();
@@ -135,7 +136,7 @@ const SearchScreen = () => {
         </View>
       ) : isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#c97742" />
+          <ActivityIndicator color={PRIMARY} />
         </View>
       ) : (
         <FlatList

@@ -14,7 +14,7 @@ import {
   DEFAULT_FILTERS,
   type FilterState,
 } from "@/lib/filtering";
-import { DownloadService } from "@/services/DownloadService";
+import { DownloadService } from "@/services/downloads/DownloadManager";
 
 const LibraryScreen = () => {
   const { bookmarks, downloads } = useAppStore();

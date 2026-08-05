@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/brand-icons";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
+import { PRIMARY } from "@/lib/colors";
 
 import {
   GITHUB_URL,
@@ -115,7 +116,7 @@ const AboutScreen = () => {
           >
             <View className="flex-row items-center gap-4">
               <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
-                <GithubIcon color="#c97742" size={20} />
+                <GithubIcon color={PRIMARY} size={20} />
               </View>
               <View>
                 <Text className="text-base font-semibold text-foreground">
@@ -135,7 +136,7 @@ const AboutScreen = () => {
           >
             <View className="flex-row items-center gap-4">
               <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
-                <LinkedinIcon color="#c97742" size={20} />
+                <LinkedinIcon color={PRIMARY} size={20} />
               </View>
               <View>
                 <Text className="text-base font-semibold text-foreground">
@@ -155,7 +156,7 @@ const AboutScreen = () => {
           >
             <View className="flex-row items-center gap-4">
               <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
-                <TwitterIcon color="#c97742" size={20} />
+                <TwitterIcon color={PRIMARY} size={20} />
               </View>
               <View>
                 <Text className="text-base font-semibold text-foreground">

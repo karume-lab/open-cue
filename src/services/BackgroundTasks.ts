@@ -6,7 +6,7 @@ import {
   routeNotificationData,
   scheduleLocalNotification,
 } from "@/services/NotificationService";
-import { searchTorrents } from "@/services/torrents";
+import { searchTorrents } from "@/services/torrents/search";
 
 const BACKGROUND_MOVIE_UPDATER = "BACKGROUND_MOVIE_UPDATER";
 

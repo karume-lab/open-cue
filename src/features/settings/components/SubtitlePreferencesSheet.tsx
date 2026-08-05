@@ -10,6 +10,7 @@ import { TouchableOpacity, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
+import { BORDER, FOREGROUND, POPOVER } from "@/lib/colors";
 
 const SUBTITLE_COLORS = [
   { name: "White", hex: "#FFFFFF" },
@@ -48,8 +49,8 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
       ref={ref}
       snapPoints={snapPoints}
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: "#23282e" /* --color-popover */ }}
-      handleIndicatorStyle={{ backgroundColor: "#333a41" /* --color-border */ }}
+      backgroundStyle={{ backgroundColor: POPOVER /* --color-popover */ }}
+      handleIndicatorStyle={{ backgroundColor: BORDER /* --color-border */ }}
       enablePanDownToClose
     >
       <BottomSheetView className="flex-1 px-6 pt-4 pb-8">
@@ -74,7 +75,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               className="size-12 border-border/50"
             >
               {/* Minus/Plus from lucide-react-native require a raw color prop */}
-              <Minus size={20} color="#eceff1" />
+              <Minus size={20} color={FOREGROUND} />
             </Button>
 
             <View className="items-center">
@@ -96,7 +97,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
               size="icon"
               className="size-12 border-border/50"
             >
-              <Plus size={20} color="#eceff1" />
+              <Plus size={20} color={FOREGROUND} />
             </Button>
           </View>
         </View>

@@ -12,25 +12,23 @@ import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { findLocalEpisodeDownload } from "@/features/media/services/pickSource/nextEpisode";
 import {
-  findLocalEpisodeDownload,
-  openSources,
   playEpisode,
   playMovie,
-  pushToPlayer,
-} from "@/features/media/services/pickSource";
+} from "@/features/media/services/pickSource/playActions";
 import {
-  downloadsForMedia,
-  useAppStore,
-} from "@/features/shared/store/useAppStore";
+  openSources,
+  pushToPlayer,
+} from "@/features/media/services/pickSource/routeBuilder";
+import { downloadsForMedia } from "@/features/shared/store/selectors";
+import { useAppStore } from "@/features/shared/store/useAppStore";
+import { BACKGROUND, FOREGROUND } from "@/lib/colors";
 import {
   CONTINUE_WATCHING_MAX_PERCENT,
   CONTINUE_WATCHING_MIN_PERCENT,
 } from "@/lib/constants";
 import type { Movie } from "@/types/movie";
-
-// Raw hex values for native-only props — must match global.css
-const BG = "#0f1114"; // --color-background
 
 interface ResumeTarget {
   season: number;
@@ -162,7 +160,7 @@ const MovieCard = ({ movie, onPress, resumeTarget }: MovieCardProps) => {
       >
         {/* Gradient scrim — must use native LinearGradient, so raw hex values needed */}
         <LinearGradient
-          colors={["transparent", `${BG}CC`, BG]}
+          colors={["transparent", `${BACKGROUND}CC`, BACKGROUND]}
           locations={[0, 0.5, 1]}
           style={{
             position: "absolute",
@@ -210,7 +208,7 @@ const MovieCard = ({ movie, onPress, resumeTarget }: MovieCardProps) => {
             style={{
               height: 36,
               // textShadow* are native-only style props, no class equivalent
-              textShadowColor: BG, // --color-background
+              textShadowColor: BACKGROUND, // --color-background
               textShadowRadius: 8,
               textShadowOffset: { width: 0, height: 2 },
             }}
@@ -261,7 +259,7 @@ const MovieCard = ({ movie, onPress, resumeTarget }: MovieCardProps) => {
 
             {isBusyDownloading ? (
               <View className="flex-1 flex-row items-center justify-center gap-1.5 bg-muted rounded-md py-2.5">
-                <ActivityIndicator size="small" color="#eceff1" />
+                <ActivityIndicator size="small" color={FOREGROUND} />
                 <Text className="text-foreground font-bold text-xs">
                   {Math.round((downloadProgress ?? 0) * 100)}%
                 </Text>

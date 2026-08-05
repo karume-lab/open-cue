@@ -4,6 +4,7 @@ import type React from "react";
 import { TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
+import { PRIMARY } from "@/lib/colors";
 
 export interface CastOverlayProps {
   deviceName: string;
@@ -57,9 +58,9 @@ const CastOverlay: React.FC<CastOverlayProps> = ({
           maximumValue={1}
           value={volume}
           onSlidingComplete={onVolumeChange}
-          minimumTrackTintColor="#c97742"
+          minimumTrackTintColor={PRIMARY}
           maximumTrackTintColor="rgba(255,255,255,0.2)"
-          thumbTintColor="#c97742"
+          thumbTintColor={PRIMARY}
         />
         <Text className="text-white/50 text-xs w-8 text-right">
           {Math.round(volume * 100)}

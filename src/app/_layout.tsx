@@ -18,10 +18,18 @@ import type React from "react";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import {
+  BACKGROUND,
+  BORDER,
+  CARD,
+  FOREGROUND,
+  NOTIFICATION,
+  PRIMARY,
+} from "@/lib/colors";
+import {
   registerBackgroundTasks,
   runStartupBackups,
 } from "@/services/BackgroundTasks";
-import { DownloadService } from "@/services/DownloadService";
+import { DownloadService } from "@/services/downloads/DownloadManager";
 import { NOTIFICATION_ROUTE_KEY } from "@/services/NotificationService";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
@@ -40,12 +48,12 @@ const NAV_THEME = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: "#0f1114", // --color-background
-    card: "#1b1f24", // --color-card
-    text: "#eceff1", // --color-foreground
-    border: "#333a41", // --color-border
-    primary: "#c97742", // --color-primary
-    notification: "#e5484d",
+    background: BACKGROUND, // --color-background
+    card: CARD, // --color-card
+    text: FOREGROUND, // --color-foreground
+    border: BORDER, // --color-border
+    primary: PRIMARY, // --color-primary
+    notification: NOTIFICATION,
   },
 };
 

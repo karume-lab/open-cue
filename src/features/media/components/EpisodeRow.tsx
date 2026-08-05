@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, TouchableOpacity, View } from "react-native";
 import { RatingBadge } from "@/components/core/RatingBadge";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
+import { PRIMARY } from "@/lib/colors";
 import type { TvEpisode } from "@/types/movie";
 
 interface EpisodeRowProps {
@@ -98,7 +99,7 @@ export const EpisodeRow = ({
         className="size-11 rounded-xl bg-primary/10 items-center justify-center"
       >
         {loading ? (
-          <ActivityIndicator size="small" color="#c97742" />
+          <ActivityIndicator size="small" color={PRIMARY} />
         ) : (
           <Icon as={Play} size={18} className="text-primary fill-primary" />
         )}

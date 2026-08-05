@@ -7,10 +7,8 @@ import {
   useContext,
   useMemo,
 } from "react";
-import {
-  type SubtitlePreferences,
-  useAppStore,
-} from "@/features/shared/store/useAppStore";
+import type { SubtitlePreferences } from "@/features/shared/store/types";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 
 const GB = 1024 * 1024 * 1024;
 

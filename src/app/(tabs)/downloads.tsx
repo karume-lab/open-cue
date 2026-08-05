@@ -13,7 +13,7 @@ import MovieDownloadCard from "@/features/downloads/components/MovieDownloadCard
 import ToggleDownloadStatus from "@/features/downloads/components/ToggleDownloadStatus";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { DownloadService } from "@/services/DownloadService";
+import { DownloadService } from "@/services/downloads/DownloadManager";
 import { ExportService } from "@/services/ExportService";
 
 const useDownloadActions = () => {

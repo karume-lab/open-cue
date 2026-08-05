@@ -1,6 +1,6 @@
 import { Directory, Paths } from "expo-file-system";
 import { Platform } from "react-native";
-import { storage } from "@/features/shared/store/useAppStore";
+import { storage } from "@/features/shared/store/storage";
 import TorrentDaemon from "~/modules/torrent-daemon";
 
 // The user picks a single "Cue" folder on shared/external storage. All app

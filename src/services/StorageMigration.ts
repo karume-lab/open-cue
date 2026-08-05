@@ -1,6 +1,6 @@
 import { Directory } from "expo-file-system";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { DownloadService } from "@/services/DownloadService";
+import { DownloadService } from "@/services/downloads/DownloadManager";
 import {
   getDownloadsDirectory,
   getDownloadsStoragePath,

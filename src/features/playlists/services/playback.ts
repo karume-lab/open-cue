@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { magnetFromHash } from "@/services/torrents";
+import { magnetFromHash } from "@/services/torrents/magnet";
 import type { PlaylistItem } from "@/types/playlist";
 
 // Plays a playlist from `startIndex` onward as a queued watch session: the

@@ -1,7 +1,8 @@
 import Constants from "expo-constants";
 import * as DocumentPicker from "expo-document-picker";
 import { Directory, File } from "expo-file-system";
-import { storage, useAppStore } from "@/features/shared/store/useAppStore";
+import { storage } from "@/features/shared/store/storage";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import { APP_STORAGE_NAME } from "@/lib/constants";
 import {
   BACKUPS_DIR_NAME,

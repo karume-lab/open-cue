@@ -1,7 +1,5 @@
-import {
-  type DownloadState,
-  isMediaDownloaded,
-} from "@/features/shared/store/useAppStore";
+import { isMediaDownloaded } from "@/features/shared/store/selectors";
+import type { DownloadState } from "@/features/shared/store/types";
 import type { Movie } from "@/types/movie";
 
 export type SortOption = "rating" | "year" | "title";

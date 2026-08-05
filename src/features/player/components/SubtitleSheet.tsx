@@ -10,6 +10,7 @@ import { TouchableOpacity, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { BACKGROUND, BORDER, FOREGROUND, POPOVER } from "@/lib/colors";
 
 export interface SubtitleTrackOption {
   id: string;
@@ -62,9 +63,9 @@ const SubtitleSheet = forwardRef<BottomSheetModal, SubtitleSheetProps>(
         ref={ref}
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "#23282e" /* --color-popover */ }}
+        backgroundStyle={{ backgroundColor: POPOVER /* --color-popover */ }}
         handleIndicatorStyle={{
-          backgroundColor: "#333a41" /* --color-border */,
+          backgroundColor: BORDER /* --color-border */,
         }}
         enablePanDownToClose
       >
@@ -133,7 +134,7 @@ const SubtitleSheet = forwardRef<BottomSheetModal, SubtitleSheetProps>(
               className="size-12 border-border/50"
               disabled={!enabled}
             >
-              <Minus size={20} color="#eceff1" />
+              <Minus size={20} color={FOREGROUND} />
             </Button>
             <View className="items-center">
               <Text className="text-2xl font-bold text-foreground">
@@ -152,7 +153,7 @@ const SubtitleSheet = forwardRef<BottomSheetModal, SubtitleSheetProps>(
               className="size-12 border-border/50"
               disabled={!enabled}
             >
-              <Plus size={20} color="#eceff1" />
+              <Plus size={20} color={FOREGROUND} />
             </Button>
           </View>
         </BottomSheetScrollView>
@@ -163,7 +164,7 @@ const SubtitleSheet = forwardRef<BottomSheetModal, SubtitleSheetProps>(
 
 const IconCheck = () => (
   <View className="bg-primary rounded-full size-5 items-center justify-center">
-    <Check size={13} color="#0f1114" strokeWidth={3} />
+    <Check size={13} color={BACKGROUND} strokeWidth={3} />
   </View>
 );
 

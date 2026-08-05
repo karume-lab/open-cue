@@ -2,23 +2,30 @@ import { Tabs } from "expo-router";
 import { Compass, Download, Library, Settings } from "lucide-react-native";
 import type React from "react";
 import { Icon } from "@/components/ui/icon";
+import {
+  BACKGROUND,
+  BORDER,
+  FOREGROUND,
+  MUTED_FOREGROUND,
+  PRIMARY,
+} from "@/lib/colors";
 
 const TabLayout: React.FC = () => {
   return (
     <Tabs
       screenOptions={{
         tabBarShowLabel: false,
-        tabBarActiveTintColor: "#c97742", // --color-primary
-        tabBarInactiveTintColor: "#9aa3ad", // --color-muted-foreground
+        tabBarActiveTintColor: PRIMARY, // --color-primary
+        tabBarInactiveTintColor: MUTED_FOREGROUND, // --color-muted-foreground
         tabBarStyle: {
-          backgroundColor: "#0f1114", // --color-background
-          borderTopColor: "#333a41", // --color-border
+          backgroundColor: BACKGROUND, // --color-background
+          borderTopColor: BORDER, // --color-border
         },
         headerStyle: {
-          backgroundColor: "#0f1114",
+          backgroundColor: BACKGROUND,
         },
         headerShadowVisible: false,
-        headerTintColor: "#eceff1",
+        headerTintColor: FOREGROUND,
       }}
     >
       <Tabs.Screen

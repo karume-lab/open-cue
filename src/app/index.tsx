@@ -38,6 +38,7 @@ import {
   type PermissionSlideType,
 } from "@/features/onboarding/components/PermissionSlide";
 import { TagSelectionSlide } from "@/features/onboarding/components/TagSelectionSlide";
+import { PRIMARY } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import {
   getCueDirectoryPath,
@@ -137,7 +138,7 @@ const PaginatorDot: React.FC<PaginatorDotProps> = ({
   scrollX,
   width,
 }) => {
-  const primaryColor = "#c97742";
+  const primaryColor = PRIMARY;
 
   const dotStyle = useAnimatedStyle(() => {
     const inputRange = [
@@ -351,7 +352,7 @@ const OnboardingScreen: React.FC = () => {
                       isCompact ? "size-20" : "w-32 h-32 mb-6",
                     )}
                   >
-                    <IconComponent size={isCompact ? 40 : 64} color="#c97742" />
+                    <IconComponent size={isCompact ? 40 : 64} color={PRIMARY} />
                   </View>
                 )}
                 {item.type === "interests" && (

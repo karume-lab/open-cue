@@ -4,12 +4,12 @@ import {
   discoverTv,
   fetchMediaDetail,
   fetchSeasonEpisodes,
-  normalizeGenre,
   recommendationsFor,
   searchMulti,
   trending,
-} from "@/services/tmdb";
-import { searchTorrents } from "@/services/torrents";
+} from "@/services/tmdb/endpoints";
+import { normalizeGenre } from "@/services/tmdb/genres";
+import { searchTorrents } from "@/services/torrents/search";
 import type { MediaType, Movie, MovieResponse } from "@/types/movie";
 
 const LIMIT = 40;

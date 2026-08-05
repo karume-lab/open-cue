@@ -1,7 +1,7 @@
 import * as MediaLibrary from "expo-media-library";
-import type { DownloadState } from "@/features/shared/store/useAppStore";
+import type { DownloadState } from "@/features/shared/store/types";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { resolveDownloadFileUri } from "@/services/DownloadService";
+import { resolveDownloadFileUri } from "@/services/downloads/fileResolver";
 
 // The album completed downloads are exported to in the device photo library.
 export const CUE_ALBUM_NAME = "Cue";

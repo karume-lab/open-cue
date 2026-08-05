@@ -9,6 +9,7 @@ import { ScrollView, TouchableOpacity } from "react-native";
 import { Text } from "@/components/ui/text";
 import { useSeasonEpisodesQuery } from "@/features/discover/services/queries";
 import { SeasonEpisodesSection } from "@/features/media/components/SeasonEpisodesSection";
+import { BORDER, POPOVER } from "@/lib/colors";
 import type { Movie } from "@/types/movie";
 
 interface EpisodesSheetProps {
@@ -73,9 +74,9 @@ const EpisodesSheet = forwardRef<BottomSheetModal, EpisodesSheetProps>(
         ref={ref}
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "#23282e" /* --color-popover */ }}
+        backgroundStyle={{ backgroundColor: POPOVER /* --color-popover */ }}
         handleIndicatorStyle={{
-          backgroundColor: "#333a41" /* --color-border */,
+          backgroundColor: BORDER /* --color-border */,
         }}
         enablePanDownToClose
       >

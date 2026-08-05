@@ -13,14 +13,12 @@ import {
   findFileForEpisode,
   probeTorrentFiles,
 } from "@/features/media/services/packFiles";
-import {
-  findLocalEpisodeDownload,
-  playEpisode,
-  pushToPlayer,
-} from "@/features/media/services/pickSource";
+import { findLocalEpisodeDownload } from "@/features/media/services/pickSource/nextEpisode";
+import { playEpisode } from "@/features/media/services/pickSource/playActions";
+import { pushToPlayer } from "@/features/media/services/pickSource/routeBuilder";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { ensureTorrentDaemon } from "@/services/daemon";
-import { magnetFromHash } from "@/services/torrents";
+import { magnetFromHash } from "@/services/torrents/magnet";
 import type { MediaType, MovieTorrent, TvEpisode } from "@/types/movie";
 
 const EpisodeSeasonScreen = () => {
