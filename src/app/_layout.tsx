@@ -17,7 +17,6 @@ import { useRouter, useSegments } from "expo-router";
 import type React from "react";
 import { useEffect } from "react";
 import { AppState } from "react-native";
-import MediaTorrentPicker from "@/features/media/components/MediaTorrentPicker";
 import {
   registerBackgroundTasks,
   runStartupBackups,
@@ -156,6 +155,12 @@ const RootLayout: React.FC = () => {
                   }}
                 />
                 <Stack.Screen
+                  name="media/[type]/[id]/sources"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
                   name="player/[type]/[id]"
                   options={{
                     headerShown: false,
@@ -163,7 +168,6 @@ const RootLayout: React.FC = () => {
                   }}
                 />
               </Stack>
-              <MediaTorrentPicker />
             </BottomSheetModalProvider>
             <PortalHost />
           </ThemeProvider>

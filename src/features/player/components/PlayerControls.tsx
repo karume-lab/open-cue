@@ -2,6 +2,7 @@ import Slider from "@react-native-community/slider";
 import {
   ArrowLeft,
   Gauge,
+  ListVideo,
   Pause,
   PictureInPicture2,
   Play,
@@ -30,6 +31,7 @@ export interface PlayerControlsProps {
   onSeek: (time: number) => void;
   onBack: () => void;
   onOpenSubtitles: () => void;
+  onOpenEpisodes?: () => void;
   onPip?: () => void;
   onControlsInteract: () => void;
 }
@@ -59,6 +61,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
   onSeek,
   onBack,
   onOpenSubtitles,
+  onOpenEpisodes,
   onPip,
   onControlsInteract,
 }) => {
@@ -117,6 +120,14 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
                   {rate}x
                 </Text>
               </View>
+            </TouchableOpacity>
+          )}
+          {onOpenEpisodes && !ended && (
+            <TouchableOpacity
+              onPress={onOpenEpisodes}
+              className="size-10 rounded-full bg-black/40 items-center justify-center border border-white/10"
+            >
+              <Icon as={ListVideo} size={20} className="text-white" />
             </TouchableOpacity>
           )}
           <TouchableOpacity

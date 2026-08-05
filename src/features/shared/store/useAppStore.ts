@@ -63,6 +63,8 @@ export interface AppSettings {
   isOfflineMode: boolean;
   subtitlePrefs: SubtitlePreferences;
   playbackRate: number;
+  /** Preferred quality for one-tap play ("2160p" | "1080p" | "720p" | "480p"). */
+  preferredQuality: string;
 }
 
 export interface WatchHistoryEntry {
@@ -109,6 +111,7 @@ export const useAppStore = create<AppState>()(
         isOfflineMode: false,
         subtitlePrefs: DEFAULT_SUBTITLE_PREFS,
         playbackRate: 1,
+        preferredQuality: "1080p",
       },
 
       toggleBookmark: (movie: Movie) =>
@@ -249,6 +252,7 @@ export const useAppStore = create<AppState>()(
             ...DEFAULT_SUBTITLE_PREFS,
             ...(state.settings?.subtitlePrefs ?? {}),
           },
+          preferredQuality: state.settings?.preferredQuality ?? "1080p",
         };
         if (version >= 1) {
           return {

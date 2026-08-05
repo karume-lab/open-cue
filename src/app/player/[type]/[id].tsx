@@ -35,8 +35,18 @@ import Video, {
 } from "react-native-video";
 import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
-import { useMovieDetailsQuery } from "@/features/discover/services/queries";
+import {
+  useMovieDetailsQuery,
+  useSeasonEpisodesQuery,
+} from "@/features/discover/services/queries";
+import {
+  findLocalEpisodeDownload,
+  playEpisode,
+  pushToPlayer,
+  resolveEpisodeFileIndex,
+} from "@/features/media/services/pickSource";
 import CastOverlay from "@/features/player/components/CastOverlay";
+import EpisodesSheet from "@/features/player/components/EpisodesSheet";
 import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
 import SubtitleOverlay from "@/features/player/components/SubtitleOverlay";
@@ -155,14 +165,32 @@ const PlayerDetailScreen = () => {
   }, [queue]);
   const [queueIndex, setQueueIndex] = useState(0);
 
+  // In-player episode switching (streaming a pack): the switch target
+  // overrides the route params so the source, progress key and header all
+  // follow the newly selected episode without a fresh route.
+  const [switchTarget, setSwitchTarget] = useState<{
+    season: number;
+    episode: number;
+  } | null>(null);
+  const [switchFileIndex, setSwitchFileIndex] = useState<number | undefined>(
+    undefined,
+  );
+  const [isSwitchLoading, setIsSwitchLoading] = useState(false);
+  const episodesSheetRef = useRef<BottomSheetModal>(null);
+
   const activeEpisode = queueItems[queueIndex] ?? null;
   const activeFileIndex =
     activeEpisode?.fileIndex ??
+    switchFileIndex ??
     (fileIndex != null ? Number(fileIndex) : undefined);
   const activeSeason =
-    activeEpisode?.season ?? (season != null ? Number(season) : undefined);
+    switchTarget?.season ??
+    activeEpisode?.season ??
+    (season != null ? Number(season) : undefined);
   const activeEpisodeNum =
-    activeEpisode?.episode ?? (episode != null ? Number(episode) : undefined);
+    switchTarget?.episode ??
+    activeEpisode?.episode ??
+    (episode != null ? Number(episode) : undefined);
 
   const watchKey = useMemo(() => {
     const seasonNum = activeSeason;
@@ -202,6 +230,16 @@ const PlayerDetailScreen = () => {
     mediaType,
     tmdbId,
     { enabled: !isLocal },
+  );
+
+  // Episode metadata for the active season — powers the "Up Next" card and the
+  // in-player episode switcher.
+  const { data: seasonEpisodes } = useSeasonEpisodesQuery(
+    tmdbId,
+    activeSeason,
+    {
+      enabled: mediaType === "tv" && activeSeason != null,
+    },
   );
 
   // Local playback must not depend on the network: resolve the movie from the
@@ -702,6 +740,13 @@ const PlayerDetailScreen = () => {
   const handleLoad = (data: OnLoadData) => {
     setDuration(data.duration);
     setEmbeddedTracks(data.textTracks ?? []);
+    if (data.videoTracks.length === 0) {
+      setPlaybackError({
+        title: "No video track found",
+        message:
+          "The video track could not be decoded. Try a different torrent or quality.",
+      });
+    }
   };
 
   // Load an external subtitle file next to a downloaded video and default to it
@@ -733,14 +778,123 @@ const PlayerDetailScreen = () => {
   const handleError = (data: OnVideoErrorData) => {
     console.error("Video error:", data.error);
     const errorCode = data.error.errorCode;
-    const isDecodingFailure = errorCode === "24003"; // ERROR_CODE_DECODING_FAILED
+    // ExoPlayer error codes:
+    // 2002 = FAILED_DECODER_QUERY (no suitable decoder found)
+    // 2003 = FAILED_RENDERER_ERROR
+    // 24003 = ERROR_CODE_DECODING_FAILED (decoder crashes mid-playback)
+    const isCodecIssue =
+      errorCode === "24003" || errorCode === "2002" || errorCode === "2003";
     setPlaybackError({
-      title: isDecodingFailure ? "Codec not supported" : "Playback error",
-      message: isDecodingFailure
+      title: isCodecIssue ? "Codec not supported" : "Playback error",
+      message: isCodecIssue
         ? "This video's codec isn't supported by your device. Try a different quality or encode."
-        : "Could not play this video.",
+        : `Could not play this video. (Error ${errorCode})`,
     });
   };
+
+  // The next episode in the active season, shown in an "Up Next" card when the
+  // current one ends (only for shows, outside a multi-select watch queue).
+  const nextEpisode = useMemo(() => {
+    if (mediaType !== "tv" || !seasonEpisodes || !activeEpisodeNum) {
+      return undefined;
+    }
+    const index = seasonEpisodes.findIndex(
+      (ep) => ep.episodeNumber === activeEpisodeNum,
+    );
+    if (index === -1 || index === seasonEpisodes.length - 1) {
+      return undefined;
+    }
+    return seasonEpisodes[index + 1];
+  }, [mediaType, seasonEpisodes, activeEpisodeNum]);
+
+  // Switch to another episode in place: a local download wins, then the active
+  // pack (stream mode), then fall back to a fresh auto-picked source.
+  const switchToEpisode = useCallback(
+    async (targetSeason: number, targetEpisode: number) => {
+      if (!movie || movie.mediaType !== "tv") return;
+      const local = findLocalEpisodeDownload(
+        movie,
+        targetSeason,
+        targetEpisode,
+        useAppStore.getState().downloads,
+      );
+      if (local) {
+        pushToPlayer(movie, {
+          mode: "local",
+          downloadId: local.id,
+          season: targetSeason,
+          episode: targetEpisode,
+        });
+        return;
+      }
+      if (!isLocal && hash) {
+        const magnetUri = decodeParam(magnet);
+        if (magnetUri) {
+          setIsSwitchLoading(true);
+          try {
+            const fileIndex = await resolveEpisodeFileIndex(
+              movie,
+              hash,
+              magnetUri,
+              targetSeason,
+              targetEpisode,
+            );
+            if (fileIndex != null) {
+              setSwitchFileIndex(fileIndex);
+              setSwitchTarget({ season: targetSeason, episode: targetEpisode });
+              setResumeMode("resume");
+              setEnded(false);
+              setIsPlaying(true);
+              setCurrentTime(0);
+              currentTimeRef.current = 0;
+              setUpNextDismissed(false);
+              setShowControls(true);
+              return;
+            }
+          } catch (error) {
+            console.error("Failed to switch episode in pack:", error);
+          } finally {
+            setIsSwitchLoading(false);
+          }
+        }
+      }
+      const preferredQuality =
+        useAppStore.getState().settings.preferredQuality ?? "1080p";
+      playEpisode(movie, targetSeason, targetEpisode, { preferredQuality });
+    },
+    [movie, isLocal, hash, magnet],
+  );
+
+  const [upNextCountdown, setUpNextCountdown] = useState<number | null>(null);
+  const [upNextDismissed, setUpNextDismissed] = useState(false);
+
+  const nextEpisodeRef = useRef<() => void>(() => {});
+  nextEpisodeRef.current = () => {
+    if (!nextEpisode) return;
+    switchToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
+  };
+
+  // Netflix-style countdown: auto-play the next episode unless the user
+  // dismisses or picks another action.
+  useEffect(() => {
+    if (!nextEpisode || !ended || upNextDismissed) {
+      setUpNextCountdown(null);
+      return;
+    }
+    setUpNextCountdown(10);
+    const timer = setInterval(() => {
+      setUpNextCountdown((prev) => {
+        if (prev == null) return prev;
+        if (prev <= 1) {
+          clearInterval(timer);
+          nextEpisodeRef.current?.();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [nextEpisode, ended, upNextDismissed]);
 
   const handleEnd = useCallback(() => {
     saveProgress(currentTimeRef.current);
@@ -765,6 +919,7 @@ const PlayerDetailScreen = () => {
     setEnded(false);
     setIsPlaying(true);
     setCurrentTime(0);
+    setUpNextDismissed(false);
     videoRef.current?.seek(0);
     interactControls();
   }, [interactControls]);
@@ -1036,9 +1191,97 @@ const PlayerDetailScreen = () => {
           setIsPlaying(false);
           subtitleSheetRef.current?.present();
         }}
+        onOpenEpisodes={
+          mediaType === "tv"
+            ? () => {
+                setIsPlaying(false);
+                episodesSheetRef.current?.present();
+              }
+            : undefined
+        }
         onPip={enterPictureInPicture}
         onControlsInteract={interactControls}
       />
+
+      {/* Up Next — shown when an episode ends (shows only, outside a queue) */}
+      {ended && nextEpisode && !upNextDismissed && (
+        <View
+          className="absolute bottom-24 right-5 z-30"
+          style={{ width: 280 }}
+        >
+          <View className="bg-black/80 border border-white/15 rounded-lg overflow-hidden">
+            <View className="flex-row items-center justify-between px-3 pt-3 pb-2">
+              <Text className="text-white/80 text-xs font-semibold uppercase tracking-widest">
+                Up next
+              </Text>
+              <TouchableOpacity
+                onPress={() => setUpNextDismissed(true)}
+                activeOpacity={0.7}
+                className="size-7 rounded-full bg-white/10 items-center justify-center"
+              >
+                <Text className="text-white text-sm font-bold leading-none">
+                  ×
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row gap-3 px-3 pb-3">
+              {nextEpisode.stillUrl ? (
+                <Image
+                  source={{ uri: nextEpisode.stillUrl }}
+                  className="w-24 h-16 rounded-md bg-white/10"
+                  resizeMode="cover"
+                />
+              ) : (
+                <View className="w-24 h-16 rounded-md bg-white/10 items-center justify-center">
+                  <Text className="text-white/60 text-lg font-bold">
+                    {nextEpisode.episodeNumber}
+                  </Text>
+                </View>
+              )}
+              <View className="flex-1 justify-center">
+                <Text
+                  className="text-white font-bold text-sm"
+                  numberOfLines={2}
+                >
+                  S{String(nextEpisode.seasonNumber).padStart(2, "0")}E
+                  {String(nextEpisode.episodeNumber).padStart(2, "0")} ·{" "}
+                  {nextEpisode.name || `Episode ${nextEpisode.episodeNumber}`}
+                </Text>
+                {upNextCountdown != null && (
+                  <Text className="text-white/60 text-xs mt-1">
+                    Playing in {upNextCountdown}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={() =>
+                switchToEpisode(
+                  nextEpisode.seasonNumber,
+                  nextEpisode.episodeNumber,
+                )
+              }
+              activeOpacity={0.8}
+              className="flex-row items-center justify-center gap-2 bg-primary py-3 mx-3 mb-3 rounded-md"
+            >
+              <Text className="text-primary-foreground font-bold text-sm">
+                Play
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {isSwitchLoading && (
+        <View
+          className="absolute inset-0 items-center justify-center bg-black/50 z-40"
+          pointerEvents="none"
+        >
+          <ActivityIndicator size="large" color="#c97742" />
+        </View>
+      )}
 
       {selectedSubtitleTrack === "external" && (
         <SubtitleOverlay
@@ -1064,6 +1307,20 @@ const PlayerDetailScreen = () => {
           updateSubtitlePrefs({ delay: Math.min(10, Math.max(-10, delay)) })
         }
       />
+
+      {mediaType === "tv" && movie && (
+        <EpisodesSheet
+          key={activeSeason ?? 1}
+          ref={episodesSheetRef}
+          movie={movie}
+          initialSeason={activeSeason ?? 1}
+          onSelect={(targetSeason, targetEpisode) => {
+            episodesSheetRef.current?.dismiss();
+            setUpNextDismissed(false);
+            switchToEpisode(targetSeason, targetEpisode);
+          }}
+        />
+      )}
 
       {playbackError && (
         <MessageDialog

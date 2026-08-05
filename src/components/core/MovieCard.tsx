@@ -13,10 +13,16 @@ import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import {
+  findLocalEpisodeDownload,
+  openSources,
+  playEpisode,
+  playMovie,
+  pushToPlayer,
+} from "@/features/media/services/pickSource";
+import {
   downloadsForMedia,
   useAppStore,
 } from "@/features/shared/store/useAppStore";
-import { useMediaActions } from "@/features/shared/store/useMediaActions";
 import {
   CONTINUE_WATCHING_MAX_PERCENT,
   CONTINUE_WATCHING_MIN_PERCENT,
@@ -26,9 +32,16 @@ import type { Movie } from "@/types/movie";
 // Raw hex values for native-only props — must match global.css
 const BG = "#0f1114"; // --color-background
 
+interface ResumeTarget {
+  season: number;
+  episode: number;
+}
+
 interface MovieCardProps {
   movie: Movie;
   onPress?: () => void;
+  /** For in-progress shows: the exact episode to resume directly. */
+  resumeTarget?: ResumeTarget;
 }
 
 export const SkeletonCard = () => {
@@ -39,9 +52,10 @@ export const SkeletonCard = () => {
   );
 };
 
-const MovieCard = ({ movie, onPress }: MovieCardProps) => {
-  const { watchHistory, downloads, bookmarks, toggleBookmark } = useAppStore();
-  const { present: presentTorrentPicker } = useMediaActions();
+const MovieCard = ({ movie, onPress, resumeTarget }: MovieCardProps) => {
+  const { watchHistory, downloads, bookmarks, settings, toggleBookmark } =
+    useAppStore();
+  const preferredQuality = settings.preferredQuality ?? "1080p";
 
   const isBookmarked = bookmarks.some((b) => b.id === movie.id);
   const mediaDownloads = downloadsForMedia(downloads, movie.id);
@@ -88,12 +102,38 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
     });
   };
 
+  const handleResumeEpisode = async () => {
+    if (!resumeTarget || movie.mediaType !== "tv") return;
+    const { season, episode } = resumeTarget;
+    const local = findLocalEpisodeDownload(movie, season, episode, downloads);
+    if (local) {
+      pushToPlayer(movie, {
+        mode: "local",
+        downloadId: local.id,
+        season,
+        episode,
+      });
+      return;
+    }
+    playEpisode(movie, season, episode, { preferredQuality });
+  };
+
   const handleWatch = () => {
+    if (resumeTarget && movie.mediaType === "tv") {
+      handleResumeEpisode();
+      return;
+    }
     if (isOffline) {
       playLocal();
       return;
     }
-    presentTorrentPicker(movie, "stream");
+    if (isInProgress) {
+      // In-progress movies resume straight into the player, which seeks to the
+      // saved position automatically.
+      playMovie(movie, preferredQuality);
+      return;
+    }
+    openSources(movie, "stream");
   };
 
   const handleDownload = () => {
@@ -101,7 +141,7 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
       playLocal();
       return;
     }
-    presentTorrentPicker(movie, "download");
+    openSources(movie, "download");
   };
 
   const handleToggleBookmark = () => {
@@ -209,7 +249,13 @@ const MovieCard = ({ movie, onPress }: MovieCardProps) => {
                 className="text-primary-foreground fill-primary-foreground"
               />
               <Text className="text-primary-foreground font-bold text-xs">
-                {isOffline ? "Play" : "Watch"}
+                {isOffline
+                  ? "Play"
+                  : resumeTarget && movie.mediaType === "tv"
+                    ? "Resume"
+                    : isInProgress
+                      ? "Resume"
+                      : "Watch"}
               </Text>
             </TouchableOpacity>
 

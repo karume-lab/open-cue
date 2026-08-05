@@ -2,6 +2,7 @@ import type { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
 import {
   ChevronRight,
+  Gauge,
   Info,
   Plane,
   RotateCcw,
@@ -17,12 +18,17 @@ import DownloadStorage from "@/features/settings/components/DownloadStorage";
 import StorageManager from "@/features/settings/components/StorageManager";
 import SubtitlePreferencesSheet from "@/features/settings/components/SubtitlePreferencesSheet";
 import { useSettings } from "@/features/settings/contexts/SettingsContext";
+import { useAppStore } from "@/features/shared/store/useAppStore";
 import { useOnboardingStore } from "@/stores/onboardingStore";
+
+const QUALITIES = ["2160p", "1080p", "720p", "480p"];
 
 const SettingsScreen = () => {
   const { isOfflineMode, setOfflineMode } = useSettings();
   const { resetOnboarding } = useOnboardingStore();
+  const { settings, updateSettings } = useAppStore();
   const subtitleSheetRef = useRef<BottomSheetModal>(null);
+  const preferredQuality = settings.preferredQuality ?? "1080p";
 
   const openSubtitlePrefs = () => {
     subtitleSheetRef.current?.present();
@@ -80,6 +86,51 @@ const SettingsScreen = () => {
                 size={18}
               />
             </TouchableOpacity>
+
+            <View className="flex-row items-center justify-between p-5 border-t border-border/10">
+              <View className="flex-row items-center gap-4">
+                <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
+                  <Icon as={Gauge} className="text-primary" size={20} />
+                </View>
+                <View>
+                  <Text className="text-base font-semibold text-foreground">
+                    Preferred quality
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    Auto-selected for one-tap play
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row gap-1.5">
+                {QUALITIES.map((quality) => {
+                  const selected = preferredQuality === quality;
+                  return (
+                    <TouchableOpacity
+                      key={quality}
+                      onPress={() =>
+                        updateSettings({ preferredQuality: quality })
+                      }
+                      activeOpacity={0.7}
+                      className={`rounded-md px-2.5 py-1.5 border ${
+                        selected
+                          ? "bg-primary border-primary"
+                          : "bg-muted/50 border-border/60"
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          selected
+                            ? "text-primary-foreground"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {quality}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         </View>
 

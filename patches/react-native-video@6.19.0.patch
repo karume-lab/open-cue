@@ -24,11 +24,10 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..9d50d8c0f730644bff58b8a687fe7036
  import androidx.media3.exoplayer.dash.DashMediaSource;
  import androidx.media3.exoplayer.dash.DashUtil;
  import androidx.media3.exoplayer.dash.DefaultDashChunkSource;
-@@ -80,6 +82,7 @@ import androidx.media3.exoplayer.ima.ImaAdsLoader;
+@@ -80,6 +82,6 @@ import androidx.media3.exoplayer.ima.ImaAdsLoader;
  import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource;
  import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionUriBuilder;
  import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
-+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
  import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
  import androidx.media3.exoplayer.rtsp.RtspMediaSource;
  import androidx.media3.exoplayer.smoothstreaming.DefaultSsChunkSource;
@@ -41,15 +40,14 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..9d50d8c0f730644bff58b8a687fe7036
  import androidx.media3.extractor.metadata.emsg.EventMessage;
  import androidx.media3.extractor.metadata.id3.Id3Frame;
  import androidx.media3.extractor.metadata.id3.TextInformationFrame;
-@@ -145,6 +150,7 @@ import java.net.CookieHandler;
+@@ -145,6 +150,6 @@ import java.net.CookieHandler;
  import java.net.CookieManager;
  import java.net.CookiePolicy;
  import java.util.ArrayList;
-+import java.util.Collections;
  import java.util.List;
  import java.util.Locale;
  import java.util.Map;
-@@ -730,11 +736,38 @@ public class ReactExoplayerView extends FrameLayout implements
+@@ -730,10 +736,22 @@ public class ReactExoplayerView extends FrameLayout implements
              this.bandwidthMeter = config.getBandwidthMeter();
          }
  
@@ -62,18 +60,6 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..9d50d8c0f730644bff58b8a687fe7036
 +        defaultRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
 +        defaultRenderersFactory.setEnableDecoderFallback(true);
 +        defaultRenderersFactory.forceEnableMediaCodecAsynchronousQueueing();
-+        defaultRenderersFactory.setMediaCodecSelector(new MediaCodecSelector() {
-+            @Override
-+            public List<MediaCodecInfo> getDecoderInfos(String mimeType, boolean requiresSecureDecoder, boolean requiresTunnelingDecoder) throws MediaCodecUtil.DecoderQueryException {
-+                if ("video/hevc".equalsIgnoreCase(mimeType)) {
-+                    // Some HEVC streams (e.g. profile 4 / 4:4:4) exceed hardware decoder
-+                    // capabilities and crash the device's MediaCodec decoder. Route all
-+                    // HEVC through the FFmpeg software renderer below instead.
-+                    return Collections.emptyList();
-+                }
-+                return MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
-+            }
-+        });
 +
 +        RenderersFactory renderersFactory = (eventHandler, videoRendererEventListener, audioRendererEventListener, textRendererOutput, metadataRendererOutput) -> {
 +            Renderer[] renderers = defaultRenderersFactory.createRenderers(eventHandler, videoRendererEventListener, audioRendererEventListener, textRendererOutput, metadataRendererOutput);

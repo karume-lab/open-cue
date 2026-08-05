@@ -9,7 +9,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -27,13 +27,23 @@ import { Text } from "@/components/ui/text";
 import {
   useMovieDetailsQuery,
   useRecommendationsQuery,
+  useSeasonEpisodesQuery,
 } from "@/features/discover/services/queries";
+import { SeasonEpisodesSection } from "@/features/media/components/SeasonEpisodesSection";
+import {
+  downloadEpisode,
+  findLocalEpisodeDownload,
+  nextEpisodeToPlay,
+  openSources,
+  playEpisode,
+  playMovie,
+  pushToPlayer,
+} from "@/features/media/services/pickSource";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import {
   downloadsForMedia,
   useAppStore,
 } from "@/features/shared/store/useAppStore";
-import { useMediaActions } from "@/features/shared/store/useMediaActions";
 import {
   CONTINUE_WATCHING_MAX_PERCENT,
   CONTINUE_WATCHING_MIN_PERCENT,
@@ -41,7 +51,7 @@ import {
 import { DownloadService } from "@/services/DownloadService";
 import { ExportService } from "@/services/ExportService";
 import { episodeLabel } from "@/services/torrents";
-import type { MediaType } from "@/types/movie";
+import type { MediaType, TvEpisode } from "@/types/movie";
 
 // Raw hex for LinearGradient — must match --color-background in global.css
 const BG = "#0f1114";
@@ -132,17 +142,23 @@ const MediaDetailScreen = () => {
   } = useMovieDetailsQuery(mediaType, tmdbId);
   const { data: recommendations, isLoading: isRecsLoading } =
     useRecommendationsQuery(mediaType, tmdbId);
-  const { bookmarks, downloads, watchHistory, toggleBookmark } = useAppStore();
+  const { bookmarks, downloads, watchHistory, settings, toggleBookmark } =
+    useAppStore();
 
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [exportResult, setExportResult] = useState<{
     title: string;
     message: string;
   } | null>(null);
-  const { present: presentTorrentPicker } = useMediaActions();
+  const [activeSeason, setActiveSeason] = useState<number | undefined>(
+    undefined,
+  );
+  const [loadingEpisode, setLoadingEpisode] = useState<number | null>(null);
   const handleToggleBookmark = useDebounceCallback(() => {
     if (movie) toggleBookmark(movie);
   }, 300);
+  const preferredQuality = settings.preferredQuality ?? "1080p";
+  const mediaId = `${mediaType}:${tmdbId}`;
 
   // Seasons known from TMDB metadata or the highest season referenced by the
   // show's torrents. Every listed season opens an episode screen.
@@ -172,6 +188,33 @@ const MediaDetailScreen = () => {
     if (count <= 0) return [];
     return Array.from({ length: count }, (_, index) => index + 1);
   }, [movie]);
+
+  // Default the inline episode list to the most recently watched season, or the
+  // first season if the show was never watched.
+  useEffect(() => {
+    if (movie?.mediaType !== "tv" || activeSeason != null) return;
+    let latest = seasons.length > 0 ? seasons[0] : undefined;
+    for (const key of Object.keys(watchHistory)) {
+      if (!key.startsWith(`${mediaId}:s`)) continue;
+      const match = key.match(/s(\d{2})e\d{2}$/);
+      if (!match) continue;
+      const seasonNum = Number(match[1]);
+      if (seasonNum > (latest ?? 0) && seasons.includes(seasonNum)) {
+        latest = seasonNum;
+      }
+    }
+    setActiveSeason(latest);
+  }, [movie, activeSeason, seasons, mediaId, watchHistory]);
+
+  const activeEpisodesQuery = useSeasonEpisodesQuery(
+    tmdbId,
+    activeSeason ?? 0,
+    {
+      enabled: movie?.mediaType === "tv" && activeSeason != null,
+    },
+  );
+  const activeEpisodes = activeEpisodesQuery.data;
+  const episodesLoading = activeEpisodesQuery.isLoading;
 
   if (isLoading || !movie) return <MediaDetailSkeleton />;
 
@@ -203,12 +246,68 @@ const MediaDetailScreen = () => {
   const duration = movie.runtime * 60;
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  const handleDownloadPress = () => {
-    if (movie) presentTorrentPicker(movie, "download", { onRetry: refetch });
+  const handlePrimaryPlay = () => {
+    if (!movie) return;
+    if (movie.mediaType === "movie") {
+      playMovie(movie, preferredQuality);
+      return;
+    }
+    if (seasons.length === 0) {
+      openSources(movie, "stream");
+      return;
+    }
+    const target = nextEpisodeToPlay(
+      mediaId,
+      seasons.map((season) => ({ season, count: Number.MAX_SAFE_INTEGER })),
+      watchHistory,
+    ) ?? { season: seasons[0], episode: 1 };
+    playEpisodeRef(target.season, target.episode);
   };
 
-  const handleStreamPress = () => {
-    if (movie) presentTorrentPicker(movie, "stream", { onRetry: refetch });
+  const playEpisodeRef = async (season: number, episode: number) => {
+    if (!movie || movie.mediaType !== "tv") return;
+    const local = findLocalEpisodeDownload(movie, season, episode, downloads);
+    if (local) {
+      pushToPlayer(movie, {
+        mode: "local",
+        downloadId: local.id,
+        season,
+        episode,
+      });
+      return;
+    }
+    await playEpisode(movie, season, episode, {
+      preferredQuality,
+      onLoading: (loading) => setLoadingEpisode(loading ? episode : null),
+    });
+  };
+
+  const handleDownloadEpisode = async (episode: TvEpisode) => {
+    if (!movie || movie.mediaType !== "tv" || activeSeason == null) return;
+    const started = await downloadEpisode(
+      movie,
+      activeSeason,
+      episode.episodeNumber,
+      preferredQuality,
+    );
+    if (!started) {
+      openSources(movie, "download", {
+        season: activeSeason,
+        episode: episode.episodeNumber,
+      });
+    }
+  };
+
+  const handleOpenEpisodeSources = (episode: TvEpisode) => {
+    if (!movie || movie.mediaType !== "tv" || activeSeason == null) return;
+    openSources(movie, "stream", {
+      season: activeSeason,
+      episode: episode.episodeNumber,
+    });
+  };
+
+  const handleDownloadPress = () => {
+    if (movie) openSources(movie, "download");
   };
 
   const handleExportDownload = async (downloadId: string) => {
@@ -315,7 +414,7 @@ const MediaDetailScreen = () => {
     return (
       <View className="flex-1 flex-row gap-3">
         <TouchableOpacity
-          onPress={handleStreamPress}
+          onPress={handlePrimaryPlay}
           className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
         >
           <Icon
@@ -484,34 +583,58 @@ const MediaDetailScreen = () => {
             )}
           </View>
 
-          {seasons.length > 0 && (
+          {movie.mediaType === "tv" && seasons.length > 0 && (
             <View className="mb-8">
               <Text className="text-base font-bold text-foreground mb-3">
-                Seasons
+                Episodes
               </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {seasons.map((season) => (
-                  <TouchableOpacity
-                    key={season}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/media/[type]/[id]/season/[season]",
-                        params: {
-                          type: movie.mediaType,
-                          id: movie.tmdbId,
-                          season: String(season),
-                        },
-                      })
-                    }
-                    activeOpacity={0.7}
-                    className="bg-muted border border-border rounded-md px-4 py-2"
-                  >
-                    <Text className="text-muted-foreground text-sm font-medium">
-                      {season}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mb-3"
+                contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+              >
+                {seasons.map((season) => {
+                  const selected = season === activeSeason;
+                  return (
+                    <TouchableOpacity
+                      key={season}
+                      onPress={() => setActiveSeason(season)}
+                      activeOpacity={0.7}
+                      className={`px-4 py-2 rounded-md border ${
+                        selected
+                          ? "bg-primary border-primary"
+                          : "bg-muted border-border"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm font-semibold ${
+                          selected
+                            ? "text-primary-foreground"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {season}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <SeasonEpisodesSection
+                movie={movie}
+                season={activeSeason ?? seasons[0]}
+                episodes={activeEpisodes}
+                isLoading={episodesLoading}
+                loadingEpisode={loadingEpisode}
+                onPlayEpisode={(episode) =>
+                  playEpisodeRef(
+                    activeSeason ?? seasons[0],
+                    episode.episodeNumber,
+                  )
+                }
+                onDownloadEpisode={handleDownloadEpisode}
+                onOpenSources={handleOpenEpisodeSources}
+              />
             </View>
           )}
 
