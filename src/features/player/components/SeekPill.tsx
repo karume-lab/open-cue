@@ -11,7 +11,7 @@ const SeekPill: React.FC<SeekPillProps> = ({ anim }) => (
   <Animated.View
     style={{
       position: "absolute",
-      top: "40%",
+      top: "15%",
       alignSelf: "center",
       opacity: anim,
       transform: [

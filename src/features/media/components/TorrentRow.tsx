@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Play } from "lucide-react-native";
+import { ChevronRight } from "lucide-react-native";
 import { TouchableOpacity, View } from "react-native";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
@@ -33,8 +33,6 @@ export const TorrentRow = ({
   ]
     .filter(Boolean)
     .join(" • ");
-
-  const isStream = mode === "stream";
 
   return (
     <TouchableOpacity
@@ -71,35 +69,23 @@ export const TorrentRow = ({
           </Text>
         )}
       </View>
-      {!selectionMode && (
-        <View className="flex-row items-center gap-1.5">
-          <View className="size-11 rounded-xl bg-primary/10 items-center justify-center">
+      {!selectionMode &&
+        onOpenSeason &&
+        torrent.kind === "season" &&
+        torrent.season != null && (
+          <TouchableOpacity
+            onPress={() => onOpenSeason(torrent)}
+            activeOpacity={0.7}
+            accessibilityLabel={`View Season ${torrent.season} episodes`}
+            className="size-11 rounded-xl bg-muted border border-border/60 items-center justify-center"
+          >
             <Icon
-              as={isStream ? Play : Download}
+              as={ChevronRight}
               size={18}
-              className={
-                isStream ? "text-primary fill-primary" : "text-primary"
-              }
+              className="text-muted-foreground"
             />
-          </View>
-          {onOpenSeason &&
-            torrent.kind === "season" &&
-            torrent.season != null && (
-              <TouchableOpacity
-                onPress={() => onOpenSeason(torrent)}
-                activeOpacity={0.7}
-                accessibilityLabel={`View Season ${torrent.season} episodes`}
-                className="size-11 rounded-xl bg-muted border border-border/60 items-center justify-center"
-              >
-                <Icon
-                  as={ChevronRight}
-                  size={18}
-                  className="text-muted-foreground"
-                />
-              </TouchableOpacity>
-            )}
-        </View>
-      )}
+          </TouchableOpacity>
+        )}
     </TouchableOpacity>
   );
 };

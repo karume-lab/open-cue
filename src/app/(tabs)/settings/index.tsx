@@ -87,7 +87,7 @@ const SettingsScreen = () => {
               />
             </TouchableOpacity>
 
-            <View className="flex-row items-center justify-between p-5 border-t border-border/10">
+            <View className="p-5 border-t border-border/10 gap-3">
               <View className="flex-row items-center gap-4">
                 <View className="size-10 rounded-md bg-primary/10 items-center justify-center">
                   <Icon as={Gauge} className="text-primary" size={20} />
@@ -101,7 +101,7 @@ const SettingsScreen = () => {
                   </Text>
                 </View>
               </View>
-              <View className="flex-row gap-1.5">
+              <View className="flex-row gap-1.5 ml-14">
                 {QUALITIES.map((quality) => {
                   const selected = preferredQuality === quality;
                   return (

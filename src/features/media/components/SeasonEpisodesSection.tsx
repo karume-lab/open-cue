@@ -1,14 +1,29 @@
+import { FlashList } from "@shopify/flash-list";
+import { ArrowUpDown, Search } from "lucide-react-native";
+import { useMemo, useState } from "react";
 import { View } from "react-native";
+import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { EpisodeRow } from "@/features/media/components/EpisodeRow";
 import { watchKeyFor } from "@/features/media/services/pickSource/nextEpisode";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import type { Movie, TvEpisode } from "@/types/movie";
 
+const PAGE_SIZE = 50;
+
+type SortKey = "episode" | "rating" | "date";
+
+const SORT_LABELS: Record<SortKey, string> = {
+  episode: "Episode",
+  rating: "Rating",
+  date: "Air Date",
+};
+
 const SKELETON_ROWS = [0, 1, 2, 3, 4];
 
 const EpisodeRowSkeleton = () => (
-  <View className="flex-row gap-3 py-3">
+  <View className="flex-row gap-3 py-3 px-5">
     <View className="size-24 rounded-lg bg-muted" />
     <View className="flex-1 justify-center gap-2">
       <View className="w-32 h-4 bg-muted rounded" />
@@ -30,9 +45,6 @@ interface SeasonEpisodesSectionProps {
   onOpenSources?: (episode: TvEpisode) => void;
 }
 
-// The shared episode list for a single season, used by the media detail page,
-// the season screen and the in-player episode picker. Rows auto-play on tap;
-// download/sources are explicit affordances.
 export const SeasonEpisodesSection = ({
   movie,
   season,
@@ -46,6 +58,10 @@ export const SeasonEpisodesSection = ({
   const { watchHistory } = useAppStore();
   const mediaId = movie ? `${movie.mediaType}:${movie.tmdbId}` : null;
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("episode");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
   const progressFor = (episode: TvEpisode): number | undefined => {
     if (!mediaId) return undefined;
     const entry =
@@ -57,9 +73,59 @@ export const SeasonEpisodesSection = ({
     return (entry.currentTime / runtime) * 100;
   };
 
+  const processedEpisodes = useMemo(() => {
+    if (!episodes) return [];
+    let result = [...episodes];
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (ep) =>
+          ep.name?.toLowerCase().includes(q) ||
+          String(ep.episodeNumber).includes(q),
+      );
+    }
+
+    // Sort
+    switch (sortBy) {
+      case "rating":
+        result.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+        break;
+      case "date":
+        result.sort(
+          (a, b) =>
+            (b.airDate ?? "").localeCompare(a.airDate ?? "") ||
+            b.episodeNumber - a.episodeNumber,
+        );
+        break;
+      default:
+        result.sort((a, b) => a.episodeNumber - b.episodeNumber);
+        break;
+    }
+
+    return result;
+  }, [episodes, searchQuery, sortBy]);
+
+  const visibleEpisodes = useMemo(
+    () => processedEpisodes.slice(0, visibleCount),
+    [processedEpisodes, visibleCount],
+  );
+
+  const hasMore = visibleCount < processedEpisodes.length;
+  const showToolbar = episodes && episodes.length > 0;
+
+  const cycleSortBy = () => {
+    setSortBy((prev) => {
+      const keys: SortKey[] = ["episode", "rating", "date"];
+      const idx = keys.indexOf(prev);
+      return keys[(idx + 1) % keys.length];
+    });
+  };
+
   if (isLoading) {
     return (
-      <View className="px-5">
+      <View>
         {SKELETON_ROWS.map((row) => (
           <EpisodeRowSkeleton key={`skeleton-row-${row}`} />
         ))}
@@ -82,10 +148,48 @@ export const SeasonEpisodesSection = ({
   }
 
   return (
-    <View style={{ paddingHorizontal: 20 }}>
-      {episodes.map((episode) => (
+    <FlashList
+      data={visibleEpisodes}
+      keyExtractor={(item) => String(item.id)}
+      onEndReached={() => {
+        if (hasMore) setVisibleCount((c) => c + PAGE_SIZE);
+      }}
+      onEndReachedThreshold={0.5}
+      ListHeaderComponent={
+        showToolbar ? (
+          <View className="flex-row items-center gap-2 px-5 mb-2">
+            <View className="flex-1 flex-row items-center gap-2 bg-muted rounded-md px-3 h-10">
+              <Icon
+                as={Search}
+                size={16}
+                className="text-muted-foreground shrink-0"
+              />
+              <Input
+                placeholder="Search episodes..."
+                placeholderClassName="text-muted-foreground/50"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                className="h-9 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+              />
+            </View>
+            <View className="flex-row items-center gap-1 bg-muted rounded-md px-3 h-10 border border-border/60">
+              <Icon
+                as={ArrowUpDown}
+                size={14}
+                className="text-muted-foreground"
+              />
+              <Text
+                className="text-xs font-medium text-muted-foreground"
+                onPress={cycleSortBy}
+              >
+                {SORT_LABELS[sortBy]}
+              </Text>
+            </View>
+          </View>
+        ) : null
+      }
+      renderItem={({ item: episode }) => (
         <EpisodeRow
-          key={episode.id}
           episode={episode}
           loading={loadingEpisode === episode.episodeNumber}
           progress={progressFor(episode)}
@@ -97,7 +201,32 @@ export const SeasonEpisodesSection = ({
             onOpenSources ? () => onOpenSources(episode) : undefined
           }
         />
-      ))}
-    </View>
+      )}
+      ListFooterComponent={
+        hasMore ? (
+          <View className="py-4 items-center">
+            <Text className="text-muted-foreground text-xs">
+              {visibleCount} of {processedEpisodes.length}
+            </Text>
+          </View>
+        ) : processedEpisodes.length > 0 ? (
+          <View className="py-4 items-center">
+            <Text className="text-muted-foreground text-xs">
+              {processedEpisodes.length} episodes
+            </Text>
+          </View>
+        ) : null
+      }
+      ListEmptyComponent={
+        searchQuery ? (
+          <View className="items-center py-10 px-8">
+            <Text className="text-muted-foreground text-sm text-center">
+              No episodes match "{searchQuery}"
+            </Text>
+          </View>
+        ) : null
+      }
+      contentContainerStyle={{ paddingHorizontal: 20 }}
+    />
   );
 };

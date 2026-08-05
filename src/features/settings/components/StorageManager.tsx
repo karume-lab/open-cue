@@ -35,7 +35,8 @@ const StorageManager = () => {
         <View className="flex-row justify-between mb-2">
           <Text className="text-sm text-muted-foreground">Device Storage</Text>
           <Text className="text-sm font-medium text-foreground">
-            {storageInfo.usedGB.toFixed(1)}GB of {storageInfo.totalGB}GB used
+            {storageInfo.usedGB.toFixed(1)}GB of{" "}
+            {storageInfo.totalGB.toFixed(1)}GB used
           </Text>
         </View>
         <View className="h-3 w-full bg-muted rounded-full overflow-hidden flex-row">

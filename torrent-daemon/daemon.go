@@ -1309,17 +1309,30 @@ func StopStreaming(infoHashHex string) error {
 	return stopStreamingEntryLocked(infoHashHex)
 }
 
-// stopStreamingEntry closes an active stream's reader and drops its torrent.
-// Callers must hold streamsMu. A missing stream is not an error here, so
-// cleanup during torrent deletion is best-effort.
+// stopStreamingEntry closes an active stream's reader and drops its torrent,
+// then removes the torrent's on-disk data so streaming doesn't leave orphaned
+// files in the storage directory. Callers must hold streamsMu. A missing stream
+// is not an error here, so cleanup during torrent deletion is best-effort.
 func stopStreamingEntryLocked(infoHashHex string) error {
 	entry := streams[infoHashHex]
 	if entry == nil {
 		return nil
 	}
+
+	name := ""
+	if info := entry.t.Info(); info != nil {
+		name = info.Name
+	}
+
 	entry.reader.Close()
 	entry.t.Drop()
 	delete(streams, infoHashHex)
+
+	// Remove on-disk data to match DeleteTorrent's cleanup.
+	if name != "" && name != "." && name != ".." {
+		dir := filepath.Join(dataDir, filepath.Base(name))
+		os.RemoveAll(dir)
+	}
 	return nil
 }
 
