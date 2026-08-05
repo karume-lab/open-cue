@@ -5,7 +5,9 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useState,
 } from "react";
 import type { SubtitlePreferences } from "@/features/shared/store/types";
 import { useAppStore } from "@/features/shared/store/useAppStore";
@@ -49,7 +51,10 @@ export const SettingsProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 
   // Real on-device numbers from the file system, not hardcoded values.
-  const storageInfo = useMemo(() => {
+  // Deferred to useEffect so the synchronous native bridge calls don't block
+  // the first render while the splash screen is still visible.
+  const [storageInfo, setStorageInfo] = useState({ totalGB: 0, usedGB: 0 });
+  useEffect(() => {
     let totalGB = 0;
     let usedGB = 0;
     try {
@@ -60,7 +65,7 @@ export const SettingsProvider: FC<{ children: ReactNode }> = ({ children }) => {
     } catch {
       // Non-native environments (e.g. web preview) report no disk info.
     }
-    return { totalGB, usedGB };
+    setStorageInfo({ totalGB, usedGB });
   }, []);
 
   const value = useMemo(

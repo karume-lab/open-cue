@@ -42,9 +42,9 @@
             "buildArchs": ["arm64-v8a"],
             "useLegacyPackaging": true,
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": false,
             "enableBundleCompression": true,
-            "extraProguardRules": "-keep class com.brentvatne.** { *; }\n-keep class com.horcrux.svg.** { *; }"
+            "extraProguardRules": "-keep class com.brentvatne.** { *; }\n-keep class com.horcrux.svg.** { *; }\n-keep class expo.modules.** { *; }\n-keep class com.swmansion.** { *; }\n-keep class com.margelo.** { *; }\n-keep class com.mrousavy.** { *; }\n-keep class kotlin.Metadata { *; }\n-keepclassmembers,allowobfuscation class * { @kotlin.Metadata <methods>; }\n-keep,allowobfuscation @interface kotlin.Metadata\n-keepclassmembernames class * { native <methods>; }"
           }
         }
       ],

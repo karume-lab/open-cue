@@ -39,14 +39,13 @@ import { DownloadService } from "@/services/downloads/DownloadManager";
 import { NOTIFICATION_ROUTE_KEY } from "@/services/NotificationService";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
-// Register background task in the global scope
-registerBackgroundTasks();
-
 // Keep the native splash visible until the first screen has rendered, so an
 // already-onboarded user never sees the onboarding screen flash.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000 } },
+});
 
 // NAV_THEME — colors must match --color-* vars in global.css.
 // The app is dark-only, so a single theme is used regardless of OS scheme.
@@ -68,11 +67,10 @@ const RootLayout: React.FC = () => {
   const { hasSeenOnboarding } = useOnboardingStore();
 
   useEffect(() => {
-    runStartupBackups();
+    registerBackgroundTasks();
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         DownloadService.reconcileDownloads();
-        runStartupBackups();
       }
     });
     return () => subscription.remove();
@@ -129,6 +127,17 @@ const RootLayout: React.FC = () => {
     }
     if (segments.length === 0) return;
     SplashScreen.hideAsync().catch(() => {});
+  }, [hasSeenOnboarding, segments]);
+
+  useEffect(() => {
+    if (!hasSeenOnboarding || segments.length === 0) return;
+    runStartupBackups();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        runStartupBackups();
+      }
+    });
+    return () => subscription.remove();
   }, [hasSeenOnboarding, segments]);
 
   return (

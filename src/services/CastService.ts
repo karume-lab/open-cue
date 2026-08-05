@@ -8,7 +8,7 @@ import {
 import type { SubtitleTrackOption } from "@/features/player/components/SubtitleSheet";
 import { getDownloadsStoragePath } from "@/services/StorageLocation";
 import type { Movie } from "@/types/movie";
-import TorrentDaemon from "~/modules/torrent-daemon";
+import getTorrentDaemon from "~/modules/torrent-daemon";
 
 // ── Cast state types ─────────────────────────────────────────
 
@@ -32,13 +32,13 @@ let lanServing = false;
 async function ensureLanServing(): Promise<void> {
   if (lanServing) return;
   const storagePath = getDownloadsStoragePath();
-  await TorrentDaemon.startLanServing(storagePath);
+  await getTorrentDaemon().startLanServing(storagePath);
   lanServing = true;
 }
 
 export async function stopLanServing(): Promise<void> {
   if (!lanServing) return;
-  await TorrentDaemon.stopLanServing();
+  await getTorrentDaemon().stopLanServing();
   lanServing = false;
 }
 
@@ -54,14 +54,14 @@ export async function resolveStreamCastURL(
 
   // Ensure the torrent is being served locally (the phone needs to have
   // an active stream reader so the Chromecast can pull bytes through it).
-  const existing = TorrentDaemon.getLanStreamURL(hash);
+  const existing = getTorrentDaemon().getLanStreamURL(hash);
   if (existing) return existing;
 
   // Start a new stream — this returns the localhost URL, but the LAN
   // server can proxy through the same stream entry.
-  await TorrentDaemon.streamTorrent(magnet);
+  await getTorrentDaemon().streamTorrent(magnet);
 
-  const lanURL = TorrentDaemon.getLanStreamURL(hash);
+  const lanURL = getTorrentDaemon().getLanStreamURL(hash);
   if (!lanURL) {
     throw new Error("Could not resolve LAN stream URL");
   }
@@ -73,7 +73,7 @@ export async function resolveStreamCastURL(
  */
 export function resolveFileCastURL(filePath: string): string {
   // File serving is synchronous — the LAN server serves files directly.
-  return TorrentDaemon.getLanFileURL(filePath);
+  return getTorrentDaemon().getLanFileURL(filePath);
 }
 
 // ── Media loading ────────────────────────────────────────────

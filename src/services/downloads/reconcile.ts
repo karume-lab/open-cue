@@ -3,7 +3,7 @@ import { resolveCompletedFiles } from "@/services/downloads/fileResolver";
 import { syncDownloadNotifications } from "@/services/downloads/notifications";
 import type { ProgressPoller } from "@/services/downloads/ProgressPoller";
 import { magnetFromHash } from "@/services/torrents/magnet";
-import TorrentDaemon from "~/modules/torrent-daemon";
+import getTorrentDaemon from "~/modules/torrent-daemon";
 
 interface ReconcileDeps {
   ensureDaemonStarted: () => Promise<void>;
@@ -41,11 +41,11 @@ export const reconcileDownloads = async ({
           torrent.magnet ?? magnetFromHash(torrent.hash, download.movie.title);
         const infoHash =
           download.torrentFileIndex != null
-            ? await TorrentDaemon.addMagnetFile(
+            ? await getTorrentDaemon().addMagnetFile(
                 magnet,
                 download.torrentFileIndex,
               )
-            : await TorrentDaemon.addMagnet(magnet);
+            : await getTorrentDaemon().addMagnet(magnet);
         useAppStore.getState().updateDownloadState(download.id, {
           state: "downloading",
         });
@@ -63,11 +63,11 @@ export const reconcileDownloads = async ({
     // "downloading" — check whether it finished while the app was closed.
     const progress =
       download.torrentFileIndex != null
-        ? await TorrentDaemon.getFileProgress(
+        ? await getTorrentDaemon().getFileProgress(
             torrent.hash,
             download.torrentFileIndex,
           )
-        : await TorrentDaemon.getProgress(torrent.hash);
+        : await getTorrentDaemon().getProgress(torrent.hash);
     if (progress >= 1.0) {
       const { localVideoPath, localSubtitlePath } =
         await resolveCompletedFiles(download);

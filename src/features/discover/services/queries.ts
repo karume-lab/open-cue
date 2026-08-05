@@ -97,10 +97,12 @@ export const useDiscoverMoviesQuery = (
   page: number = 1,
   query?: string,
   genre?: string,
+  options?: { enabled?: boolean },
 ) => {
   return useQuery({
     queryKey: discoverKeys.list(page, query, genre),
     queryFn: () => fetchDiscoverPage(page, query, genre),
+    enabled: options?.enabled ?? true,
   });
 };
 

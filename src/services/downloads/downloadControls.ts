@@ -1,7 +1,7 @@
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { syncDownloadNotifications } from "@/services/downloads/notifications";
 import type { ProgressPoller } from "@/services/downloads/ProgressPoller";
-import TorrentDaemon from "~/modules/torrent-daemon";
+import getTorrentDaemon from "~/modules/torrent-daemon";
 
 export const pauseDownload = async (
   downloadId: string,
@@ -17,13 +17,13 @@ export const pauseDownload = async (
     // A per-file download only disables that file so the other episodes of
     // the pack keep downloading.
     if (download.torrentFileIndex != null) {
-      await TorrentDaemon.setFileEnabled(
+      await getTorrentDaemon().setFileEnabled(
         torrent.hash,
         download.torrentFileIndex,
         false,
       );
     } else {
-      await TorrentDaemon.pause(torrent.hash);
+      await getTorrentDaemon().pause(torrent.hash);
     }
   }
 
@@ -44,13 +44,13 @@ export const resumeDownload = async (
   const torrent = download.movie.torrents?.[0];
   if (torrent) {
     if (download.torrentFileIndex != null) {
-      await TorrentDaemon.setFileEnabled(
+      await getTorrentDaemon().setFileEnabled(
         torrent.hash,
         download.torrentFileIndex,
         true,
       );
     } else {
-      await TorrentDaemon.resume(torrent.hash);
+      await getTorrentDaemon().resume(torrent.hash);
     }
     useAppStore.getState().updateDownloadState(downloadId, {
       state: "downloading",
@@ -79,23 +79,27 @@ export const cancelDownload = async (
         // file goes, drop the torrent and its on-disk data directory so
         // removing a download actually reclaims storage.
         try {
-          const remaining = await TorrentDaemon.setFileEnabled(
+          const remaining = await getTorrentDaemon().setFileEnabled(
             torrent.hash,
             download.torrentFileIndex,
             false,
           );
           if (remaining === 0) {
-            await TorrentDaemon.deleteTorrent(torrent.hash).catch((error) => {
-              console.error("Failed to delete torrent data:", error);
-            });
+            await getTorrentDaemon()
+              .deleteTorrent(torrent.hash)
+              .catch((error) => {
+                console.error("Failed to delete torrent data:", error);
+              });
           }
         } catch (error) {
           console.error("Failed to disable torrent file:", error);
         }
       } else {
-        await TorrentDaemon.deleteTorrent(torrent.hash).catch((error) => {
-          console.error("Failed to delete torrent data:", error);
-        });
+        await getTorrentDaemon()
+          .deleteTorrent(torrent.hash)
+          .catch((error) => {
+            console.error("Failed to delete torrent data:", error);
+          });
       }
     }
   }

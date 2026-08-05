@@ -1,7 +1,7 @@
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { resolveCompletedFiles } from "@/services/downloads/fileResolver";
 import { syncDownloadNotifications } from "@/services/downloads/notifications";
-import TorrentDaemon from "~/modules/torrent-daemon";
+import getTorrentDaemon from "~/modules/torrent-daemon";
 
 // Polls the daemon once a second for a download's progress/speed, marks it
 // complete and resolves its on-disk files when it reaches 100%.
@@ -32,8 +32,8 @@ export class ProgressPoller {
       try {
         const raw =
           fileIndex != null
-            ? TorrentDaemon.getFileTorrentStats(infoHash, fileIndex)
-            : TorrentDaemon.getTorrentStats(infoHash);
+            ? getTorrentDaemon().getFileTorrentStats(infoHash, fileIndex)
+            : getTorrentDaemon().getTorrentStats(infoHash);
         if (raw && raw !== "{}" && raw !== lastRaw) {
           const stats = JSON.parse(raw) as {
             progress: number;

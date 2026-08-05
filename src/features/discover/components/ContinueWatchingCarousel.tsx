@@ -35,10 +35,16 @@ const progressPercent = (entry: WatchHistoryEntry, movie: Movie) => {
   return duration > 0 ? (entry.currentTime / duration) * 100 : 0;
 };
 
-const ContinueWatchingCarousel = () => {
+const ContinueWatchingCarousel = ({
+  fallbackMovies,
+}: {
+  fallbackMovies?: Movie[];
+} = {}) => {
   const { isOfflineMode } = useSettings();
   const { watchHistory, downloads } = useAppStore();
-  const { data } = useDiscoverMoviesQuery(1);
+  const { data } = useDiscoverMoviesQuery(1, undefined, undefined, {
+    enabled: !fallbackMovies,
+  });
 
   // Fallback lookup for legacy history entries migrated without a stored movie.
   const allKnownMovies: Record<string, Movie> = {};
@@ -49,7 +55,8 @@ const ContinueWatchingCarousel = () => {
   Object.values(useAppStore.getState().downloads).forEach((d) => {
     allKnownMovies[d.movie.id] = d.movie;
   });
-  data?.data?.movies?.forEach((m) => {
+  const discoverMovies = fallbackMovies ?? data?.data?.movies;
+  discoverMovies?.forEach((m) => {
     allKnownMovies[m.id] = m;
   });
 

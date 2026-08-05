@@ -12,7 +12,7 @@ import {
   setCueDirectory,
 } from "@/services/StorageLocation";
 import { moveDownloadsStorage } from "@/services/StorageMigration";
-import TorrentDaemon from "~/modules/torrent-daemon";
+import getTorrentDaemon from "~/modules/torrent-daemon";
 
 const INTERNAL_LABEL = "App internal storage (deleted on uninstall)";
 
@@ -60,7 +60,7 @@ const DownloadStorage = () => {
     setBusy(true);
     setResult(null);
     try {
-      const result = await TorrentDaemon.pickStorageDirectory();
+      const result = await getTorrentDaemon().pickStorageDirectory();
       const path = result?.path;
       const uri = result?.uri ?? "";
       if (!path) {

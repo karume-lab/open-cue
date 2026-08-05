@@ -2,7 +2,7 @@ import { Directory, File } from "expo-file-system";
 import type { DownloadState } from "@/features/shared/store/types";
 import { getDownloadsDirectory } from "@/services/StorageLocation";
 import type { MovieTorrent } from "@/types/movie";
-import TorrentDaemon from "~/modules/torrent-daemon";
+import getTorrentDaemon from "~/modules/torrent-daemon";
 
 const VIDEO_EXTENSIONS = [
   ".mp4",
@@ -102,7 +102,8 @@ const resolveLocalVideoPath = async (
   const torrent = movie.torrents?.[0];
   if (torrent) {
     try {
-      const files = TorrentDaemon.getFiles(torrent.hash)
+      const files = getTorrentDaemon()
+        .getFiles(torrent.hash)
         .split("\n")
         .map((path) => path.trim())
         .filter(Boolean);

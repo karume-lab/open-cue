@@ -34,7 +34,7 @@ export interface StorageDirectoryResult {
   uri: string | null;
 }
 
-interface TorrentDaemonInterface {
+export interface TorrentDaemonInterface {
   startDaemon(storagePath: string): Promise<void>;
   stopDaemon(): Promise<void>;
   pickStorageDirectory(): Promise<StorageDirectoryResult | null>;
@@ -131,4 +131,13 @@ interface TorrentDaemonInterface {
   getLanFileURL(filePath: string): string;
 }
 
-export default requireNativeModule<TorrentDaemonInterface>("TorrentDaemon");
+let _module: TorrentDaemonInterface | null = null;
+
+const getTorrentDaemon = (): TorrentDaemonInterface => {
+  if (!_module) {
+    _module = requireNativeModule<TorrentDaemonInterface>("TorrentDaemon");
+  }
+  return _module;
+};
+
+export default getTorrentDaemon;
