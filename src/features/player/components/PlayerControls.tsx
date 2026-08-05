@@ -24,7 +24,6 @@ export interface PlayerControlsProps {
   playableDuration: number;
   showControls: boolean;
   rate: number;
-  isSeeking?: boolean;
   onPlayPause: () => void;
   onReplay: () => void;
   onCycleRate: () => void;
@@ -54,7 +53,6 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
   playableDuration,
   showControls,
   rate,
-  isSeeking,
   onPlayPause,
   onReplay,
   onCycleRate,
@@ -162,13 +160,6 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
         style={{ paddingBottom: Math.max(insets.bottom, 24) }}
         pointerEvents={showControls ? "auto" : "none"}
       >
-        {isSeeking && (
-          <View className="items-center mb-2">
-            <Text className="text-primary text-xs font-bold">
-              Fast Forwarding…
-            </Text>
-          </View>
-        )}
         <View className="flex-row items-center justify-between mb-2 px-1">
           <Text className="text-white font-medium text-sm">
             {formatTime(currentTime)}

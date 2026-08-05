@@ -169,6 +169,18 @@ class TorrentDaemonModule : Module() {
       Daemon.addMagnet(uri)
     }
 
+    // Adds a torrent but downloads only the pieces of one file (e.g. a single
+    // episode from a season pack). Progress is reported relative to that file.
+    AsyncFunction("addMagnetFile") { uri: String, index: Int ->
+      Daemon.addMagnetFile(uri, index.toLong())
+    }
+
+    // Adds a torrent without downloading, returning a JSON list of its files
+    // (index, path, size, video) so the UI can map a pack's contents.
+    AsyncFunction("probeTorrent") { uri: String ->
+      Daemon.probeTorrent(uri)
+    }
+
     Function("getProgress") { infoHash: String ->
       Daemon.getProgress(infoHash)
     }
@@ -207,6 +219,12 @@ class TorrentDaemonModule : Module() {
 
     AsyncFunction("streamTorrent") { uri: String ->
       Daemon.streamTorrent(uri)
+    }
+
+    // Streams a specific file (by index) within a torrent instead of the
+    // largest video file, e.g. one episode from a season pack.
+    AsyncFunction("streamTorrentFile") { uri: String, index: Int ->
+      Daemon.streamTorrentFile(uri, index.toLong())
     }
 
     AsyncFunction("stopStreaming") { infoHash: String ->

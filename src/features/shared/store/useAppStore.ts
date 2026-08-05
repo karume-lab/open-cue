@@ -36,6 +36,10 @@ export interface DownloadState {
   totalBytes?: number;
   localVideoPath?: string;
   localSubtitlePath?: string;
+  // When only one file of a multi-file torrent (season pack) is downloaded,
+  // these identify it so progress and file resolution stay on target.
+  torrentFileIndex?: number;
+  torrentFileName?: string;
 }
 
 export interface SubtitlePreferences {

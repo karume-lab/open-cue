@@ -322,15 +322,14 @@ const TorrentPickerSheet = forwardRef<
     })();
 
     if (!showAllTorrents && movie.mediaType === "tv") {
+      // Only duplicate season/series packs are collapsed to the most-seeded
+      // one. Episodes are distinct content and must never be hidden.
       result = result.map((group) => {
-        const all = [...group.seasonPacks, ...group.episodes];
-        if (all.length <= 1) return group;
-        const best = all.reduce((a, b) => (b.seeds > a.seeds ? b : a));
-        return {
-          ...group,
-          seasonPacks: best.kind !== "episode" ? [best] : [],
-          episodes: best.kind === "episode" ? [best] : [],
-        };
+        if (group.seasonPacks.length <= 1) return group;
+        const best = group.seasonPacks.reduce((a, b) =>
+          b.seeds > a.seeds ? b : a,
+        );
+        return { ...group, seasonPacks: [best] };
       });
     }
 
@@ -339,10 +338,8 @@ const TorrentPickerSheet = forwardRef<
 
   const hasCollapsedTorrents = useMemo(() => {
     if (showAllTorrents || movie?.mediaType !== "tv") return false;
-    return filteredGroups.some(
-      (g) => g.seasonPacks.length + g.episodes.length > 1,
-    );
-  }, [showAllTorrents, movie, filteredGroups]);
+    return groups.some((group) => group.seasonPacks.length > 1);
+  }, [showAllTorrents, movie, groups]);
 
   const visibleTorrents = useMemo(() => {
     if (query.trim()) return results;

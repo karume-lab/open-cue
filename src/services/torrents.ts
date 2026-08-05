@@ -464,3 +464,16 @@ export const episodeLabel = (torrent?: MovieTorrent): string | undefined => {
   }
   return torrent.label;
 };
+
+// Extracts an episode reference from a file name or path (e.g. the individual
+// files inside a season pack). Returns null when no SxxExx token is present.
+export const parseEpisodeFromName = (
+  name: string,
+): { season?: number; episode: number } | null => {
+  const episode = name.match(EPISODE_RE);
+  if (!episode) return null;
+  return {
+    season: Number(episode[1]),
+    episode: Number(episode[2]),
+  };
+};

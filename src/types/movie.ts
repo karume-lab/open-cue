@@ -22,6 +22,27 @@ export interface MovieTorrent {
   label?: string;
 }
 
+// One video file inside a torrent, as reported by TorrentDaemon.probeTorrent.
+export interface TorrentFileInfo {
+  index: number;
+  path: string;
+  size: number;
+  video: boolean;
+}
+
+// Episode metadata from TMDB (`/tv/{id}/season/{n}`).
+export interface TvEpisode {
+  id: number;
+  name: string;
+  episodeNumber: number;
+  seasonNumber: number;
+  airDate: string;
+  overview: string;
+  rating: number; // 0–10
+  runtime: number; // minutes
+  stillUrl: string;
+}
+
 export interface Movie {
   // Composite, collision-safe id: `${mediaType}:${tmdbId}`
   id: string;

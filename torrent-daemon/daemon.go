@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -63,6 +64,15 @@ type streamEntry struct {
 	size   int64
 	file   *torrent.File
 	t      *torrent.Torrent
+}
+
+// fileInfo describes one file inside a torrent, used by ProbeTorrent so callers
+// can enumerate a pack's contents and pick a specific file to stream/download.
+type fileInfo struct {
+	Index int    `json:"index"`
+	Path  string `json:"path"`
+	Size  int64  `json:"size"`
+	Video bool   `json:"video"`
 }
 
 // lockedReader serializes access to a torrent.Reader, which is not safe for
@@ -553,10 +563,132 @@ func AddMagnet(uri string) (string, error) {
 	// Start downloading immediately
 	t.DownloadAll()
 
-	return t.InfoHash().HexString(), nil
+	hash := t.InfoHash().HexString()
+	clearDownloadTarget(hash)
+
+	return hash, nil
 }
 
-// GetProgress returns the download progress (0.0 to 1.0).
+// ── Selective downloads ──────────────────────────────────────
+// A season/series pack holds many episodes; AddMagnetFile pins the download to
+// a single file's pieces. Progress is then reported relative to that file so
+// the UI reflects the episode the user actually asked for, not the whole pack.
+
+var (
+	downloadTargetsMu sync.Mutex
+	downloadTargets   = map[string]int{} // info hash -> file index
+)
+
+func setDownloadTarget(infoHashHex string, index int) {
+	downloadTargetsMu.Lock()
+	downloadTargets[infoHashHex] = index
+	downloadTargetsMu.Unlock()
+}
+
+func clearDownloadTarget(infoHashHex string) {
+	downloadTargetsMu.Lock()
+	delete(downloadTargets, infoHashHex)
+	downloadTargetsMu.Unlock()
+}
+
+func downloadTargetIndex(infoHashHex string) (index int, ok bool) {
+	downloadTargetsMu.Lock()
+	defer downloadTargetsMu.Unlock()
+	index, ok = downloadTargets[infoHashHex]
+	return index, ok
+}
+
+// AddMagnetFile adds a magnet but downloads only the pieces belonging to the
+// file at the given index (e.g. one episode out of a season pack). Returns the
+// torrent's InfoHash.
+func AddMagnetFile(uri string, index int) (string, error) {
+	mu.RLock()
+	if client == nil {
+		mu.RUnlock()
+		return "", errors.New("torrent client not started")
+	}
+	clientRef := client
+	mu.RUnlock()
+
+	t, err := clientRef.AddMagnet(uri)
+	if err != nil {
+		return "", err
+	}
+
+	select {
+	case <-t.GotInfo():
+	case <-time.After(metainfoTimeout):
+		t.Drop()
+		return "", errors.New("timed out waiting for torrent metadata")
+	}
+
+	files := t.Files()
+	if index < 0 || index >= len(files) {
+		t.Drop()
+		return "", errors.New("file index out of range")
+	}
+
+	// Pin the download to the chosen file's pieces.
+	t.CancelPieces(0, t.NumPieces())
+	files[index].Download()
+
+	hash := t.InfoHash().HexString()
+	setDownloadTarget(hash, index)
+
+	return hash, nil
+}
+
+// ProbeTorrent adds a magnet and returns a JSON description of its files
+// without downloading anything, so callers can inspect a pack's contents
+// before deciding which file to stream or download.
+func ProbeTorrent(uri string) (string, error) {
+	mu.RLock()
+	if client == nil {
+		mu.RUnlock()
+		return "", errors.New("torrent client not started")
+	}
+	clientRef := client
+	mu.RUnlock()
+
+	t, err := clientRef.AddMagnet(uri)
+	if err != nil {
+		return "", err
+	}
+
+	select {
+	case <-t.GotInfo():
+	case <-time.After(metainfoTimeout):
+		t.Drop()
+		return "", errors.New("timed out waiting for torrent metadata")
+	}
+
+	return torrentFileInfoList(t)
+}
+
+func torrentFileInfoList(t *torrent.Torrent) (string, error) {
+	if t.Info() == nil {
+		return "", errors.New("torrent metadata unavailable")
+	}
+	files := t.Files()
+	list := make([]fileInfo, 0, len(files))
+	for i, f := range files {
+		path := f.DisplayPath()
+		list = append(list, fileInfo{
+			Index: i,
+			Path:  path,
+			Size:  f.Length(),
+			Video: isVideoPath(path),
+		})
+	}
+	b, err := json.Marshal(list)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// GetProgress returns the download progress (0.0 to 1.0). For selective
+// downloads (AddMagnetFile) progress is measured against the targeted file.
 func GetProgress(infoHashHex string) float64 {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -570,6 +702,16 @@ func GetProgress(infoHashHex string) float64 {
 			info := t.Info()
 			if info == nil {
 				return 0.0 // metadata not resolved yet
+			}
+			if index, ok := downloadTargetIndex(infoHashHex); ok {
+				files := t.Files()
+				if index >= 0 && index < len(files) {
+					f := files[index]
+					if f.Length() == 0 {
+						return 0.0
+					}
+					return float64(f.BytesCompleted()) / float64(f.Length())
+				}
 			}
 			if info.TotalLength() == 0 {
 				return 0.0
@@ -681,6 +823,15 @@ func GetTorrentStats(infoHashHex string) string {
 	}
 	total := info.TotalLength()
 	completed := t.BytesCompleted()
+	// Selective downloads report stats for the targeted file only.
+	if index, ok := downloadTargetIndex(infoHashHex); ok {
+		files := t.Files()
+		if index >= 0 && index < len(files) {
+			f := files[index]
+			total = f.Length()
+			completed = f.BytesCompleted()
+		}
+	}
 	st := t.Stats()
 	dl, ul := sampleRates(infoHashHex, st)
 	progress := 0.0
@@ -774,6 +925,7 @@ func DeleteTorrent(infoHashHex string) error {
 
 		// Stop streaming this torrent too, if it was being streamed.
 		stopStreamingEntry(infoHashHex)
+		clearDownloadTarget(infoHashHex)
 
 		t.Drop()
 
@@ -823,6 +975,16 @@ func Resume(infoHashHex string) error {
 			if t.Info() == nil {
 				return errors.New("torrent metadata not resolved yet")
 			}
+			// A paused selective download must resume the same file, not the
+			// whole pack.
+			if index, ok := downloadTargetIndex(infoHashHex); ok {
+				files := t.Files()
+				if index >= 0 && index < len(files) {
+					t.CancelPieces(0, t.NumPieces())
+					files[index].Download()
+					return nil
+				}
+			}
 			t.DownloadAll()
 			return nil
 		}
@@ -835,42 +997,84 @@ func Resume(infoHashHex string) error {
 // reads block until the requested bytes are available, so the player buffers
 // while the daemon fetches pieces sequentially ahead of the read position.
 func StreamTorrent(uri string) (string, error) {
+	file, t, err := resolveStreamTarget(uri, nil)
+	if err != nil {
+		return "", err
+	}
+	return startStream(t, file)
+}
+
+// StreamTorrentFile is StreamTorrent but streams the file at the given index,
+// so a season pack can serve one specific episode instead of the largest file.
+func StreamTorrentFile(uri string, index int) (string, error) {
+	file, t, err := resolveStreamTarget(uri, &index)
+	if err != nil {
+		return "", err
+	}
+	return startStream(t, file)
+}
+
+// resolveStreamTarget adds a magnet, waits for its metadata, and selects the
+// video file to stream. When index is nil the largest video file is used;
+// otherwise the file at that index must be a video.
+func resolveStreamTarget(uri string, index *int) (*torrent.File, *torrent.Torrent, error) {
 	mu.RLock()
 	if client == nil {
 		mu.RUnlock()
-		return "", errors.New("torrent client not started")
+		return nil, nil, errors.New("torrent client not started")
 	}
 	clientRef := client
 	mu.RUnlock()
 
 	if streamAddr == "" {
-		return "", errors.New("stream server not started")
+		return nil, nil, errors.New("stream server not started")
 	}
 
 	t, err := clientRef.AddMagnet(uri)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 
 	select {
 	case <-t.GotInfo():
 	case <-time.After(metainfoTimeout):
 		t.Drop()
-		return "", errors.New("timed out waiting for torrent metadata")
+		return nil, nil, errors.New("timed out waiting for torrent metadata")
 	}
 
-	info := t.Info()
-	if info == nil {
+	if t.Info() == nil {
 		t.Drop()
-		return "", errors.New("torrent metadata unavailable")
+		return nil, nil, errors.New("torrent metadata unavailable")
 	}
 
-	file := largestVideoFile(t)
+	var file *torrent.File
+	if index != nil {
+		files := t.Files()
+		idx := *index
+		if idx < 0 || idx >= len(files) {
+			t.Drop()
+			return nil, nil, errors.New("file index out of range")
+		}
+		if !isVideoPath(files[idx].DisplayPath()) {
+			t.Drop()
+			return nil, nil, errors.New("selected file is not a video")
+		}
+		file = files[idx]
+	} else {
+		file = largestVideoFile(t)
+	}
 	if file == nil {
 		t.Drop()
-		return "", errors.New("no video file found in torrent")
+		return nil, nil, errors.New("no video file found in torrent")
 	}
 
+	return file, t, nil
+}
+
+// startStream serves an already-selected file of a torrent that has its
+// metadata resolved. Replacing an existing stream for the same torrent closes
+// the previous reader so switching episodes doesn't leak resources.
+func startStream(t *torrent.Torrent, file *torrent.File) (string, error) {
 	reader := &lockedReader{r: file.NewReader()}
 	reader.r.SetReadahead(streamReadahead)
 
@@ -893,6 +1097,9 @@ func StreamTorrent(uri string) (string, error) {
 	hash := t.InfoHash().HexString()
 
 	streamsMu.Lock()
+	if existing, ok := streams[hash]; ok {
+		existing.reader.Close()
+	}
 	streams[hash] = &streamEntry{
 		reader: reader,
 		size:   file.Length(),

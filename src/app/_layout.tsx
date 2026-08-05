@@ -150,6 +150,12 @@ const RootLayout: React.FC = () => {
                   }}
                 />
                 <Stack.Screen
+                  name="media/[type]/[id]/season/[season]"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
                   name="player/[type]/[id]"
                   options={{
                     headerShown: false,

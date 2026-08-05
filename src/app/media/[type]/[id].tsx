@@ -9,7 +9,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -143,6 +143,21 @@ const MediaDetailScreen = () => {
   const handleToggleBookmark = useDebounceCallback(() => {
     if (movie) toggleBookmark(movie);
   }, 300);
+
+  // Seasons known from TMDB metadata or the highest season referenced by the
+  // show's torrents. Every listed season opens an episode screen.
+  const seasons = useMemo(() => {
+    if (movie?.mediaType !== "tv") return [];
+    const fromTorrents = Math.max(
+      0,
+      ...(movie.torrents ?? [])
+        .map((torrent) => torrent.season)
+        .filter((season): season is number => season != null),
+    );
+    const count = Math.max(movie.numberOfSeasons ?? 0, fromTorrents);
+    if (count <= 0) return [];
+    return Array.from({ length: count }, (_, index) => index + 1);
+  }, [movie]);
 
   if (isLoading || !movie) return <MediaDetailSkeleton />;
 
@@ -454,6 +469,37 @@ const MediaDetailScreen = () => {
               </TouchableOpacity>
             )}
           </View>
+
+          {seasons.length > 0 && (
+            <View className="mb-8">
+              <Text className="text-base font-bold text-foreground mb-3">
+                Seasons
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {seasons.map((season) => (
+                  <TouchableOpacity
+                    key={season}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/media/[type]/[id]/season/[season]",
+                        params: {
+                          type: movie.mediaType,
+                          id: movie.tmdbId,
+                          season: String(season),
+                        },
+                      })
+                    }
+                    activeOpacity={0.7}
+                    className="bg-muted border border-border rounded-md px-4 py-2"
+                  >
+                    <Text className="text-muted-foreground text-sm font-medium">
+                      {season}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
 
           {isOffline && (
             <View className="bg-card rounded-md border border-border p-4">

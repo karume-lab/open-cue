@@ -3,6 +3,7 @@ import {
   discoverMovies,
   discoverTv,
   fetchMediaDetail,
+  fetchSeasonEpisodes,
   normalizeGenre,
   recommendationsFor,
   searchMulti,
@@ -133,7 +134,24 @@ export const useMovieDetailsQuery = (
   return useQuery({
     queryKey: discoverKeys.detail(mediaType, id),
     queryFn: () => fetchMediaDetailWithTorrents(mediaType, id),
+    // Torrent search hits several external indexes; cache results briefly so
+    // the torrent picker, episode screen and player reuse them.
+    staleTime: 5 * 60_000,
     enabled: options?.enabled ?? Boolean(mediaType && id),
+  });
+};
+
+// Episode titles + metadata for a single TV season (TMDB).
+export const useSeasonEpisodesQuery = (
+  tmdbId: number,
+  season?: number,
+  options?: { enabled?: boolean },
+) => {
+  return useQuery({
+    queryKey: [...discoverKeys.details(), "season", tmdbId, season] as const,
+    queryFn: () => fetchSeasonEpisodes(tmdbId, season as number),
+    staleTime: 5 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(tmdbId && season),
   });
 };
 

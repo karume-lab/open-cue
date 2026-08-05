@@ -65,6 +65,18 @@ interface TorrentDaemonInterface {
    */
   writeTextFile(filePath: string, content: string): Promise<boolean>;
   addMagnet(uri: string): Promise<string>;
+  /**
+   * Adds a torrent but downloads only the pieces of the file at `index`
+   * (e.g. a single episode from a season pack). Returns the info hash;
+   * progress is reported relative to the selected file.
+   */
+  addMagnetFile(uri: string, index: number): Promise<string>;
+  /**
+   * Adds a torrent without downloading and returns a JSON array describing its
+   * files: `[{ index, path, size, video }]`. Used to inspect a pack's contents
+   * and map files to episodes.
+   */
+  probeTorrent(uri: string): Promise<string>;
   getProgress(infoHash: string): number;
   getDownloadSpeed(infoHash: string): number;
   getUploadSpeed(infoHash: string): number;
@@ -75,6 +87,11 @@ interface TorrentDaemonInterface {
   resume(infoHash: string): Promise<void>;
   deleteTorrent(infoHash: string): Promise<void>;
   streamTorrent(uri: string): Promise<string>;
+  /**
+   * Streams a specific file (by index) within a torrent instead of the largest
+   * video file, e.g. one episode from a season pack.
+   */
+  streamTorrentFile(uri: string, index: number): Promise<string>;
   stopStreaming(infoHash: string): Promise<void>;
   startDownloadNotifications(downloads: DownloadNotification[]): Promise<void>;
   updateDownloadNotifications(downloads: DownloadNotification[]): Promise<void>;

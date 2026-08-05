@@ -4,21 +4,33 @@ import {
   fetchMediaDetailWithTorrents,
   refetchTorrents,
 } from "@/features/discover/services/queries";
+import TorrentFilePickerSheet, {
+  type TorrentFilePickerSheetHandle,
+} from "@/features/media/components/TorrentFilePickerSheet";
 import TorrentPickerSheet, {
   type TorrentPickerMode,
   type TorrentPickerSheetHandle,
 } from "@/features/media/components/TorrentPickerSheet";
+import { fileBaseName } from "@/features/media/services/packFiles";
 import { MessageDialog } from "@/features/shared/components/MessageDialog";
 import { useMediaActions } from "@/features/shared/store/useMediaActions";
 import { DownloadService } from "@/services/DownloadService";
-import { magnetFromHash } from "@/services/torrents";
-import type { MovieTorrent } from "@/types/movie";
+import { magnetFromHash, parseEpisodeFromName } from "@/services/torrents";
+import type { MovieTorrent, TorrentFileInfo } from "@/types/movie";
 
 // Single root-mounted torrent picker shared by the media detail screen and the
-// card quick actions. Presentation state lives in useMediaActions.
+// card quick actions. Presentation state lives in useMediaActions. Multi-file
+// torrents (season/series packs) hand off to a file-level picker so the user
+// chooses which episode's file to stream or download.
 const MediaTorrentPicker = () => {
   const bottomSheetRef = useRef<TorrentPickerSheetHandle>(null);
+  const filePickerRef = useRef<TorrentFilePickerSheetHandle>(null);
   const { movie, mode, onRetry } = useMediaActions();
+  const [packTarget, setPackTarget] = useState<{
+    movie: NonNullable<typeof movie>;
+    torrent: MovieTorrent;
+    mode: TorrentPickerMode;
+  } | null>(null);
   const [isFetchingTorrents, setIsFetchingTorrents] = useState(false);
   const fetchingForRef = useRef<string | null>(null);
   const [downloadError, setDownloadError] = useState<{
@@ -33,6 +45,14 @@ const MediaTorrentPicker = () => {
       bottomSheetRef.current?.dismiss();
     }
   }, [movie, mode]);
+
+  useEffect(() => {
+    if (packTarget) {
+      filePickerRef.current?.present();
+    } else {
+      filePickerRef.current?.dismiss();
+    }
+  }, [packTarget]);
 
   // Card quick actions present a lightweight discover Movie with no torrents
   // loaded (torrents, imdb_id and numberOfSeasons only come from the detail
@@ -70,6 +90,15 @@ const MediaTorrentPicker = () => {
       const current = useMediaActions.getState().movie;
       if (!current) return;
 
+      // A season/series pack holds multiple episodes; let the user pick a file.
+      if (
+        current.mediaType === "tv" &&
+        (torrent.kind === "season" || torrent.kind === "series")
+      ) {
+        setPackTarget({ movie: current, torrent, mode: selectedMode });
+        return;
+      }
+
       if (selectedMode === "stream") {
         const magnet =
           torrent.magnet ?? magnetFromHash(torrent.hash, current.title);
@@ -97,6 +126,53 @@ const MediaTorrentPicker = () => {
       });
     },
     [],
+  );
+
+  const handleSelectFile = useCallback(
+    (file: TorrentFileInfo) => {
+      const target = packTarget;
+      if (!target) return;
+      const { movie: current, torrent, mode: selectedMode } = target;
+      setPackTarget(null);
+
+      const parsed = parseEpisodeFromName(file.path);
+      const magnet =
+        torrent.magnet ?? magnetFromHash(torrent.hash, current.title);
+
+      if (selectedMode === "stream") {
+        router.push({
+          pathname: "/player/[type]/[id]",
+          params: {
+            type: current.mediaType,
+            id: current.tmdbId,
+            mode: "stream",
+            magnet: encodeURIComponent(magnet),
+            hash: torrent.hash,
+            fileIndex: String(file.index),
+            ...(parsed?.season != null && { season: String(parsed.season) }),
+            ...(parsed?.episode != null && {
+              episode: String(parsed.episode),
+            }),
+          },
+        });
+        return;
+      }
+
+      DownloadService.startTorrentDownload(current, torrent, {
+        fileIndex: file.index,
+        fileName: fileBaseName(file.path),
+        fileSize: file.size,
+      }).catch((error) => {
+        setDownloadError({
+          title: "Download unavailable",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not start this download.",
+        });
+      });
+    },
+    [packTarget],
   );
 
   const handleBulkDownload = useCallback((torrents: MovieTorrent[]) => {
@@ -136,6 +212,13 @@ const MediaTorrentPicker = () => {
         onSelect={handleSelect}
         onBulkDownload={handleBulkDownload}
         onRetry={handleRetry}
+      />
+      <TorrentFilePickerSheet
+        ref={filePickerRef}
+        movie={packTarget?.movie ?? null}
+        torrent={packTarget?.torrent ?? null}
+        mode={packTarget?.mode ?? "stream"}
+        onSelectFile={handleSelectFile}
       />
       {downloadError && (
         <MessageDialog

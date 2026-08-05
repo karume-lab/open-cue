@@ -28,45 +28,81 @@ class StreamManager {
     this.daemonStarted = false;
   }
 
+  // Stream key: a bare hash streams the torrent's largest video file; a
+  // "hash:index" key streams one specific file of a multi-file torrent.
+  private static streamKey(hash: string, index?: number): string {
+    return index == null ? hash : `${hash}:${index}`;
+  }
+
   // Starts streaming a torrent and returns the local URL to play. Idempotent
-  // per torrent hash: an already-active stream returns its existing URL.
+  // per stream key: an already-active stream returns its existing URL.
   async startStreaming(magnet: string, hash: string): Promise<string> {
+    return this.startStreamingInternal(hash, undefined, () =>
+      TorrentDaemon.streamTorrent(magnet),
+    );
+  }
+
+  // Streams a specific file (by index) of a torrent, e.g. one episode of a
+  // season pack.
+  async startStreamingFile(
+    magnet: string,
+    hash: string,
+    index: number,
+  ): Promise<string> {
+    return this.startStreamingInternal(hash, index, () =>
+      TorrentDaemon.streamTorrentFile(magnet, index),
+    );
+  }
+
+  private async startStreamingInternal(
+    hash: string,
+    index: number | undefined,
+    start: () => Promise<string>,
+  ): Promise<string> {
     await this.ensureDaemonStarted();
 
-    const existing = this.streamUrls.get(hash);
+    const key = StreamManager.streamKey(hash, index);
+    const existing = this.streamUrls.get(key);
     if (existing) return existing;
 
-    this.pendingStarts.add(hash);
+    this.pendingStarts.add(key);
 
     try {
-      const url = await TorrentDaemon.streamTorrent(magnet);
-      if (this.stopRequested.has(hash)) {
+      const url = await start();
+      if (this.stopRequested.has(key)) {
         // A stop was requested while the stream was still starting; drop it
         // right away instead of leaving an orphaned stream running.
-        this.stopRequested.delete(hash);
+        this.stopRequested.delete(key);
         await TorrentDaemon.stopStreaming(hash).catch(() => {});
         return url;
       }
-      this.streamUrls.set(hash, url);
+      this.streamUrls.set(key, url);
       return url;
     } finally {
-      this.pendingStarts.delete(hash);
+      this.pendingStarts.delete(key);
     }
   }
 
   // Stops an active stream and drops the torrent, halting background I/O.
-  // If the stream is still being set up, the stop is remembered and applied as
-  // soon as the start completes. Stops for unknown hashes are no-ops.
+  // Stops every stream of a torrent (both the auto-picked file and any
+  // per-file streams). If a stream is still being set up, the stop is
+  // remembered and applied as soon as the start completes. Stops for unknown
+  // hashes are no-ops.
   async stopStreaming(hash: string) {
-    if (this.pendingStarts.has(hash)) {
-      this.stopRequested.add(hash);
-      this.streamUrls.delete(hash);
-      return;
+    const keys = [...this.streamUrls.keys(), ...this.pendingStarts].filter(
+      (key) => key === hash || key.startsWith(`${hash}:`),
+    );
+
+    for (const key of keys) {
+      if (this.pendingStarts.has(key)) {
+        this.stopRequested.add(key);
+        this.streamUrls.delete(key);
+        continue;
+      }
+      this.streamUrls.delete(key);
     }
 
-    if (!this.streamUrls.has(hash)) return;
-    this.streamUrls.delete(hash);
-
+    if (keys.length === 0) return;
     try {
       await TorrentDaemon.stopStreaming(hash);
     } catch (error) {

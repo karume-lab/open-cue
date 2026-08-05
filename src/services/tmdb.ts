@@ -3,7 +3,7 @@ import {
   TMDB_API_KEY,
   TMDB_IMAGE_BASE_URL,
 } from "@/lib/constants";
-import type { MediaType, Movie } from "@/types/movie";
+import type { MediaType, Movie, TvEpisode } from "@/types/movie";
 
 export const TMDB_MOVIE_GENRES: Record<number, string> = {
   28: "Action",
@@ -137,6 +137,24 @@ interface TMDBMovieDetail {
   original_language?: string;
   number_of_seasons?: number;
   external_ids?: { imdb_id?: string | null };
+}
+
+interface TMDBEpisode {
+  id: number;
+  name?: string;
+  episode_number?: number;
+  season_number?: number;
+  air_date?: string;
+  overview?: string;
+  vote_average?: number;
+  runtime?: number | null;
+  still_path?: string | null;
+}
+
+interface TMDBSeasonDetail {
+  id?: number;
+  season_number?: number;
+  episodes?: TMDBEpisode[];
 }
 
 interface TMDBDiscoverResponse extends TMDBPaginated<TMDBResultItem> {}
@@ -319,4 +337,28 @@ export const fetchMediaDetail = async (
     append_to_response: "external_ids",
   });
   return detailToMovie(data, mediaType);
+};
+
+// Fetches a TV season's episodes with their titles, air dates, ratings and
+// synopses. Only valid for TV series.
+export const fetchSeasonEpisodes = async (
+  tmdbId: number,
+  seasonNumber: number,
+): Promise<TvEpisode[]> => {
+  const data = await tmdbFetch<TMDBSeasonDetail>(
+    `/tv/${tmdbId}/season/${seasonNumber}`,
+  );
+  return (data.episodes ?? []).map((episode) => ({
+    id: episode.id,
+    name: episode.name || `Episode ${episode.episode_number ?? ""}`,
+    episodeNumber: episode.episode_number ?? 0,
+    seasonNumber: episode.season_number ?? seasonNumber,
+    airDate: episode.air_date ?? "",
+    overview: episode.overview ?? "",
+    rating: episode.vote_average ?? 0,
+    runtime: episode.runtime ?? 0,
+    stillUrl: episode.still_path
+      ? `${TMDB_IMAGE_BASE_URL}/w300${episode.still_path}`
+      : "",
+  }));
 };

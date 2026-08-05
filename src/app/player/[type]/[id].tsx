@@ -5,6 +5,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   AppState,
   BackHandler,
   Image,
@@ -32,6 +33,7 @@ import Video, {
   SelectedTrackType,
   type TextTrack,
 } from "react-native-video";
+import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
 import { useMovieDetailsQuery } from "@/features/discover/services/queries";
 import CastOverlay from "@/features/player/components/CastOverlay";
@@ -62,7 +64,7 @@ import {
 } from "@/services/CastService";
 import { resolveDownloadFileUri } from "@/services/DownloadService";
 import { StreamService } from "@/services/StreamService";
-import { episodeLabel } from "@/services/torrents";
+import { episodeLabel, parseEpisodeFromName } from "@/services/torrents";
 import type { MediaType } from "@/types/movie";
 
 const PLAYBACK_RATES = [1, 1.25, 1.5, 2];
@@ -82,13 +84,26 @@ const decodeParam = (
 type ResumeMode = "prompt" | "resume" | "restart" | "none";
 
 const PlayerDetailScreen = () => {
-  const { type, id, mode, magnet, hash, downloadId } = useLocalSearchParams<{
+  const {
+    type,
+    id,
+    mode,
+    magnet,
+    hash,
+    downloadId,
+    fileIndex,
+    season,
+    episode,
+  } = useLocalSearchParams<{
     type: string;
     id: string;
     mode?: string;
     magnet?: string;
     hash?: string;
     downloadId?: string;
+    fileIndex?: string;
+    season?: string;
+    episode?: string;
   }>();
   const mediaType: MediaType =
     (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
@@ -106,14 +121,43 @@ const PlayerDetailScreen = () => {
   } = useAppStore();
 
   // Series episodes share the same mediaId, so progress must be tracked per
-  // episode (e.g. "tv:123:s01e02") instead of one slot per show.
+  // episode (e.g. "tv:123:s01e02") instead of one slot per show. The episode
+  // is taken from the player route params (streaming a pack file) or parsed
+  // from the downloaded file's name (local playback of a pack file).
   const watchKey = useMemo(() => {
-    if (!isLocal || !downloadId) return mediaId;
-    const torrent = downloads[downloadId]?.movie.torrents?.[0];
-    const label = episodeLabel(torrent);
-    if (!label) return mediaId;
-    return `${mediaId}:${label.toLowerCase()}`;
-  }, [isLocal, downloadId, downloads, mediaId]);
+    const seasonNum = season != null ? Number(season) : undefined;
+    const episodeNum = episode != null ? Number(episode) : undefined;
+    if (seasonNum != null && episodeNum != null) {
+      return `${mediaId}:s${String(seasonNum).padStart(2, "0")}e${String(
+        episodeNum,
+      ).padStart(2, "0")}`;
+    }
+    if (isLocal && downloadId) {
+      const download = downloads[downloadId];
+      const parsed = download?.torrentFileName
+        ? parseEpisodeFromName(download.torrentFileName)
+        : undefined;
+      if (parsed?.episode != null) {
+        const s =
+          parsed.season != null ? String(parsed.season).padStart(2, "0") : "??";
+        return `${mediaId}:s${s}e${String(parsed.episode).padStart(2, "0")}`;
+      }
+      const torrent = download?.movie.torrents?.[0];
+      const label = episodeLabel(torrent);
+      if (label) return `${mediaId}:${label.toLowerCase()}`;
+    }
+    return mediaId;
+  }, [isLocal, downloadId, downloads, mediaId, season, episode]);
+
+  // Short "S08E09" label shown next to the show name in the player header so
+  // it's always clear which episode is actually playing.
+  const episodeSubtitle = useMemo(() => {
+    const seasonNum = season != null ? Number(season) : undefined;
+    const episodeNum = episode != null ? Number(episode) : undefined;
+    if (episodeNum == null) return null;
+    const s = seasonNum != null ? String(seasonNum).padStart(2, "0") : "??";
+    return `S${s}E${String(episodeNum).padStart(2, "0")}`;
+  }, [season, episode]);
 
   const { data: queryMovie, isLoading: isQueryLoading } = useMovieDetailsQuery(
     mediaType,
@@ -210,6 +254,7 @@ const PlayerDetailScreen = () => {
   const lastSavedTime = useRef<number>(0);
   const currentTimeRef = useRef<number>(0);
   const hasEnteredPipRef = useRef(false);
+  const seekPillAnim = useRef(new Animated.Value(0)).current;
 
   // ── Cast state ─────────────────────────────────────────────
   const castState = useCastState();
@@ -374,7 +419,15 @@ const PlayerDetailScreen = () => {
             );
             return;
           }
-          const url = await StreamService.startStreaming(magnetUri, hash);
+          const fileIndexParam = decodeParam(fileIndex);
+          const url =
+            fileIndexParam != null
+              ? await StreamService.startStreamingFile(
+                  magnetUri,
+                  hash,
+                  Number(fileIndexParam),
+                )
+              : await StreamService.startStreaming(magnetUri, hash);
           if (!cancelled) setVideoSource(url);
           return;
         }
@@ -427,7 +480,7 @@ const PlayerDetailScreen = () => {
         StreamService.stopStreaming(hash);
       }
     };
-  }, [mode, magnet, hash, downloadId]);
+  }, [mode, magnet, hash, fileIndex, downloadId]);
 
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
@@ -736,6 +789,15 @@ const PlayerDetailScreen = () => {
     }
   }, []);
 
+  // Animate seeking pill in/out
+  useEffect(() => {
+    Animated.timing(seekPillAnim, {
+      toValue: isLongPressSeeking ? 1 : 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [isLongPressSeeking, seekPillAnim]);
+
   const videoTextTrack: SelectedTrack =
     subtitlePrefs.enabled && selectedSubtitleTrack.startsWith("embedded")
       ? {
@@ -815,6 +877,33 @@ const PlayerDetailScreen = () => {
         />
       )}
 
+      {/* YouTube-style seeking pill */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          top: "40%",
+          alignSelf: "center",
+          opacity: seekPillAnim,
+          transform: [
+            {
+              scale: seekPillAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1],
+              }),
+            },
+          ],
+          zIndex: 20,
+        }}
+        pointerEvents="none"
+      >
+        <Badge
+          variant="secondary"
+          className="bg-black/70 border-white/20 px-3 py-1.5"
+        >
+          <Text className="text-white text-sm font-bold">10s {">>"}</Text>
+        </Badge>
+      </Animated.View>
+
       {/* Poster background when casting */}
       {isCasting && movie?.large_cover_image && (
         <Image
@@ -869,7 +958,11 @@ const PlayerDetailScreen = () => {
       />
 
       <PlayerControls
-        title={movie?.title ?? ""}
+        title={
+          episodeSubtitle
+            ? `${movie?.title ?? ""} · ${episodeSubtitle}`
+            : (movie?.title ?? "")
+        }
         isPlaying={isPlaying}
         ended={ended}
         currentTime={currentTime}
@@ -877,7 +970,6 @@ const PlayerDetailScreen = () => {
         playableDuration={playableDuration}
         showControls={showControls}
         rate={rate}
-        isSeeking={isLongPressSeeking}
         onPlayPause={handlePlayPause}
         onReplay={handleReplay}
         onCycleRate={cycleRate}

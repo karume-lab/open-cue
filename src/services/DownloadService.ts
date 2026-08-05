@@ -88,6 +88,7 @@ const findVideoFiles = (dir: Directory): File[] => {
 // multi-torrent directory never resolves to the wrong title.
 const resolveLocalVideoPath = async (
   movie: Movie,
+  targetFileName?: string,
 ): Promise<string | undefined> => {
   const torrent = movie.torrents?.[0];
   if (torrent) {
@@ -96,7 +97,16 @@ const resolveLocalVideoPath = async (
         .split("\n")
         .map((path) => path.trim())
         .filter(Boolean);
-      const video = files.find(isVideoPath);
+      const videos = files.filter(isVideoPath);
+      if (targetFileName) {
+        const target = targetFileName.toLowerCase();
+        const matched = videos.find((path) => {
+          const name = path.toLowerCase();
+          return name.includes(target) || target.includes(name);
+        });
+        if (matched) return `file://${matched}`;
+      }
+      const video = videos[0];
       if (video) return `file://${video}`;
     } catch {
       // module may not be available (e.g. unsupported platform)
@@ -115,6 +125,14 @@ const resolveLocalVideoPath = async (
       tokens.some((token) => file.uri.toLowerCase().includes(token)),
     );
     const pool = matched.length > 0 ? matched : videos;
+    if (targetFileName) {
+      const target = targetFileName.toLowerCase();
+      const named = pool.find((file) => {
+        const name = file.name.toLowerCase();
+        return name.includes(target) || target.includes(name);
+      });
+      if (named) return named.uri;
+    }
     pool.sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
     return pool[0].uri;
   } catch {
@@ -152,7 +170,7 @@ export const resolveDownloadFileUri = async (
   download: DownloadState,
 ): Promise<string | undefined> => {
   if (download.localVideoPath) return download.localVideoPath;
-  return resolveLocalVideoPath(download.movie);
+  return resolveLocalVideoPath(download.movie, download.torrentFileName);
 };
 
 // Mirrors the currently active downloads (queued/downloading/paused) to the
@@ -205,7 +223,14 @@ class DownloadManager {
     this.daemonStarted = false;
   }
 
-  async startTorrentDownload(movie: Movie, torrent: MovieTorrent) {
+  // opts.fileIndex pins the download to one file of a multi-file torrent (a
+  // season pack), so only that file's pieces are fetched and progress is
+  // measured against it.
+  async startTorrentDownload(
+    movie: Movie,
+    torrent: MovieTorrent,
+    opts?: { fileIndex?: number; fileName?: string; fileSize?: number },
+  ) {
     await this.ensureDaemonStarted();
 
     const key = downloadKey(movie, torrent);
@@ -217,11 +242,16 @@ class DownloadManager {
       state: "queued",
       progress: 0,
       speed: 0,
-      totalBytes: torrent.size_bytes || undefined,
+      totalBytes: opts?.fileSize ?? torrent.size_bytes ?? undefined,
+      torrentFileIndex: opts?.fileIndex,
+      torrentFileName: opts?.fileName,
     });
 
     try {
-      const infoHash = await TorrentDaemon.addMagnet(magnet);
+      const infoHash =
+        opts?.fileIndex != null
+          ? await TorrentDaemon.addMagnetFile(magnet, opts.fileIndex)
+          : await TorrentDaemon.addMagnet(magnet);
       useAppStore.getState().updateDownloadState(key, {
         state: "downloading",
       });
@@ -337,7 +367,10 @@ class DownloadManager {
       // "downloading" — check whether it finished while the app was closed.
       const progress = await TorrentDaemon.getProgress(torrent.hash);
       if (progress >= 1.0) {
-        const localVideoPath = await resolveLocalVideoPath(download.movie);
+        const localVideoPath = await resolveLocalVideoPath(
+          download.movie,
+          download.torrentFileName,
+        );
         const localSubtitlePath =
           await resolveLocalSubtitlePath(localVideoPath);
         useAppStore.getState().updateDownloadState(download.id, {
@@ -417,7 +450,10 @@ class DownloadManager {
       if (progress >= 1.0) {
         this.clearInterval(downloadId);
 
-        const localVideoPath = await resolveLocalVideoPath(download.movie);
+        const localVideoPath = await resolveLocalVideoPath(
+          download.movie,
+          download.torrentFileName,
+        );
         const localSubtitlePath =
           await resolveLocalSubtitlePath(localVideoPath);
 
