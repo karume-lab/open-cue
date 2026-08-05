@@ -111,11 +111,13 @@ const ContinueWatchingCarousel = () => {
         data={movies}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <MovieCard movie={item} resumeTarget={resumeTargets[item.id]} />
+          <View style={{ width: 180 }}>
+            <MovieCard movie={item} resumeTarget={resumeTargets[item.id]} />
+          </View>
         )}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16 }}
-        ItemSeparatorComponent={() => <View className="w-4" />}
+        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
         style={{ alignSelf: "flex-start" }}
       />
     </View>
