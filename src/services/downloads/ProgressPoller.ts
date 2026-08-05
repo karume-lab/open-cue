@@ -20,7 +20,7 @@ export class ProgressPoller {
       const state = useAppStore.getState();
       const download = state.downloads[downloadId];
 
-      if (!download || download.state !== "downloading") {
+      if (download?.state !== "downloading") {
         this.clear(downloadId);
         return;
       }

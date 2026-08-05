@@ -32,8 +32,8 @@ const TabsTrigger: React.FC<
   return (
     <TextClassContext.Provider
       value={cn(
-        'text-foreground dark:text-muted-foreground text-sm font-medium',
-        value === props.value && 'dark:text-foreground'
+        'text-muted-foreground text-sm font-medium',
+        value === props.value && 'text-foreground'
       )}>
       <TabsPrimitive.Trigger
         className={cn(
@@ -42,7 +42,7 @@ const TabsTrigger: React.FC<
             web: 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring web:h-[calc(100%-1px)] inline-flex cursor-default whitespace-nowrap transition-[color,box-shadow] focus-visible:outline-1 focus-visible:ring-[3px] disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
           }),
           props.disabled && 'opacity-50',
-          props.value === value && 'bg-background dark:border-foreground/10 dark:bg-input/30',
+          props.value === value && 'bg-input/30 border-foreground/10',
           className
         )}
         {...props}

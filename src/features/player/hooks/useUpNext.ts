@@ -69,7 +69,7 @@ export const useUpNext = (options: UpNextOptions) => {
   // pack (stream mode), then fall back to a fresh auto-picked source.
   const switchToEpisode = useCallback(
     async (targetSeason: number, targetEpisode: number) => {
-      if (!movie || movie.mediaType !== "tv") return;
+      if (movie?.mediaType !== "tv") return;
       const local = findLocalEpisodeDownload(
         movie,
         targetSeason,

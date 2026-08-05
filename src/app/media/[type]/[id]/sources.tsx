@@ -97,7 +97,7 @@ const SourcesScreen = () => {
 
   const handleOpenSeason = useCallback(
     (torrent: MovieTorrent) => {
-      if (!movie || movie.mediaType !== "tv") return;
+      if (movie?.mediaType !== "tv") return;
       const season = torrent.season ?? 1;
       router.push({
         pathname: "/media/[type]/[id]/season/[season]",

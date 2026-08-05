@@ -1,7 +1,7 @@
 import "@/styles/global.css";
 
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { DarkTheme, ThemeProvider } from "@react-navigation/native";
+
 import { PortalHost } from "@rn-primitives/portal";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -11,6 +11,7 @@ import { SettingsProvider } from "@/features/settings/contexts/SettingsContext";
 
 export { ErrorBoundary } from "expo-router";
 
+import { DarkTheme, type Theme, ThemeProvider } from "@react-navigation/native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { useRouter, useSegments } from "expo-router";
@@ -44,10 +45,9 @@ const queryClient = new QueryClient();
 
 // NAV_THEME — colors must match --color-* vars in global.css.
 // The app is dark-only, so a single theme is used regardless of OS scheme.
-const NAV_THEME = {
+const NAV_THEME: Theme = {
   ...DarkTheme,
   colors: {
-    ...DarkTheme.colors,
     background: BACKGROUND, // --color-background
     card: CARD, // --color-card
     text: FOREGROUND, // --color-foreground
@@ -130,9 +130,9 @@ const RootLayout: React.FC = () => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <SettingsProvider>
-          <ThemeProvider value={NAV_THEME}>
-            <StatusBar style="light" />
-            <BottomSheetModalProvider>
+          <StatusBar style="light" />
+          <BottomSheetModalProvider>
+            <ThemeProvider value={NAV_THEME}>
               <Stack>
                 <Stack.Protected guard={hasSeenOnboarding}>
                   <Stack.Screen
@@ -176,9 +176,9 @@ const RootLayout: React.FC = () => {
                   }}
                 />
               </Stack>
-            </BottomSheetModalProvider>
-            <PortalHost />
-          </ThemeProvider>
+            </ThemeProvider>
+          </BottomSheetModalProvider>
+          <PortalHost />
         </SettingsProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

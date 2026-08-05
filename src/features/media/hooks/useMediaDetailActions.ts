@@ -38,7 +38,7 @@ export const useMediaDetailActions = ({
   const watchHistory = useAppStore((store) => store.watchHistory);
 
   const playEpisodeRef = async (season: number, episode: number) => {
-    if (!movie || movie.mediaType !== "tv") return;
+    if (movie?.mediaType !== "tv") return;
     const local = findLocalEpisodeDownload(movie, season, episode, downloads);
     if (local) {
       pushToPlayer(movie, {
@@ -74,7 +74,7 @@ export const useMediaDetailActions = ({
   };
 
   const handleDownloadEpisode = async (episode: TvEpisode) => {
-    if (!movie || movie.mediaType !== "tv" || activeSeason == null) return;
+    if (movie?.mediaType !== "tv" || activeSeason == null) return;
     const started = await downloadEpisode(
       movie,
       activeSeason,
@@ -90,7 +90,7 @@ export const useMediaDetailActions = ({
   };
 
   const handleOpenEpisodeSources = (episode: TvEpisode) => {
-    if (!movie || movie.mediaType !== "tv" || activeSeason == null) return;
+    if (movie?.mediaType !== "tv" || activeSeason == null) return;
     openSources(movie, "stream", {
       season: activeSeason,
       episode: episode.episodeNumber,

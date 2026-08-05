@@ -6,8 +6,6 @@ export type ID = string;
 
 export type LoadingState = "idle" | "loading" | "success" | "error";
 
-export type ThemeMode = "dark" | "light" | "system";
-
 export interface AppError {
   code: string;
   message: string;
@@ -31,7 +29,5 @@ export interface DominantPalette {
 // App-wide Zustand slice shape
 export interface AppStore {
   isOfflineMode: boolean;
-  themeMode: ThemeMode;
   setOfflineMode: (value: boolean) => void;
-  setThemeMode: (mode: ThemeMode) => void;
 }

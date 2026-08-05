@@ -1,7 +1,7 @@
 import type { PaginatedResponse } from "@/types";
 import type { DownloadState, TMDBMovie, TMDBMovieDetail } from "@/types/movies";
 
-export type { TMDBMovie, TMDBMovieDetail, DownloadState, PaginatedResponse };
+export type { DownloadState, PaginatedResponse, TMDBMovie, TMDBMovieDetail };
 
 // Background fetch task result shape
 export interface MetadataRefreshResult {
