@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./public/core/icon.png",
     "scheme": "cue",
-
     "assetBundlePatterns": ["**/*"],
     "platforms": ["ios", "android"],
     "ios": {
@@ -67,7 +66,8 @@
           "savePhotosPermission": "Allow Cue to save downloaded videos to your photo library.",
           "granularPermissions": ["photo", "video"]
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
