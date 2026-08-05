@@ -72,6 +72,35 @@ interface TorrentDaemonInterface {
    */
   addMagnetFile(uri: string, index: number): Promise<string>;
   /**
+   * Adds a torrent and downloads only the pieces of the given files at once
+   * (e.g. several episodes of a season pack). `indices` is a comma-separated
+   * list of file indices like `"2,5,7"`. Indices are unioned into the
+   * torrent's enabled set, so calling this again for an already-selected pack
+   * keeps earlier selections downloading. Returns the info hash.
+   */
+  addMagnetFiles(uri: string, indices: string): Promise<string>;
+  /**
+   * Adds (or removes) one file of a torrent's enabled set without disturbing
+   * the other selected files, e.g. pausing/resuming one episode of a
+   * multi-file download. Resolves with the number of enabled files remaining.
+   */
+  setFileEnabled(
+    infoHash: string,
+    index: number,
+    enabled: boolean,
+  ): Promise<number>;
+  /**
+   * Returns the download progress (0.0 to 1.0) of a single file within a
+   * torrent, so each episode of a multi-file download reports its own
+   * progress.
+   */
+  getFileProgress(infoHash: string, index: number): number;
+  /**
+   * Returns a JSON blob of live stats for a single file within a torrent
+   * (progress, download_speed, bytes_completed, total_bytes, seeds, peers).
+   */
+  getFileTorrentStats(infoHash: string, index: number): string;
+  /**
    * Adds a torrent without downloading and returns a JSON array describing its
    * files: `[{ index, path, size, video }]`. Used to inspect a pack's contents
    * and map files to episodes.

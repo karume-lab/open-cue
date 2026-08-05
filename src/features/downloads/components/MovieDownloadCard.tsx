@@ -6,13 +6,14 @@ import {
   Save,
   Trash2,
 } from "lucide-react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Animated, Image, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
+import { fileBaseName } from "@/features/media/services/packFiles";
 import type { DownloadState } from "@/features/shared/store/useAppStore";
 import { cn } from "@/lib/utils";
-import { episodeLabel } from "@/services/torrents";
+import { episodeLabel, parseEpisodeFromName } from "@/services/torrents";
 
 interface MovieDownloadCardProps {
   download: DownloadState;
@@ -52,7 +53,20 @@ const MovieDownloadCard = ({
   const isQueued = state === "queued";
   const isComplete = state === "complete";
 
-  const label = episodeLabel(download.movie.torrents?.[0]);
+  // A per-file download (one episode of a season pack) labels itself from the
+  // file name — "S03E07" — instead of the whole pack's label.
+  const label = useMemo(() => {
+    if (download.torrentFileIndex != null && download.torrentFileName) {
+      const parsed = parseEpisodeFromName(download.torrentFileName);
+      if (parsed?.episode != null) {
+        const s =
+          parsed.season != null ? String(parsed.season).padStart(2, "0") : "??";
+        return `S${s}E${String(parsed.episode).padStart(2, "0")}`;
+      }
+      return fileBaseName(download.torrentFileName);
+    }
+    return episodeLabel(download.movie.torrents?.[0]);
+  }, [download.torrentFileIndex, download.torrentFileName, download.movie]);
   const showLabel = !!label && download.movie.torrents?.[0]?.kind !== "movie";
 
   return (

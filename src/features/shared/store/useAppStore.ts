@@ -25,6 +25,7 @@ const zustandStorage: StateStorage = {
 };
 
 import type { Movie } from "@/types/movie";
+import type { Playlist, PlaylistItem } from "@/types/playlist";
 
 export interface DownloadState {
   // Store key: `${movie.id}:${torrent.hash}`
@@ -75,6 +76,7 @@ export interface AppState {
   downloads: Record<string, DownloadState>;
   settings: AppSettings;
   recentSearches: string[];
+  playlists: Playlist[];
 
   toggleBookmark: (movie: Movie) => void;
   updateWatchHistory: (
@@ -89,6 +91,10 @@ export interface AppState {
   addRecentSearch: (query: string) => void;
   removeRecentSearch: (query: string) => void;
   clearRecentSearches: () => void;
+  createPlaylist: (name: string, items: PlaylistItem[]) => string;
+  renamePlaylist: (playlistId: string, name: string) => void;
+  removePlaylist: (playlistId: string) => void;
+  removePlaylistItems: (playlistId: string, itemIds: string[]) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -98,6 +104,7 @@ export const useAppStore = create<AppState>()(
       watchHistory: {},
       downloads: {},
       recentSearches: [],
+      playlists: [],
       settings: {
         isOfflineMode: false,
         subtitlePrefs: DEFAULT_SUBTITLE_PREFS,
@@ -180,11 +187,60 @@ export const useAppStore = create<AppState>()(
         })),
 
       clearRecentSearches: () => set({ recentSearches: [] }),
+
+      createPlaylist: (name, items) => {
+        const id = `${Date.now().toString(36)}${Math.random()
+          .toString(36)
+          .slice(2, 8)}`;
+        const trimmed = name.trim() || "Playlist";
+        set((state) => ({
+          playlists: [
+            {
+              id,
+              name: trimmed,
+              createdAt: Date.now(),
+              items: [...items],
+            },
+            ...state.playlists,
+          ],
+        }));
+        return id;
+      },
+
+      renamePlaylist: (playlistId, name) =>
+        set((state) => ({
+          playlists: state.playlists.map((playlist) =>
+            playlist.id === playlistId
+              ? { ...playlist, name: name.trim() || playlist.name }
+              : playlist,
+          ),
+        })),
+
+      removePlaylist: (playlistId) =>
+        set((state) => ({
+          playlists: state.playlists.filter(
+            (playlist) => playlist.id !== playlistId,
+          ),
+        })),
+
+      removePlaylistItems: (playlistId, itemIds) =>
+        set((state) => ({
+          playlists: state.playlists.map((playlist) =>
+            playlist.id === playlistId
+              ? {
+                  ...playlist,
+                  items: playlist.items.filter(
+                    (item) => !itemIds.includes(item.id),
+                  ),
+                }
+              : playlist,
+          ),
+        })),
     }),
     {
       name: APP_STORAGE_NAME,
       storage: createJSONStorage(() => zustandStorage),
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
         const state = (persistedState ?? {}) as Partial<AppState>;
         const settings = {
@@ -199,6 +255,7 @@ export const useAppStore = create<AppState>()(
             ...state,
             settings,
             recentSearches: state.recentSearches ?? [],
+            playlists: state.playlists ?? [],
           } as AppState;
         }
         const legacy = (state.watchHistory ?? {}) as unknown as Record<
@@ -214,6 +271,7 @@ export const useAppStore = create<AppState>()(
           settings,
           watchHistory,
           recentSearches: state.recentSearches ?? [],
+          playlists: state.playlists ?? [],
         } as AppState;
       },
     },

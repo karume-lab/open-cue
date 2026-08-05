@@ -175,6 +175,35 @@ class TorrentDaemonModule : Module() {
       Daemon.addMagnetFile(uri, index.toLong())
     }
 
+    // Adds a torrent and downloads only the pieces of the given files at once
+    // (e.g. several episodes of a season pack). indices is a comma-separated
+    // list of file indices ("2,5,7"); gomobile cannot pass int arrays. Indices
+    // are unioned into the torrent's enabled set, so a later addMagnetFiles
+    // call for the same torrent keeps earlier selections downloading.
+    AsyncFunction("addMagnetFiles") { uri: String, indices: String ->
+      Daemon.addMagnetFiles(uri, indices)
+    }
+
+    // Adds (or removes) one file of a torrent's enabled set without disturbing
+    // the other selected files, e.g. pausing/resuming one episode of a
+    // multi-file download. Returns the number of enabled files remaining.
+    AsyncFunction("setFileEnabled") { infoHash: String, index: Int, enabled: Boolean ->
+      Daemon.setFileEnabled(infoHash, index.toLong(), enabled)
+    }
+
+    // Returns the download progress (0.0 to 1.0) of a single file within a
+    // torrent, so each episode of a multi-file download reports its own
+    // progress.
+    Function("getFileProgress") { infoHash: String, index: Int ->
+      Daemon.getFileProgress(infoHash, index.toLong())
+    }
+
+    // Returns a JSON blob of live stats for a single file within a torrent
+    // (progress, download_speed, bytes_completed, total_bytes, seeds, peers).
+    Function("getFileTorrentStats") { infoHash: String, index: Int ->
+      Daemon.getFileTorrentStats(infoHash, index.toLong())
+    }
+
     // Adds a torrent without downloading, returning a JSON list of its files
     // (index, path, size, video) so the UI can map a pack's contents.
     AsyncFunction("probeTorrent") { uri: String ->

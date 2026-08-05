@@ -7,6 +7,7 @@ import FilterBottomSheetButton from "@/components/core/FilterBottomSheetButton";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import ContinueWatchingCarousel from "@/features/discover/components/ContinueWatchingCarousel";
+import { PlaylistCarousel } from "@/features/playlists/components/PlaylistCarousel";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import {
   applyFilters,
@@ -59,7 +60,12 @@ const LibraryScreen = () => {
         movies={movies}
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        Header={<ContinueWatchingCarousel />}
+        Header={
+          <>
+            <ContinueWatchingCarousel />
+            <PlaylistCarousel />
+          </>
+        }
       />
     </View>
   );

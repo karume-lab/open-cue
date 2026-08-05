@@ -31,6 +31,53 @@ public class TorrentDaemonModule: Module {
       return infoHash
     }
 
+    AsyncFunction("addMagnetFile") { (uri: String, index: Int64) -> String in
+      var error: NSError?
+      let infoHash = DaemonAddMagnetFile(uri, index, &error)
+      if let err = error {
+        throw err
+      }
+      return infoHash
+    }
+
+    // indices is a comma-separated list of file indices ("2,5,7"); gomobile
+    // cannot pass int arrays. Indices are unioned into the torrent's enabled
+    // set.
+    AsyncFunction("addMagnetFiles") { (uri: String, indices: String) -> String in
+      var error: NSError?
+      let infoHash = DaemonAddMagnetFiles(uri, indices, &error)
+      if let err = error {
+        throw err
+      }
+      return infoHash
+    }
+
+    AsyncFunction("probeTorrent") { (uri: String) -> String in
+      var error: NSError?
+      let filesJson = DaemonProbeTorrent(uri, &error)
+      if let err = error {
+        throw err
+      }
+      return filesJson
+    }
+
+    AsyncFunction("setFileEnabled") { (infoHash: String, index: Int64, enabled: Bool) -> Int64 in
+      var error: NSError?
+      let remaining = DaemonSetFileEnabled(infoHash, index, enabled, &error)
+      if let err = error {
+        throw err
+      }
+      return remaining
+    }
+
+    Function("getFileProgress") { (infoHash: String, index: Int64) -> Double in
+      return DaemonGetFileProgress(infoHash, index)
+    }
+
+    Function("getFileTorrentStats") { (infoHash: String, index: Int64) -> String in
+      return DaemonGetFileTorrentStats(infoHash, index)
+    }
+
     Function("getProgress") { (infoHash: String) -> Double in
       return DaemonGetProgress(infoHash)
     }
@@ -82,6 +129,15 @@ public class TorrentDaemonModule: Module {
     AsyncFunction("streamTorrent") { (uri: String) -> String in
       var error: NSError?
       let streamUrl = DaemonStreamTorrent(uri, &error)
+      if let err = error {
+        throw err
+      }
+      return streamUrl
+    }
+
+    AsyncFunction("streamTorrentFile") { (uri: String, index: Int64) -> String in
+      var error: NSError?
+      let streamUrl = DaemonStreamTorrentFile(uri, index, &error)
       if let err = error {
         throw err
       }

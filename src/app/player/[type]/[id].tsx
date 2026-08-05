@@ -94,6 +94,7 @@ const PlayerDetailScreen = () => {
     fileIndex,
     season,
     episode,
+    queue,
   } = useLocalSearchParams<{
     type: string;
     id: string;
@@ -104,6 +105,7 @@ const PlayerDetailScreen = () => {
     fileIndex?: string;
     season?: string;
     episode?: string;
+    queue?: string;
   }>();
   const mediaType: MediaType =
     (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
@@ -124,9 +126,47 @@ const PlayerDetailScreen = () => {
   // episode (e.g. "tv:123:s01e02") instead of one slot per show. The episode
   // is taken from the player route params (streaming a pack file) or parsed
   // from the downloaded file's name (local playback of a pack file).
+  //
+  // ── Episode queue ──────────────────────────────────────────
+  // Multi-select "watch" sessions queue several episodes of a pack and
+  // auto-advance when one ends. The route's queue param carries the episodes;
+  // the active one (route params + queue position) drives the streamed file,
+  // the progress key and the header label.
+  interface QueueItem {
+    fileIndex: number;
+    season?: number;
+    episode?: number;
+  }
+  const queueItems = useMemo<QueueItem[]>(() => {
+    const raw = decodeParam(queue);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (item): item is QueueItem =>
+          item != null &&
+          typeof item === "object" &&
+          typeof (item as QueueItem).fileIndex === "number",
+      );
+    } catch {
+      return [];
+    }
+  }, [queue]);
+  const [queueIndex, setQueueIndex] = useState(0);
+
+  const activeEpisode = queueItems[queueIndex] ?? null;
+  const activeFileIndex =
+    activeEpisode?.fileIndex ??
+    (fileIndex != null ? Number(fileIndex) : undefined);
+  const activeSeason =
+    activeEpisode?.season ?? (season != null ? Number(season) : undefined);
+  const activeEpisodeNum =
+    activeEpisode?.episode ?? (episode != null ? Number(episode) : undefined);
+
   const watchKey = useMemo(() => {
-    const seasonNum = season != null ? Number(season) : undefined;
-    const episodeNum = episode != null ? Number(episode) : undefined;
+    const seasonNum = activeSeason;
+    const episodeNum = activeEpisodeNum;
     if (seasonNum != null && episodeNum != null) {
       return `${mediaId}:s${String(seasonNum).padStart(2, "0")}e${String(
         episodeNum,
@@ -147,17 +187,16 @@ const PlayerDetailScreen = () => {
       if (label) return `${mediaId}:${label.toLowerCase()}`;
     }
     return mediaId;
-  }, [isLocal, downloadId, downloads, mediaId, season, episode]);
+  }, [isLocal, downloadId, downloads, mediaId, activeSeason, activeEpisodeNum]);
 
   // Short "S08E09" label shown next to the show name in the player header so
   // it's always clear which episode is actually playing.
   const episodeSubtitle = useMemo(() => {
-    const seasonNum = season != null ? Number(season) : undefined;
-    const episodeNum = episode != null ? Number(episode) : undefined;
-    if (episodeNum == null) return null;
-    const s = seasonNum != null ? String(seasonNum).padStart(2, "0") : "??";
-    return `S${s}E${String(episodeNum).padStart(2, "0")}`;
-  }, [season, episode]);
+    if (activeEpisodeNum == null) return null;
+    const s =
+      activeSeason != null ? String(activeSeason).padStart(2, "0") : "??";
+    return `S${s}E${String(activeEpisodeNum).padStart(2, "0")}`;
+  }, [activeSeason, activeEpisodeNum]);
 
   const { data: queryMovie, isLoading: isQueryLoading } = useMovieDetailsQuery(
     mediaType,
@@ -419,13 +458,12 @@ const PlayerDetailScreen = () => {
             );
             return;
           }
-          const fileIndexParam = decodeParam(fileIndex);
           const url =
-            fileIndexParam != null
+            activeFileIndex != null
               ? await StreamService.startStreamingFile(
                   magnetUri,
                   hash,
-                  Number(fileIndexParam),
+                  activeFileIndex,
                 )
               : await StreamService.startStreaming(magnetUri, hash);
           if (!cancelled) setVideoSource(url);
@@ -480,7 +518,7 @@ const PlayerDetailScreen = () => {
         StreamService.stopStreaming(hash);
       }
     };
-  }, [mode, magnet, hash, fileIndex, downloadId]);
+  }, [mode, magnet, hash, activeFileIndex, downloadId]);
 
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
@@ -706,10 +744,22 @@ const PlayerDetailScreen = () => {
 
   const handleEnd = useCallback(() => {
     saveProgress(currentTimeRef.current);
+    // Auto-advance through a queued batch of episodes (multi-select watch).
+    if (queueItems.length > 1 && queueIndex < queueItems.length - 1) {
+      const nextIndex = queueIndex + 1;
+      setQueueIndex(nextIndex);
+      setResumeMode("resume");
+      setEnded(false);
+      setIsPlaying(true);
+      setCurrentTime(0);
+      currentTimeRef.current = 0;
+      setShowControls(true);
+      return;
+    }
     setIsPlaying(false);
     setEnded(true);
     setShowControls(true);
-  }, [saveProgress]);
+  }, [saveProgress, queueItems.length, queueIndex]);
 
   const handleReplay = useCallback(() => {
     setEnded(false);

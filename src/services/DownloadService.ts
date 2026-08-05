@@ -16,8 +16,16 @@ import TorrentDaemon, {
 
 // A download is keyed by the movie (or show) plus the specific torrent, so the
 // same title can have several concurrent downloads (episodes, qualities, …).
-export const downloadKey = (movie: Movie, torrent: MovieTorrent): string =>
-  `${movie.id}:${torrent.hash}`;
+// Per-file downloads (several episodes picked from one season pack) also
+// include the file index, giving each episode its own entry.
+export const downloadKey = (
+  movie: Movie,
+  torrent: MovieTorrent,
+  fileIndex?: number,
+): string =>
+  fileIndex != null
+    ? `${movie.id}:${torrent.hash}:${fileIndex}`
+    : `${movie.id}:${torrent.hash}`;
 
 const VIDEO_EXTENSIONS = [
   ".mp4",
@@ -233,7 +241,7 @@ class DownloadManager {
   ) {
     await this.ensureDaemonStarted();
 
-    const key = downloadKey(movie, torrent);
+    const key = downloadKey(movie, torrent, opts?.fileIndex);
     const magnet = torrent.magnet ?? magnetFromHash(torrent.hash, movie.title);
 
     useAppStore.getState().updateDownloadState(key, {
@@ -255,11 +263,64 @@ class DownloadManager {
       useAppStore.getState().updateDownloadState(key, {
         state: "downloading",
       });
-      this.startPollingProgress(key, infoHash);
+      this.startPollingProgress(key, infoHash, opts?.fileIndex);
       await syncDownloadNotifications();
     } catch (e) {
       console.error("Failed to add magnet:", e);
       useAppStore.getState().removeDownload(key);
+      await syncDownloadNotifications();
+      throw e;
+    }
+  }
+
+  // Downloads several files of one torrent at once (e.g. a handful of episodes
+  // selected from a season pack). The daemon pins the torrent to the selected
+  // files; the store gets one download entry per file, each reporting its own
+  // progress and speed.
+  async startTorrentFilesDownload(
+    movie: Movie,
+    torrent: MovieTorrent,
+    files: { index: number; name?: string; size?: number }[],
+  ) {
+    if (files.length === 0) return;
+    await this.ensureDaemonStarted();
+
+    const magnet = torrent.magnet ?? magnetFromHash(torrent.hash, movie.title);
+
+    for (const file of files) {
+      const key = downloadKey(movie, torrent, file.index);
+      useAppStore.getState().updateDownloadState(key, {
+        id: key,
+        movie: { ...movie, torrents: [torrent] },
+        state: "queued",
+        progress: 0,
+        speed: 0,
+        totalBytes: file.size ?? torrent.size_bytes ?? undefined,
+        torrentFileIndex: file.index,
+        torrentFileName: file.name,
+      });
+    }
+
+    try {
+      const infoHash = await TorrentDaemon.addMagnetFiles(
+        magnet,
+        files.map((file) => file.index).join(","),
+      );
+      for (const file of files) {
+        const key = downloadKey(movie, torrent, file.index);
+        useAppStore.getState().updateDownloadState(key, {
+          state: "downloading",
+        });
+        this.startPollingProgress(key, infoHash, file.index);
+      }
+      await syncDownloadNotifications();
+    } catch (e) {
+      console.error("Failed to add magnet files:", e);
+      for (const file of files) {
+        useAppStore
+          .getState()
+          .removeDownload(downloadKey(movie, torrent, file.index));
+      }
       await syncDownloadNotifications();
       throw e;
     }
@@ -282,7 +343,17 @@ class DownloadManager {
 
     const torrent = download.movie.torrents?.[0];
     if (torrent) {
-      await TorrentDaemon.pause(torrent.hash);
+      // A per-file download only disables that file so the other episodes of
+      // the pack keep downloading.
+      if (download.torrentFileIndex != null) {
+        await TorrentDaemon.setFileEnabled(
+          torrent.hash,
+          download.torrentFileIndex,
+          false,
+        );
+      } else {
+        await TorrentDaemon.pause(torrent.hash);
+      }
     }
 
     useAppStore.getState().updateDownloadState(downloadId, {
@@ -298,11 +369,23 @@ class DownloadManager {
 
     const torrent = download.movie.torrents?.[0];
     if (torrent) {
-      await TorrentDaemon.resume(torrent.hash);
+      if (download.torrentFileIndex != null) {
+        await TorrentDaemon.setFileEnabled(
+          torrent.hash,
+          download.torrentFileIndex,
+          true,
+        );
+      } else {
+        await TorrentDaemon.resume(torrent.hash);
+      }
       useAppStore.getState().updateDownloadState(downloadId, {
         state: "downloading",
       });
-      this.startPollingProgress(downloadId, torrent.hash);
+      this.startPollingProgress(
+        downloadId,
+        torrent.hash,
+        download.torrentFileIndex ?? undefined,
+      );
     }
     await syncDownloadNotifications();
   }
@@ -314,11 +397,29 @@ class DownloadManager {
     if (download) {
       const torrent = download.movie.torrents?.[0];
       if (torrent) {
-        // Drop the torrent and delete its on-disk data directory so removing
-        // a download actually reclaims storage.
-        await TorrentDaemon.deleteTorrent(torrent.hash).catch((error) => {
-          console.error("Failed to delete torrent data:", error);
-        });
+        if (download.torrentFileIndex != null) {
+          // Remove only this file from the torrent; when the last selected
+          // file goes, drop the torrent and its on-disk data directory so
+          // removing a download actually reclaims storage.
+          try {
+            const remaining = await TorrentDaemon.setFileEnabled(
+              torrent.hash,
+              download.torrentFileIndex,
+              false,
+            );
+            if (remaining === 0) {
+              await TorrentDaemon.deleteTorrent(torrent.hash).catch((error) => {
+                console.error("Failed to delete torrent data:", error);
+              });
+            }
+          } catch (error) {
+            console.error("Failed to disable torrent file:", error);
+          }
+        } else {
+          await TorrentDaemon.deleteTorrent(torrent.hash).catch((error) => {
+            console.error("Failed to delete torrent data:", error);
+          });
+        }
       }
     }
 
@@ -353,11 +454,21 @@ class DownloadManager {
           const magnet =
             torrent.magnet ??
             magnetFromHash(torrent.hash, download.movie.title);
-          const infoHash = await TorrentDaemon.addMagnet(magnet);
+          const infoHash =
+            download.torrentFileIndex != null
+              ? await TorrentDaemon.addMagnetFile(
+                  magnet,
+                  download.torrentFileIndex,
+                )
+              : await TorrentDaemon.addMagnet(magnet);
           useAppStore.getState().updateDownloadState(download.id, {
             state: "downloading",
           });
-          this.startPollingProgress(download.id, infoHash);
+          this.startPollingProgress(
+            download.id,
+            infoHash,
+            download.torrentFileIndex ?? undefined,
+          );
         } catch (error) {
           console.error("Reconcile: failed to re-add magnet:", error);
         }
@@ -365,7 +476,13 @@ class DownloadManager {
       }
 
       // "downloading" — check whether it finished while the app was closed.
-      const progress = await TorrentDaemon.getProgress(torrent.hash);
+      const progress =
+        download.torrentFileIndex != null
+          ? await TorrentDaemon.getFileProgress(
+              torrent.hash,
+              download.torrentFileIndex,
+            )
+          : await TorrentDaemon.getProgress(torrent.hash);
       if (progress >= 1.0) {
         const localVideoPath = await resolveLocalVideoPath(
           download.movie,
@@ -384,7 +501,11 @@ class DownloadManager {
         useAppStore.getState().updateDownloadState(download.id, {
           progress,
         });
-        this.startPollingProgress(download.id, torrent.hash);
+        this.startPollingProgress(
+          download.id,
+          torrent.hash,
+          download.torrentFileIndex ?? undefined,
+        );
       }
     }
 
@@ -398,7 +519,11 @@ class DownloadManager {
     }
   }
 
-  private startPollingProgress(downloadId: string, infoHash: string) {
+  private startPollingProgress(
+    downloadId: string,
+    infoHash: string,
+    fileIndex?: number,
+  ) {
     this.clearInterval(downloadId);
 
     let lastProgress =
@@ -420,7 +545,10 @@ class DownloadManager {
       let progress = download.progress;
       let speed = download.speed;
       try {
-        const raw = TorrentDaemon.getTorrentStats(infoHash);
+        const raw =
+          fileIndex != null
+            ? TorrentDaemon.getFileTorrentStats(infoHash, fileIndex)
+            : TorrentDaemon.getTorrentStats(infoHash);
         if (raw && raw !== "{}" && raw !== lastRaw) {
           const stats = JSON.parse(raw) as {
             progress: number;

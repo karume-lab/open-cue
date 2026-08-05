@@ -576,14 +576,11 @@ func AddMagnet(uri string) (string, error) {
 
 var (
 	downloadTargetsMu sync.Mutex
-	downloadTargets   = map[string]int{} // info hash -> file index
+	// downloadTargets maps an info hash to the set of file indices whose pieces
+	// are being downloaded. Several files of the same pack (e.g. episodes 2, 5
+	// and 7) share one torrent, so a set (not a single index) is required.
+	downloadTargets = map[string]map[int]struct{}{}
 )
-
-func setDownloadTarget(infoHashHex string, index int) {
-	downloadTargetsMu.Lock()
-	downloadTargets[infoHashHex] = index
-	downloadTargetsMu.Unlock()
-}
 
 func clearDownloadTarget(infoHashHex string) {
 	downloadTargetsMu.Lock()
@@ -591,17 +588,29 @@ func clearDownloadTarget(infoHashHex string) {
 	downloadTargetsMu.Unlock()
 }
 
-func downloadTargetIndex(infoHashHex string) (index int, ok bool) {
+// downloadTargetIndices returns the torrent's enabled file indices. Callers
+// must hold mu when calling this (it takes downloadTargetsMu itself).
+func downloadTargetIndices(infoHashHex string) (indices []int, ok bool) {
 	downloadTargetsMu.Lock()
 	defer downloadTargetsMu.Unlock()
-	index, ok = downloadTargets[infoHashHex]
-	return index, ok
+	set, exists := downloadTargets[infoHashHex]
+	if !exists {
+		return nil, false
+	}
+	indices = make([]int, 0, len(set))
+	for index := range set {
+		indices = append(indices, index)
+	}
+	return indices, true
 }
 
-// AddMagnetFile adds a magnet but downloads only the pieces belonging to the
-// file at the given index (e.g. one episode out of a season pack). Returns the
-// torrent's InfoHash.
-func AddMagnetFile(uri string, index int) (string, error) {
+// AddMagnetFiles adds a magnet but downloads only the pieces belonging to the
+// given files (e.g. a few episodes out of a season pack). indices is a
+// comma-separated list of file indices ("2,5,7"); gomobile cannot pass Go
+// slices of int. Returns the torrent's InfoHash. Indices are unioned into the
+// torrent's enabled-file set, so adding a second file of an already-selected
+// pack keeps the first one downloading instead of clobbering it.
+func AddMagnetFiles(uri string, indices string) (string, error) {
 	mu.RLock()
 	if client == nil {
 		mu.RUnlock()
@@ -609,6 +618,17 @@ func AddMagnetFile(uri string, index int) (string, error) {
 	}
 	clientRef := client
 	mu.RUnlock()
+
+	var selected []int
+	if strings.TrimSpace(indices) != "" {
+		for _, part := range strings.Split(indices, ",") {
+			index, err := strconv.Atoi(strings.TrimSpace(part))
+			if err != nil {
+				return "", errors.New("invalid file index: " + part)
+			}
+			selected = append(selected, index)
+		}
+	}
 
 	t, err := clientRef.AddMagnet(uri)
 	if err != nil {
@@ -623,19 +643,118 @@ func AddMagnetFile(uri string, index int) (string, error) {
 	}
 
 	files := t.Files()
-	if index < 0 || index >= len(files) {
-		t.Drop()
-		return "", errors.New("file index out of range")
+	hash := t.InfoHash().HexString()
+
+	downloadTargetsMu.Lock()
+	set, exists := downloadTargets[hash]
+	if !exists {
+		set = map[int]struct{}{}
+		downloadTargets[hash] = set
+	}
+	for _, index := range selected {
+		if index < 0 || index >= len(files) {
+			downloadTargetsMu.Unlock()
+			t.Drop()
+			return "", errors.New("file index out of range")
+		}
+		set[index] = struct{}{}
+	}
+	targets := make([]int, 0, len(set))
+	for index := range set {
+		targets = append(targets, index)
+	}
+	downloadTargetsMu.Unlock()
+
+	// Pin the download to the selected files' pieces.
+	t.CancelPieces(0, t.NumPieces())
+	for _, index := range targets {
+		files[index].Download()
 	}
 
-	// Pin the download to the chosen file's pieces.
-	t.CancelPieces(0, t.NumPieces())
-	files[index].Download()
-
-	hash := t.InfoHash().HexString()
-	setDownloadTarget(hash, index)
-
 	return hash, nil
+}
+
+// AddMagnetFile adds a magnet but downloads only the pieces belonging to the
+// file at the given index (e.g. one episode out of a season pack). Returns the
+// torrent's InfoHash.
+func AddMagnetFile(uri string, index int) (string, error) {
+	return AddMagnetFiles(uri, strconv.Itoa(index))
+}
+
+// SetFileEnabled adds (or removes) a single file from a torrent's enabled-file
+// set without disturbing the other selected files, e.g. when the user pauses,
+// resumes or deletes one episode of a multi-file download. Returns the number
+// of enabled files remaining after the change.
+func SetFileEnabled(infoHashHex string, index int, enabled bool) (int, error) {
+	mu.RLock()
+	if client == nil {
+		mu.RUnlock()
+		return 0, errors.New("torrent client not started")
+	}
+	clientRef := client
+	mu.RUnlock()
+
+	for _, t := range clientRef.Torrents() {
+		if t.InfoHash().HexString() != infoHashHex {
+			continue
+		}
+		if t.Info() == nil {
+			return 0, errors.New("torrent metadata not resolved yet")
+		}
+		files := t.Files()
+		if index < 0 || index >= len(files) {
+			return 0, errors.New("file index out of range")
+		}
+
+		downloadTargetsMu.Lock()
+		remaining := 0
+		if enabled {
+			set := downloadTargets[infoHashHex]
+			if set == nil {
+				set = map[int]struct{}{}
+				downloadTargets[infoHashHex] = set
+			}
+			set[index] = struct{}{}
+			remaining = len(set)
+		} else if set := downloadTargets[infoHashHex]; set != nil {
+			delete(set, index)
+			remaining = len(set)
+			if remaining == 0 {
+				delete(downloadTargets, infoHashHex)
+			}
+		}
+		downloadTargetsMu.Unlock()
+
+		if enabled {
+			files[index].Download()
+		} else {
+			files[index].SetPriority(torrent.PiecePriorityNone)
+		}
+		return remaining, nil
+	}
+	return 0, errors.New("torrent not found")
+}
+
+// GetFileProgress returns the download progress (0.0 to 1.0) of a single file
+// within a torrent, so each episode of a multi-file download reports its own
+// progress.
+func GetFileProgress(infoHashHex string, index int) float64 {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	t := findTorrentLocked(infoHashHex)
+	if t == nil || t.Info() == nil {
+		return 0.0
+	}
+	files := t.Files()
+	if index < 0 || index >= len(files) {
+		return 0.0
+	}
+	f := files[index]
+	if f.Length() == 0 {
+		return 0.0
+	}
+	return float64(f.BytesCompleted()) / float64(f.Length())
 }
 
 // ProbeTorrent adds a magnet and returns a JSON description of its files
@@ -703,15 +822,20 @@ func GetProgress(infoHashHex string) float64 {
 			if info == nil {
 				return 0.0 // metadata not resolved yet
 			}
-			if index, ok := downloadTargetIndex(infoHashHex); ok {
+			if indices, ok := downloadTargetIndices(infoHashHex); ok {
 				files := t.Files()
-				if index >= 0 && index < len(files) {
-					f := files[index]
-					if f.Length() == 0 {
-						return 0.0
+				var completed, total int64
+				for _, index := range indices {
+					if index < 0 || index >= len(files) {
+						continue
 					}
-					return float64(f.BytesCompleted()) / float64(f.Length())
+					completed += files[index].BytesCompleted()
+					total += files[index].Length()
 				}
+				if total == 0 {
+					return 0.0
+				}
+				return float64(completed) / float64(total)
 			}
 			if info.TotalLength() == 0 {
 				return 0.0
@@ -823,13 +947,20 @@ func GetTorrentStats(infoHashHex string) string {
 	}
 	total := info.TotalLength()
 	completed := t.BytesCompleted()
-	// Selective downloads report stats for the targeted file only.
-	if index, ok := downloadTargetIndex(infoHashHex); ok {
+	// Selective downloads report stats for the targeted files only.
+	if indices, ok := downloadTargetIndices(infoHashHex); ok {
 		files := t.Files()
-		if index >= 0 && index < len(files) {
-			f := files[index]
-			total = f.Length()
-			completed = f.BytesCompleted()
+		var c, n int64
+		for _, index := range indices {
+			if index < 0 || index >= len(files) {
+				continue
+			}
+			c += files[index].BytesCompleted()
+			n += files[index].Length()
+		}
+		if n > 0 {
+			total = n
+			completed = c
 		}
 	}
 	st := t.Stats()
@@ -841,6 +972,63 @@ func GetTorrentStats(infoHashHex string) string {
 	return fmt.Sprintf(
 		`{"progress":%f,"download_speed":%f,"upload_speed":%f,"bytes_completed":%d,"total_bytes":%d,"seeds":%d,"peers":%d}`,
 		progress, dl, ul, completed, total, st.ConnectedSeeders, st.ActivePeers,
+	)
+}
+
+// ── Per-file stats ──────────────────────────────────────────
+// A multi-file download (several episodes of one pack) needs per-file progress
+// and speed so each download entry reflects its own file, not the whole pack.
+// Speeds are derived by differencing a file's completed bytes across polls.
+
+var (
+	fileRatesMu  sync.Mutex
+	fileRateSeen = map[string]*rateState{} // "hash:index" -> last sample
+)
+
+func sampleFileRates(hash string, index int, completed int64) float64 {
+	now := time.Now()
+	key := fmt.Sprintf("%s:%d", hash, index)
+	fileRatesMu.Lock()
+	defer fileRatesMu.Unlock()
+	prev := fileRateSeen[key]
+	fileRateSeen[key] = &rateState{at: now, dl: completed, ul: 0}
+	if prev == nil {
+		return 0
+	}
+	dt := now.Sub(prev.at).Seconds()
+	if dt <= 0 || completed < prev.dl {
+		return 0
+	}
+	return float64(completed-prev.dl) / dt
+}
+
+// GetFileTorrentStats returns a JSON blob with the live stats of a single file
+// within a torrent, so each episode of a multi-file download shows its own
+// numbers. Returns "{}" when the torrent or file is unknown.
+func GetFileTorrentStats(infoHashHex string, index int) string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	t := findTorrentLocked(infoHashHex)
+	if t == nil || t.Info() == nil {
+		return "{}"
+	}
+	files := t.Files()
+	if index < 0 || index >= len(files) {
+		return "{}"
+	}
+	f := files[index]
+	total := f.Length()
+	completed := f.BytesCompleted()
+	speed := sampleFileRates(infoHashHex, index, completed)
+	progress := 0.0
+	if total > 0 {
+		progress = float64(completed) / float64(total)
+	}
+	st := t.Stats()
+	return fmt.Sprintf(
+		`{"progress":%f,"download_speed":%f,"upload_speed":0,"bytes_completed":%d,"total_bytes":%d,"seeds":%d,"peers":%d}`,
+		progress, speed, completed, total, st.ConnectedSeeders, st.ActivePeers,
 	)
 }
 
@@ -975,15 +1163,17 @@ func Resume(infoHashHex string) error {
 			if t.Info() == nil {
 				return errors.New("torrent metadata not resolved yet")
 			}
-			// A paused selective download must resume the same file, not the
-			// whole pack.
-			if index, ok := downloadTargetIndex(infoHashHex); ok {
+			// A paused selective download must resume its selected files, not
+			// the whole pack.
+			if indices, ok := downloadTargetIndices(infoHashHex); ok {
 				files := t.Files()
-				if index >= 0 && index < len(files) {
-					t.CancelPieces(0, t.NumPieces())
-					files[index].Download()
-					return nil
+				t.CancelPieces(0, t.NumPieces())
+				for _, index := range indices {
+					if index >= 0 && index < len(files) {
+						files[index].Download()
+					}
 				}
+				return nil
 			}
 			t.DownloadAll()
 			return nil
