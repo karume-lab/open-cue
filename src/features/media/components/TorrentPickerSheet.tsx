@@ -24,6 +24,7 @@ import { TextInput, TouchableOpacity, View } from "react-native";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import type { Movie, MovieTorrent } from "@/types/movie";
@@ -502,39 +503,30 @@ const TorrentPickerSheet = forwardRef<
           )}
 
           {showFilters && (
-            <View className="flex-row gap-2 mb-4">
-              {FILTERS.map((option) => (
-                <FilterChip
-                  key={option.value}
-                  label={option.label}
-                  selected={filter === option.value}
-                  onPress={() => setFilter(option.value)}
-                />
-              ))}
+            <>
+              <View className="flex-row gap-2 mb-4">
+                {FILTERS.map((option) => (
+                  <FilterChip
+                    key={option.value}
+                    label={option.label}
+                    selected={filter === option.value}
+                    onPress={() => setFilter(option.value)}
+                  />
+                ))}
+              </View>
               {hasCollapsedTorrents && (
-                <TouchableOpacity
-                  onPress={() => setShowAllTorrents((prev) => !prev)}
-                  activeOpacity={0.7}
-                  className={cn(
-                    "flex-1 rounded-md py-2 items-center border",
-                    showAllTorrents
-                      ? "bg-primary/15 border-primary/30"
-                      : "bg-muted/50 border-border/60",
-                  )}
-                >
-                  <Text
-                    className={cn(
-                      "text-xs font-semibold",
-                      showAllTorrents
-                        ? "text-primary"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {showAllTorrents ? "Less" : "Show all"}
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-foreground/80 text-sm">
+                    Show all season packs
                   </Text>
-                </TouchableOpacity>
+                  <Switch
+                    checked={showAllTorrents}
+                    onCheckedChange={setShowAllTorrents}
+                    accessibilityLabel="Toggle showing all season packs"
+                  />
+                </View>
               )}
-            </View>
+            </>
           )}
 
           {isLoading ? (
