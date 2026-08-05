@@ -49,7 +49,7 @@ interface QueueEntry {
 const MediaTorrentPicker = () => {
   const bottomSheetRef = useRef<TorrentPickerSheetHandle>(null);
   const filePickerRef = useRef<TorrentFilePickerSheetHandle>(null);
-  const { movie, mode, onRetry } = useMediaActions();
+  const { movie, mode, onRetry, target } = useMediaActions();
   const [packTarget, setPackTarget] = useState<{
     movie: NonNullable<typeof movie>;
     torrent: MovieTorrent;
@@ -68,11 +68,11 @@ const MediaTorrentPicker = () => {
 
   useEffect(() => {
     if (movie) {
-      bottomSheetRef.current?.present(mode);
+      bottomSheetRef.current?.present(mode, target);
     } else {
       bottomSheetRef.current?.dismiss();
     }
-  }, [movie, mode]);
+  }, [movie, mode, target]);
 
   useEffect(() => {
     if (packTarget) {
@@ -342,6 +342,27 @@ const MediaTorrentPicker = () => {
     })();
   }, []);
 
+  // Chevron on a season pack row: leave the sheet and open the season screen
+  // so the user can pick and play an individual episode from this pack.
+  const handleOpenSeason = useCallback((torrent: MovieTorrent) => {
+    const current = useMediaActions.getState().movie;
+    if (!current || current.mediaType !== "tv" || torrent.season == null)
+      return;
+    useMediaActions.getState().dismiss();
+    router.push({
+      pathname: "/media/[type]/[id]/season/[season]",
+      params: {
+        type: current.mediaType,
+        id: current.tmdbId,
+        season: String(torrent.season),
+        torrentHash: torrent.hash,
+        ...(torrent.magnet
+          ? { torrentMagnet: encodeURIComponent(torrent.magnet) }
+          : {}),
+      },
+    });
+  }, []);
+
   return (
     <>
       <TorrentPickerSheet
@@ -351,6 +372,7 @@ const MediaTorrentPicker = () => {
         onSelect={handleSelect}
         onBulkDownload={handleBulkDownload}
         onRetry={handleRetry}
+        onOpenSeason={handleOpenSeason}
       />
       <TorrentFilePickerSheet
         ref={filePickerRef}

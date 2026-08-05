@@ -1,6 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar, Play } from "lucide-react-native";
+import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   StatusBar,
@@ -15,8 +17,14 @@ import {
   useMovieDetailsQuery,
   useSeasonEpisodesQuery,
 } from "@/features/discover/services/queries";
+import {
+  findFileForEpisode,
+  probeTorrentFiles,
+} from "@/features/media/services/packFiles";
 import { useMediaActions } from "@/features/shared/store/useMediaActions";
-import type { MediaType, TvEpisode } from "@/types/movie";
+import { ensureTorrentDaemon } from "@/services/daemon";
+import { magnetFromHash } from "@/services/torrents";
+import type { MediaType, MovieTorrent, TvEpisode } from "@/types/movie";
 
 const EpisodeRowSkeleton = () => (
   <View className="flex-row gap-3 py-3">
@@ -35,9 +43,11 @@ const EpisodeRowSkeleton = () => (
 const EpisodeRow = ({
   episode,
   onPlay,
+  loading = false,
 }: {
   episode: TvEpisode;
   onPlay: () => void;
+  loading?: boolean;
 }) => (
   <View className="flex-row gap-3 py-3 border-b border-border/40">
     {episode.stillUrl ? (
@@ -79,10 +89,15 @@ const EpisodeRow = ({
     <View className="justify-center">
       <TouchableOpacity
         onPress={onPlay}
+        disabled={loading}
         activeOpacity={0.7}
         className="size-11 rounded-xl bg-primary/10 items-center justify-center"
       >
-        <Icon as={Play} size={18} className="text-primary fill-primary" />
+        {loading ? (
+          <ActivityIndicator size="small" color="#c97742" />
+        ) : (
+          <Icon as={Play} size={18} className="text-primary fill-primary" />
+        )}
       </TouchableOpacity>
     </View>
   </View>
@@ -93,10 +108,14 @@ const EpisodeSeasonScreen = () => {
     type,
     id,
     season: seasonParam,
+    torrentHash,
+    torrentMagnet,
   } = useLocalSearchParams<{
     type: string;
     id: string;
     season?: string;
+    torrentHash?: string;
+    torrentMagnet?: string;
   }>();
   const mediaType: MediaType =
     (Array.isArray(type) ? type[0] : type) === "tv" ? "tv" : "movie";
@@ -104,6 +123,18 @@ const EpisodeSeasonScreen = () => {
   const season = Number(
     Array.isArray(seasonParam) ? seasonParam[0] : seasonParam,
   );
+  const packHash = Array.isArray(torrentHash) ? torrentHash[0] : torrentHash;
+  const rawMagnet = Array.isArray(torrentMagnet)
+    ? torrentMagnet[0]
+    : torrentMagnet;
+  const packMagnet = useMemo(() => {
+    if (!rawMagnet) return undefined;
+    try {
+      return decodeURIComponent(rawMagnet);
+    } catch {
+      return rawMagnet;
+    }
+  }, [rawMagnet]);
 
   const { data: movie, refetch } = useMovieDetailsQuery(mediaType, tmdbId);
   const {
@@ -112,9 +143,67 @@ const EpisodeSeasonScreen = () => {
     isError,
   } = useSeasonEpisodesQuery(tmdbId, season);
   const { present: presentTorrentPicker } = useMediaActions();
+  const [loadingEpisode, setLoadingEpisode] = useState<number | null>(null);
 
-  const handlePlay = () => {
-    if (movie) presentTorrentPicker(movie, "stream", { onRetry: refetch });
+  // Arrived via the chevron on a season pack row: stream the pack's file for
+  // the tapped episode. Falls back to the targeted torrent picker when the
+  // pack can't serve that episode (no matching file, or probing failed).
+  const handlePlay = async (episode: TvEpisode) => {
+    if (!movie) return;
+
+    if (packHash) {
+      setLoadingEpisode(episode.episodeNumber);
+      try {
+        await ensureTorrentDaemon();
+        const torrent: MovieTorrent = {
+          url: "",
+          hash: packHash,
+          magnet: packMagnet,
+          quality: "",
+          type: "season",
+          seeds: 0,
+          peers: 0,
+          size: "",
+          size_bytes: 0,
+          date_uploaded: "",
+          date_uploaded_unix: 0,
+          kind: "season",
+          season,
+        };
+        const files = await probeTorrentFiles(torrent, movie.title);
+        const file = findFileForEpisode(files, season, episode.episodeNumber);
+        if (file) {
+          const magnet =
+            torrent.magnet ?? magnetFromHash(torrent.hash, movie.title);
+          router.push({
+            pathname: "/player/[type]/[id]",
+            params: {
+              type: movie.mediaType,
+              id: movie.tmdbId,
+              mode: "stream",
+              magnet: encodeURIComponent(magnet),
+              hash: torrent.hash,
+              fileIndex: String(file.index),
+              season: String(season),
+              episode: String(episode.episodeNumber),
+            },
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to stream episode from pack:", error);
+      } finally {
+        setLoadingEpisode(null);
+      }
+    }
+
+    presentTorrentPicker(movie, "stream", {
+      onRetry: refetch,
+      target: {
+        season: episode.seasonNumber ?? season,
+        episode: episode.episodeNumber,
+      },
+    });
   };
 
   return (
@@ -166,7 +255,11 @@ const EpisodeSeasonScreen = () => {
           data={episodes}
           keyExtractor={(episode) => String(episode.id)}
           renderItem={({ item }) => (
-            <EpisodeRow episode={item} onPlay={handlePlay} />
+            <EpisodeRow
+              episode={item}
+              onPlay={() => handlePlay(item)}
+              loading={loadingEpisode === item.episodeNumber}
+            />
           )}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
           showsVerticalScrollIndicator={false}
