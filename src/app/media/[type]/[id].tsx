@@ -146,15 +146,29 @@ const MediaDetailScreen = () => {
 
   // Seasons known from TMDB metadata or the highest season referenced by the
   // show's torrents. Every listed season opens an episode screen.
+  // Torrent seasons are clamped to the TMDB count so a bogus or unrelated
+  // torrent can't balloon the list (e.g. EZTV returning wrong shows).
   const seasons = useMemo(() => {
     if (movie?.mediaType !== "tv") return [];
-    const fromTorrents = Math.max(
-      0,
-      ...(movie.torrents ?? [])
-        .map((torrent) => torrent.season)
-        .filter((season): season is number => season != null),
-    );
-    const count = Math.max(movie.numberOfSeasons ?? 0, fromTorrents);
+    const tmdbSeasons = movie.numberOfSeasons ?? 0;
+    const fromTorrents =
+      tmdbSeasons > 0
+        ? Math.max(
+            0,
+            ...(movie.torrents ?? [])
+              .map((torrent) => torrent.season)
+              .filter(
+                (season): season is number =>
+                  season != null && season > 0 && season <= tmdbSeasons,
+              ),
+          )
+        : Math.max(
+            0,
+            ...(movie.torrents ?? [])
+              .map((torrent) => torrent.season)
+              .filter((season): season is number => season != null),
+          );
+    const count = Math.max(tmdbSeasons, fromTorrents);
     if (count <= 0) return [];
     return Array.from({ length: count }, (_, index) => index + 1);
   }, [movie]);

@@ -218,6 +218,19 @@ interface EztvResult {
 const fetchEztvTorrents = async (movie: Movie): Promise<MovieTorrent[]> => {
   if (!movie.imdb_id) return [];
 
+  // Broken mirrors sometimes return completely unrelated shows.  Filter
+  // results to those whose filename contains a significant word from the
+  // show title so bogus data can't inflate the season list.
+  const titleWords = movie.title
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4);
+  const hasMatchingTitle = (filename: string): boolean => {
+    if (titleWords.length === 0) return true;
+    const lower = filename.toLowerCase();
+    return titleWords.some((word) => lower.includes(word));
+  };
+
   for (const base of EZTV_API_BASE_URLS) {
     try {
       const url = `${base}/get-torrents?imdb_id=${encodeURIComponent(
@@ -231,7 +244,10 @@ const fetchEztvTorrents = async (movie: Movie): Promise<MovieTorrent[]> => {
       ) as EztvResult[];
       if (results.length === 0) continue;
 
-      return results.slice(0, 80).map((torrent) => {
+      const matched = results.filter((t) => hasMatchingTitle(t.filename));
+      if (matched.length === 0) continue;
+
+      return matched.slice(0, 80).map((torrent) => {
         const magnet = magnetFromHash(torrent.hash, torrent.filename);
         return {
           url: magnet,
@@ -312,7 +328,11 @@ const EPISODE_RANGE_RE =
   /S(\d{1,2})[EeXx](\d{1,3})(?:\s*[-–]\s*[EeXx]?(\d{1,3})|\b[EeXx](\d{1,3}))?/;
 const EPISODE_RE = /S(\d{1,2})[EeXx](\d{1,3})/;
 const SEASON_WORD_RE = /\bSeason\s*(\d{1,2})\b/i;
-const LONE_SEASON_RE = /\bS(\d{1,2})\b(?!\s*[EeXx])/;
+// Multi-season range packs: "S01-S09", "S1-7", "S1-S2" etc.
+const SEASON_RANGE_RE = /S(\d{1,2})\s*[-–]\s*S?(\d{1,2})\b/i;
+// Lone season token — the prefix group excludes scene/release-group tags
+// like "-S20" (preceded by "-") that would otherwise be misread as seasons.
+const LONE_SEASON_RE = /(^|[^A-Za-z0-9-])S(\d{1,2})\b(?!\s*[EeXx])/i;
 const SERIES_RE = /\b(?:complete(?: series)?|full(?: series)?|all seasons?)\b/i;
 const ANIME_BRACKET_RE = /\[(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?\]/;
 const ANIME_TRAIL_RE = /\b(\d{1,3})(?:[vV]\d)?\s*$/;
@@ -381,12 +401,28 @@ const parseTvName = (name: string): StructuredMeta => {
       label: `Season ${Number(seasonWord[1])}`,
     };
   }
+
+  // Multi-season range packs: "S01-S09", "S1-7"
+  const seasonRange = name.match(SEASON_RANGE_RE);
+  if (seasonRange) {
+    const start = Number(seasonRange[1]);
+    const end = Number(seasonRange[2]);
+    if (end > start) {
+      return {
+        kind: "series",
+        label: `Seasons ${pad2(start)}–${pad2(end)}`,
+      };
+    }
+  }
+
+  // Lone "Sxx" — prefix group excludes scene tags like "-S20"
   const loneSeason = name.match(LONE_SEASON_RE);
   if (loneSeason) {
+    const s = Number(loneSeason[2]);
     return {
       kind: "season",
-      season: Number(loneSeason[1]),
-      label: `Season ${Number(loneSeason[1])}`,
+      season: s,
+      label: `Season ${s}`,
     };
   }
 

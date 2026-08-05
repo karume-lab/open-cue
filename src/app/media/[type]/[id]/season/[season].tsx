@@ -170,22 +170,6 @@ const EpisodeSeasonScreen = () => {
           )}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
           showsVerticalScrollIndicator={false}
-          ListFooterComponent={
-            <TouchableOpacity
-              onPress={handlePlay}
-              activeOpacity={0.7}
-              className="flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4 mt-4"
-            >
-              <Icon
-                as={Play}
-                size={18}
-                className="text-primary-foreground fill-primary-foreground"
-              />
-              <Text className="text-primary-foreground font-bold text-base">
-                Watch anything from this season
-              </Text>
-            </TouchableOpacity>
-          }
         />
       )}
     </View>
