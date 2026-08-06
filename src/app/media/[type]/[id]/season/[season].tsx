@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { StatusBar, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
@@ -8,7 +8,11 @@ import {
   useMovieDetailsQuery,
   useSeasonEpisodesQuery,
 } from "@/features/discover/services/queries";
-import { SeasonEpisodesSection } from "@/features/media/components/SeasonEpisodesSection";
+import { EpisodesSearchToolbar } from "@/features/media/components/EpisodesSearchToolbar";
+import {
+  SeasonEpisodesSection,
+  type SortKey,
+} from "@/features/media/components/SeasonEpisodesSection";
 import {
   findFileForEpisode,
   probeTorrentFiles,
@@ -63,6 +67,17 @@ const EpisodeSeasonScreen = () => {
   const { downloads, settings } = useAppStore();
   const [loadingEpisode, setLoadingEpisode] = useState<number | null>(null);
   const preferredQuality = settings.preferredQuality ?? "1080p";
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("episode");
+
+  const cycleSortBy = () => {
+    setSortBy((prev) => {
+      const keys: SortKey[] = ["episode", "rating", "date"];
+      const idx = keys.indexOf(prev);
+      return keys[(idx + 1) % keys.length];
+    });
+  };
 
   // 1) Play a local download of this exact episode (offline).
   // 2) Arrived via the chevron on a season pack row: stream the pack's file
@@ -155,7 +170,7 @@ const EpisodeSeasonScreen = () => {
           onPress={() => router.back()}
           className="size-10 bg-muted items-center justify-center rounded-md border border-border/10"
         >
-          <Icon as={ArrowLeft} size={20} className="text-foreground" />
+          <Icon as={ChevronLeft} size={20} className="text-foreground" />
         </TouchableOpacity>
         <View className="flex-1">
           <Text
@@ -176,6 +191,8 @@ const EpisodeSeasonScreen = () => {
           isLoading
           loadingEpisode={null}
           onPlayEpisode={() => {}}
+          searchQuery={searchQuery}
+          sortBy={sortBy}
         />
       ) : isError || !episodes || episodes.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8 gap-2">
@@ -188,14 +205,24 @@ const EpisodeSeasonScreen = () => {
           </Text>
         </View>
       ) : (
-        <SeasonEpisodesSection
-          movie={movie ?? null}
-          season={season}
-          episodes={episodes}
-          isLoading={false}
-          loadingEpisode={loadingEpisode}
-          onPlayEpisode={(episode) => handlePlay(episode)}
-        />
+        <View className="flex-1">
+          <EpisodesSearchToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            onSortChange={cycleSortBy}
+          />
+          <SeasonEpisodesSection
+            movie={movie ?? null}
+            season={season}
+            episodes={episodes}
+            isLoading={false}
+            loadingEpisode={loadingEpisode}
+            onPlayEpisode={(episode) => handlePlay(episode)}
+            searchQuery={searchQuery}
+            sortBy={sortBy}
+          />
+        </View>
       )}
     </View>
   );

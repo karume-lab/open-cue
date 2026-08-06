@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Search, X } from "lucide-react-native";
+import { ChevronLeft, Search, X } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { TextInput, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
@@ -203,7 +203,7 @@ const SourcesScreen = () => {
           onPress={() => router.back()}
           className="size-10 bg-muted items-center justify-center rounded-md border border-border/10"
         >
-          <Icon as={ArrowLeft} size={20} className="text-foreground" />
+          <Icon as={ChevronLeft} size={20} className="text-foreground" />
         </TouchableOpacity>
         <View className="flex-1">
           <Text

@@ -1,6 +1,6 @@
 import Slider from "@react-native-community/slider";
 import {
-  ArrowLeft,
+  ChevronLeft,
   Gauge,
   ListVideo,
   Pause,
@@ -84,7 +84,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
           onPress={onBack}
           className="size-10 rounded-full bg-black/40 items-center justify-center border border-white/10"
         >
-          <Icon as={ArrowLeft} size={20} className="text-white" />
+          <Icon as={ChevronLeft} size={20} className="text-white" />
         </TouchableOpacity>
         <Text
           className="text-white font-bold text-lg flex-1 text-center mx-4"

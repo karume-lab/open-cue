@@ -77,16 +77,6 @@ export const EpisodeRow = memo(
       </View>
 
       <View className="flex-row items-center gap-1.5">
-        {onDownload && (
-          <TouchableOpacity
-            onPress={onDownload}
-            activeOpacity={0.7}
-            accessibilityLabel={`Download episode ${episode.episodeNumber}`}
-            className="size-10 rounded-xl bg-muted border border-border/60 items-center justify-center"
-          >
-            <Icon as={Download} size={16} className="text-muted-foreground" />
-          </TouchableOpacity>
-        )}
         {onOpenSources && (
           <TouchableOpacity
             onPress={onOpenSources}
@@ -95,6 +85,16 @@ export const EpisodeRow = memo(
             className="size-10 rounded-xl bg-muted border border-border/60 items-center justify-center"
           >
             <Icon as={Sparkles} size={15} className="text-muted-foreground" />
+          </TouchableOpacity>
+        )}
+        {onDownload && (
+          <TouchableOpacity
+            onPress={onDownload}
+            activeOpacity={0.7}
+            accessibilityLabel={`Download episode ${episode.episodeNumber}`}
+            className="size-10 rounded-xl bg-muted border border-border/60 items-center justify-center"
+          >
+            <Icon as={Download} size={16} className="text-muted-foreground" />
           </TouchableOpacity>
         )}
         <TouchableOpacity

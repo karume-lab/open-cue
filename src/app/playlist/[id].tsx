@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, ListVideo, Play, Trash2 } from "lucide-react-native";
+import { ChevronLeft, ListVideo, Play, Trash2 } from "lucide-react-native";
 import { useState } from "react";
 import { FlatList, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,7 +33,7 @@ const PlaylistDetailScreen = () => {
     <View className="flex-1 bg-background">
       <View className="flex-row items-center gap-3 px-4 pt-6 pb-2">
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Icon as={ArrowLeft} size={22} className="text-foreground" />
+          <Icon as={ChevronLeft} size={22} className="text-foreground" />
         </TouchableOpacity>
         <Text
           className="text-foreground text-lg font-bold flex-1"

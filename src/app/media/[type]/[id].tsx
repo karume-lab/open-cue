@@ -1,7 +1,15 @@
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { Bookmark, ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
-import { RefreshControl, ScrollView, StatusBar, View } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import MediaRow from "@/components/core/MediaRow";
+import { Icon } from "@/components/ui/icon";
 import {
   useMovieDetailsQuery,
   useRecommendationsQuery,
@@ -113,17 +121,40 @@ const MediaDetailScreen = () => {
         backgroundColor="transparent"
         barStyle="light-content"
       />
+
+      <TouchableOpacity
+        onPress={() => router.back()}
+        className="absolute top-14 left-4 size-10 bg-background/40 items-center justify-center rounded-md border border-border/10"
+        style={{ zIndex: 10 }}
+      >
+        <Icon as={ChevronLeft} size={20} className="text-foreground" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={handleToggleBookmark}
+        className={`absolute top-14 right-4 size-10 items-center justify-center rounded-md border ${
+          isBookmarked
+            ? "bg-primary/20 border-primary/40"
+            : "bg-background/40 border-border/10"
+        }`}
+        style={{ zIndex: 10 }}
+      >
+        <Icon
+          as={Bookmark}
+          size={20}
+          className={
+            isBookmarked ? "text-primary fill-primary" : "text-foreground"
+          }
+        />
+      </TouchableOpacity>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
         }
       >
-        <MediaHero
-          movie={movie}
-          isBookmarked={isBookmarked}
-          onToggleBookmark={handleToggleBookmark}
-        />
+        <MediaHero movie={movie} />
 
         <View className="px-5 pt-6 pb-16">
           <View className="flex-row gap-3 mb-8">

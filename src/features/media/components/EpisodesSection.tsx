@@ -1,5 +1,10 @@
+import { useState } from "react";
 import { Text, View } from "react-native";
-import { SeasonEpisodesSection } from "@/features/media/components/SeasonEpisodesSection";
+import { EpisodesSearchToolbar } from "@/features/media/components/EpisodesSearchToolbar";
+import {
+  SeasonEpisodesSection,
+  type SortKey,
+} from "@/features/media/components/SeasonEpisodesSection";
 import { SeasonPicker } from "@/features/media/components/SeasonPicker";
 import type { Movie, TvEpisode } from "@/types/movie";
 
@@ -29,6 +34,18 @@ export const EpisodesSection = ({
   onDownloadEpisode,
   onOpenSources,
 }: EpisodesSectionProps) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("episode");
+  const showToolbar = episodes && episodes.length > 0;
+
+  const cycleSortBy = () => {
+    setSortBy((prev) => {
+      const keys: SortKey[] = ["episode", "rating", "date"];
+      const idx = keys.indexOf(prev);
+      return keys[(idx + 1) % keys.length];
+    });
+  };
+
   return (
     <View className="mb-8">
       <Text className="text-base font-bold text-foreground mb-3">Episodes</Text>
@@ -37,6 +54,14 @@ export const EpisodesSection = ({
         activeSeason={activeSeason}
         onSelect={onSelectSeason}
       />
+      {showToolbar && (
+        <EpisodesSearchToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          sortBy={sortBy}
+          onSortChange={cycleSortBy}
+        />
+      )}
       <SeasonEpisodesSection
         movie={movie}
         season={activeSeason ?? seasons[0]}
@@ -48,6 +73,8 @@ export const EpisodesSection = ({
         }
         onDownloadEpisode={onDownloadEpisode}
         onOpenSources={onOpenSources}
+        searchQuery={searchQuery}
+        sortBy={sortBy}
       />
     </View>
   );

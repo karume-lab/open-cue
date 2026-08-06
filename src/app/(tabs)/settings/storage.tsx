@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { useMemo } from "react";
 import { ScrollView, StatusBar, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -36,7 +36,7 @@ const StorageScreen = () => {
             onPress={() => router.back()}
             className="size-10 bg-muted/60 items-center justify-center rounded-md border border-border/10"
           >
-            <Icon as={ArrowLeft} size={20} className="text-foreground" />
+            <Icon as={ChevronLeft} size={20} className="text-foreground" />
           </TouchableOpacity>
           <Text className="text-lg font-bold text-foreground">Storage</Text>
         </View>
