@@ -1,7 +1,7 @@
 import { magnetFromHash } from "@/services/torrents/magnet";
 import { parseEpisodeFromName } from "@/services/torrents/structure";
 import type { MovieTorrent, TorrentFileInfo } from "@/types/movie";
-import getTorrentDaemon from "~/modules/torrent-daemon";
+import TorrentDaemon from "~/modules/torrent-daemon";
 
 // Helpers for inspecting the contents of a multi-file torrent (a season or
 // series pack) and mapping its video files to individual episodes.
@@ -11,7 +11,7 @@ export const probeTorrentFiles = async (
   fallbackTitle: string,
 ): Promise<TorrentFileInfo[]> => {
   const magnet = torrent.magnet ?? magnetFromHash(torrent.hash, fallbackTitle);
-  const json = await getTorrentDaemon().probeTorrent(magnet);
+  const json = await TorrentDaemon.probeTorrent(magnet);
   const files = JSON.parse(json) as TorrentFileInfo[];
   return files.filter((file) => file.video);
 };

@@ -1,7 +1,7 @@
 import { Directory, Paths } from "expo-file-system";
 import { Platform } from "react-native";
 import { storage } from "@/features/shared/store/storage";
-import getTorrentDaemon from "~/modules/torrent-daemon";
+import TorrentDaemon from "~/modules/torrent-daemon";
 
 // The user picks a single "Cue" folder on shared/external storage. All app
 // data lives inside it: downloaded media in `<cue>/media` and automatic
@@ -86,7 +86,7 @@ const ensureCueSubdirectory = async (name: string): Promise<void> => {
   }
   if (!cuePath) return;
   try {
-    await getTorrentDaemon().createDirectory(`${cuePath}/${name}`);
+    await TorrentDaemon.createDirectory(`${cuePath}/${name}`);
   } catch (error) {
     console.error(`Failed to create ${name}/ in the Cue folder:`, error);
   }
@@ -112,15 +112,15 @@ export const setCueDirectory = async (
 // user is asked to grant it once and creation is retried. Falls back to
 // app-internal storage only if external storage is still unavailable.
 export const setDefaultCueDirectory = async (): Promise<string> => {
-  let externalPath = await getTorrentDaemon().createDefaultCueDirectory();
+  let externalPath = await TorrentDaemon.createDefaultCueDirectory();
   if (
     !externalPath &&
     Platform.OS === "android" &&
-    !getTorrentDaemon().hasAllFilesAccess()
+    !TorrentDaemon.hasAllFilesAccess()
   ) {
-    const granted = await getTorrentDaemon().requestAllFilesAccess();
+    const granted = await TorrentDaemon.requestAllFilesAccess();
     if (granted) {
-      externalPath = await getTorrentDaemon().createDefaultCueDirectory();
+      externalPath = await TorrentDaemon.createDefaultCueDirectory();
     }
   }
   if (externalPath) {
@@ -162,7 +162,7 @@ export const getDownloadsStoragePath = (): string =>
 // media/ + backups/ subfolders. Returns the folder path, or null when
 // cancelled or the folder can't be mapped to a real path.
 export const pickCueDirectory = async (): Promise<string | null> => {
-  const result = await getTorrentDaemon().pickStorageDirectory();
+  const result = await TorrentDaemon.pickStorageDirectory();
   const path = result?.path;
   if (!path) return null;
   await setCueDirectory(path, result.uri ?? "");

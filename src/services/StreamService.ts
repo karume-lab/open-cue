@@ -1,5 +1,5 @@
 import { getDownloadsStoragePath } from "@/services/StorageLocation";
-import getTorrentDaemon from "~/modules/torrent-daemon";
+import TorrentDaemon from "~/modules/torrent-daemon";
 
 // Streams torrents live over a localhost HTTP URL served by the Go daemon.
 // The daemon fetches pieces on demand (sequentially ahead of the read
@@ -13,7 +13,7 @@ class StreamManager {
   private async ensureDaemonStarted() {
     if (!this.daemonStarted) {
       const storagePath = getDownloadsStoragePath();
-      await getTorrentDaemon().startDaemon(storagePath);
+      await TorrentDaemon.startDaemon(storagePath);
       this.daemonStarted = true;
     }
   }
@@ -24,9 +24,7 @@ class StreamManager {
 
   async stopDaemon() {
     if (!this.daemonStarted) return;
-    await getTorrentDaemon()
-      .stopDaemon()
-      .catch(() => {});
+    await TorrentDaemon.stopDaemon().catch(() => {});
     this.daemonStarted = false;
   }
 
@@ -40,7 +38,7 @@ class StreamManager {
   // per stream key: an already-active stream returns its existing URL.
   async startStreaming(magnet: string, hash: string): Promise<string> {
     return this.startStreamingInternal(hash, undefined, () =>
-      getTorrentDaemon().streamTorrent(magnet),
+      TorrentDaemon.streamTorrent(magnet),
     );
   }
 
@@ -52,7 +50,7 @@ class StreamManager {
     index: number,
   ): Promise<string> {
     return this.startStreamingInternal(hash, index, () =>
-      getTorrentDaemon().streamTorrentFile(magnet, index),
+      TorrentDaemon.streamTorrentFile(magnet, index),
     );
   }
 
@@ -75,9 +73,7 @@ class StreamManager {
         // A stop was requested while the stream was still starting; drop it
         // right away instead of leaving an orphaned stream running.
         this.stopRequested.delete(key);
-        await getTorrentDaemon()
-          .stopStreaming(hash)
-          .catch(() => {});
+        await TorrentDaemon.stopStreaming(hash).catch(() => {});
         return url;
       }
       this.streamUrls.set(key, url);
@@ -108,7 +104,7 @@ class StreamManager {
 
     if (keys.length === 0) return;
     try {
-      await getTorrentDaemon().stopStreaming(hash);
+      await TorrentDaemon.stopStreaming(hash);
     } catch (error) {
       console.error("Failed to stop stream:", error);
     }

@@ -10,7 +10,7 @@ import { reconcileDownloads } from "@/services/downloads/reconcile";
 import { getDownloadsStoragePath } from "@/services/StorageLocation";
 import { magnetFromHash } from "@/services/torrents/magnet";
 import type { Movie, MovieTorrent } from "@/types/movie";
-import getTorrentDaemon from "~/modules/torrent-daemon";
+import TorrentDaemon from "~/modules/torrent-daemon";
 
 // A download is keyed by the movie (or show) plus the specific torrent, so the
 // same title can have several concurrent downloads (episodes, qualities, …).
@@ -32,16 +32,14 @@ export class DownloadManager {
   private async ensureDaemonStarted() {
     if (!this.daemonStarted) {
       const storagePath = getDownloadsStoragePath();
-      await getTorrentDaemon().startDaemon(storagePath);
+      await TorrentDaemon.startDaemon(storagePath);
       this.daemonStarted = true;
     }
   }
 
   async stopDaemon() {
     if (!this.daemonStarted) return;
-    await getTorrentDaemon()
-      .stopDaemon()
-      .catch(() => {});
+    await TorrentDaemon.stopDaemon().catch(() => {});
     this.daemonStarted = false;
   }
 
@@ -72,8 +70,8 @@ export class DownloadManager {
     try {
       const infoHash =
         opts?.fileIndex != null
-          ? await getTorrentDaemon().addMagnetFile(magnet, opts.fileIndex)
-          : await getTorrentDaemon().addMagnet(magnet);
+          ? await TorrentDaemon.addMagnetFile(magnet, opts.fileIndex)
+          : await TorrentDaemon.addMagnet(magnet);
       useAppStore.getState().updateDownloadState(key, {
         state: "downloading",
       });
@@ -116,7 +114,7 @@ export class DownloadManager {
     }
 
     try {
-      const infoHash = await getTorrentDaemon().addMagnetFiles(
+      const infoHash = await TorrentDaemon.addMagnetFiles(
         magnet,
         files.map((file) => file.index).join(","),
       );

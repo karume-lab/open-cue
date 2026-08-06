@@ -12,7 +12,7 @@ import {
   pickCueDirectory,
 } from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
-import getTorrentDaemon from "~/modules/torrent-daemon";
+import TorrentDaemon from "~/modules/torrent-daemon";
 
 // Exports/imports the persisted app state (bookmarks, watch history, download
 // metadata, settings, onboarding) as a single JSON file. Backups are written to
@@ -124,7 +124,7 @@ const writeBackupFile = async (
     return;
   }
 
-  const ok = await getTorrentDaemon().writeTextFile(
+  const ok = await TorrentDaemon.writeTextFile(
     `${dirPath}/${BACKUP_FILE_NAME}`,
     content,
   );

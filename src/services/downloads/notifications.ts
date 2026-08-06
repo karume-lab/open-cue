@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { useAppStore } from "@/features/shared/store/useAppStore";
 import { episodeLabel } from "@/services/torrents/structure";
-import getTorrentDaemon, {
+import TorrentDaemon, {
   type DownloadNotification,
 } from "~/modules/torrent-daemon";
 
@@ -28,9 +28,9 @@ export const syncDownloadNotifications = async () => {
 
   try {
     if (notifications.length === 0) {
-      await getTorrentDaemon().stopDownloadNotifications();
+      await TorrentDaemon.stopDownloadNotifications();
     } else {
-      await getTorrentDaemon().updateDownloadNotifications(notifications);
+      await TorrentDaemon.updateDownloadNotifications(notifications);
     }
   } catch (error) {
     console.error("Failed to sync download notifications:", error);

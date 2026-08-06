@@ -56,7 +56,6 @@ const DiscoverScreen = () => {
     isFetchingNextPage,
   } = useDiscoverMoviesInfiniteQuery(debouncedQuery, genre);
   const movies = data?.pages.flatMap((page) => page.data.movies ?? []) ?? [];
-  const page1Movies = data?.pages[0]?.data.movies;
   const { downloads } = useAppStore();
 
   const { data: trendingMovies, isLoading: isTrendingLoading } =
@@ -129,7 +128,7 @@ const DiscoverScreen = () => {
         onRefresh={refetch}
         Header={
           <>
-            <ContinueWatchingCarousel fallbackMovies={page1Movies} />
+            <ContinueWatchingCarousel />
             {!debouncedQuery && (
               <MediaRow
                 title="Trending Now"
