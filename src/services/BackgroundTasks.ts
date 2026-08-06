@@ -6,6 +6,7 @@ import {
   routeNotificationData,
   scheduleLocalNotification,
 } from "@/services/NotificationService";
+import { StreamService } from "@/services/StreamService";
 import { searchTorrents } from "@/services/torrents/search";
 
 const BACKGROUND_MOVIE_UPDATER = "BACKGROUND_MOVIE_UPDATER";
@@ -18,6 +19,13 @@ TaskManager.defineTask(BACKGROUND_MOVIE_UPDATER, async () => {
       await runDailyBackupIfDue();
     } catch (error) {
       console.error("Background backup failed:", error);
+    }
+
+    // Cleanup inactive streaming directories to prevent disk accumulation
+    try {
+      await StreamService.cleanupInactiveStreams();
+    } catch (error) {
+      console.error("Streaming cleanup failed:", error);
     }
 
     // 1. Fetch bookmarked movies from Zustand Store
@@ -66,6 +74,16 @@ export const runStartupBackups = async () => {
 
 export const registerBackgroundTasks = async () => {
   try {
+    // expo-task-manager dispatches background-fetch events from native before
+    // JS has imported this module on a cold start, which logs
+    // "No task registered for key BACKGROUND_MOVIE_UPDATER". Registering only
+    // once (and only after the task is defined above) keeps this idempotent.
+    const alreadyRegistered = await TaskManager.isTaskRegisteredAsync(
+      BACKGROUND_MOVIE_UPDATER,
+    );
+    if (alreadyRegistered) {
+      return;
+    }
     await BackgroundTask.registerTaskAsync(BACKGROUND_MOVIE_UPDATER, {
       minimumInterval: 15, // 15 minutes
     });

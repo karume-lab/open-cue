@@ -129,6 +129,7 @@ interface TorrentDaemonInterface {
   stopLanServing(): Promise<void>;
   getLanStreamURL(infoHash: string): string;
   getLanFileURL(filePath: string): string;
+  cleanupStreamingDirectories(): Promise<void>;
 }
 
 export default requireNativeModule<TorrentDaemonInterface>("TorrentDaemon");

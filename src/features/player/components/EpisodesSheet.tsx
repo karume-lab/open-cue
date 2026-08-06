@@ -8,7 +8,11 @@ import { forwardRef, useCallback, useMemo, useState } from "react";
 import { ScrollView, TouchableOpacity } from "react-native";
 import { Text } from "@/components/ui/text";
 import { useSeasonEpisodesQuery } from "@/features/discover/services/queries";
-import { SeasonEpisodesSection } from "@/features/media/components/SeasonEpisodesSection";
+import { EpisodesSearchToolbar } from "@/features/media/components/EpisodesSearchToolbar";
+import {
+  SeasonEpisodesSection,
+  type SortKey,
+} from "@/features/media/components/SeasonEpisodesSection";
 import { BORDER, POPOVER } from "@/lib/colors";
 import type { Movie } from "@/types/movie";
 
@@ -27,6 +31,17 @@ const EpisodesSheet = forwardRef<BottomSheetModal, EpisodesSheetProps>(
       movie.tmdbId,
       activeSeason,
     );
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortBy, setSortBy] = useState<SortKey>("episode");
+
+    const cycleSortBy = () => {
+      setSortBy((prev) => {
+        const keys: SortKey[] = ["episode", "rating", "date"];
+        const idx = keys.indexOf(prev);
+        return keys[(idx + 1) % keys.length];
+      });
+    };
 
     const snapPoints = useMemo(() => ["75%"], []);
 
@@ -121,6 +136,15 @@ const EpisodesSheet = forwardRef<BottomSheetModal, EpisodesSheetProps>(
             })}
           </ScrollView>
 
+          {episodes && episodes.length > 0 && (
+            <EpisodesSearchToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              sortBy={sortBy}
+              onSortChange={cycleSortBy}
+            />
+          )}
+
           <SeasonEpisodesSection
             movie={movie}
             season={activeSeason}
@@ -132,6 +156,8 @@ const EpisodesSheet = forwardRef<BottomSheetModal, EpisodesSheetProps>(
                 episode.episodeNumber,
               )
             }
+            searchQuery={searchQuery}
+            sortBy={sortBy}
           />
         </BottomSheetScrollView>
       </BottomSheetModal>

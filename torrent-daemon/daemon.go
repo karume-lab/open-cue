@@ -1322,6 +1322,125 @@ func stopStreamingEntry(infoHashHex string) {
 	stopStreamingEntryLocked(infoHashHex)
 }
 
+/*
+cleanupStreamingDirectories removes empty or inactive streaming directories
+to prevent disk accumulation. This is called periodically by the background
+task system to clean up orphaned stream data.
+*/
+func cleanupStreamingDirectories() error {
+	streamsMu.RLock()
+	defer streamsMu.RUnlock()
+
+	// First, clean up directories for streams that are no longer active
+	for _, entry := range streams {
+		if entry == nil {
+			continue
+		}
+
+		// Get the torrent name to identify the directory
+		info := entry.t.Info()
+		if info == nil || info.Name == "" || info.Name == "." || info.Name == ".." {
+			continue
+		}
+
+		// Check if the stream directory exists
+		dir := filepath.Join(dataDir, filepath.Base(info.Name))
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			// Directory doesn't exist, nothing to clean
+			continue
+		}
+
+		// For active streams, we keep their directories but clean out any temp files
+		// that might have accumulated during streaming
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		// Remove any .temp files and other temporary files that might have been created
+		for _, entry := range entries {
+			if strings.HasSuffix(entry.Name(), ".temp") || strings.HasSuffix(entry.Name(), ".part") {
+				path := filepath.Join(dir, entry.Name())
+				if err := os.RemoveAll(path); err != nil {
+					log.Printf("Failed to cleanup temp file %s: %v", path, err)
+				}
+			}
+		}
+	}
+
+	// Now clean up any directories that are no longer associated with any active stream
+	// This finds orphaned directories that were left behind when streams ended
+	streamDirs := make(map[string]string) // name -> directory path
+	for _, entry := range streams {
+		if entry == nil {
+			continue
+		}
+		info := entry.t.Info()
+		if info == nil || info.Name == "" || info.Name == "." || info.Name == ".." {
+			continue
+		}
+		streamDirs[info.Name] = filepath.Join(dataDir, filepath.Base(info.Name))
+	}
+
+	// Walk through all directories in dataDir and remove those not in streamDirs
+	if err := filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip directories that can't be read
+		}
+		if !info.IsDir() {
+			return nil
+		}
+
+		// Skip special directories
+		if path == dataDir {
+			return filepath.SkipDir
+		}
+
+		// Get the base directory name
+		dirName := filepath.Base(path)
+		if dirName == "." || dirName == ".." {
+			return filepath.SkipDir
+		}
+
+		// Check if this directory is in our active streams
+		_, isActive := streamDirs[dirName]
+		if isActive {
+			return filepath.SkipDir // Skip active stream directories
+		}
+
+		// For orphaned directories, check if they're empty or just contain metadata
+		// We need to check if this might be a streaming directory (torrent-based)
+		// By checking for a .torrent file or typical streaming metadata files
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return nil
+		}
+
+		// Count non-hidden files and directories
+		fileCount := 0
+		for _, entry := range entries {
+			if !strings.HasPrefix(entry.Name(), ".") {
+				fileCount++
+			}
+		}
+
+		// If the directory has only hidden files or is empty, clean it up
+		// This is more aggressive for streaming directories since they
+		// don't contain permanent data
+		if fileCount == 0 {
+			if err := os.RemoveAll(path); err != nil {
+				log.Printf("Failed to cleanup empty orphaned stream directory %s: %v", path, err)
+			}
+		}
+
+		return filepath.SkipDir
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // largestVideoFile returns the biggest video file in a torrent, which is the
 // most likely candidate for streaming (e.g. the movie or first episode).
 func largestVideoFile(t *torrent.Torrent) *torrent.File {

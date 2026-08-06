@@ -78,6 +78,11 @@ class StreamManager {
       }
       this.streamUrls.set(key, url);
       return url;
+    } catch (error) {
+      console.error("Failed to start streaming:", error);
+      this.stopRequested.delete(key);
+      await TorrentDaemon.stopStreaming(hash).catch(() => {});
+      throw error;
     } finally {
       this.pendingStarts.delete(key);
     }
@@ -107,6 +112,21 @@ class StreamManager {
       await TorrentDaemon.stopStreaming(hash);
     } catch (error) {
       console.error("Failed to stop stream:", error);
+    }
+  }
+
+  async cleanupInactiveStreams() {
+    try {
+      await TorrentDaemon.cleanupStreamingDirectories();
+    } catch (error) {
+      console.error("Failed to cleanup streaming directories:", error);
+    }
+  }
+
+  async cleanupAllStreams() {
+    const hashes = [...this.streamUrls.keys(), ...this.pendingStarts];
+    for (const hash of hashes) {
+      await this.stopStreaming(hash);
     }
   }
 }

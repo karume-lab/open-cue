@@ -39,8 +39,13 @@ import { DownloadService } from "@/services/downloads/DownloadManager";
 import { NOTIFICATION_ROUTE_KEY } from "@/services/NotificationService";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
-// Register background task in the global scope
-registerBackgroundTasks();
+// Register the background task. expo-task-manager can fire the
+// background-fetch handler on app launch before this module registers it,
+// which logs "No task registered for key BACKGROUND_MOVIE_UPDATER". The
+// call below is safe to run at import time: `defineTask` runs as a module
+// side-effect when this import is first evaluated, and `registerTaskAsync`
+// is idempotent. We swallow errors so it never blocks startup.
+registerBackgroundTasks().catch(() => {});
 
 // Keep the native splash visible until the first screen has rendered, so an
 // already-onboarded user never sees the onboarding screen flash.
