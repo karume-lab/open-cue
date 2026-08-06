@@ -122,3 +122,16 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..bac756d2067eb1864eeeda329954faed
              this.source = source;
              final DataSource.Factory tmpMediaDataSourceFactory =
                      DataSourceUtil.getDefaultDataSourceFactory(this.themedReactContext, bandwidthMeter,
+@@ -2391,7 +2445,12 @@ public class ReactExoplayerView extends FrameLayout implements
+         }
+     }
+ 
+     private boolean isFormatSupported(Format format) {
++        // When using the FFmpeg software decoder, include all tracks - FFmpeg has
++        // broad codec support and will fail at decode time if truly unsupported.
++        if (forceSoftwareVideoDecoder) {
++            return true;
++        }
+         int width = format.width == Format.NO_VALUE ? 0 : format.width;
+         int height = format.height == Format.NO_VALUE ? 0 : format.height;
+         float frameRate = format.frameRate == Format.NO_VALUE ? 0 : format.frameRate;
