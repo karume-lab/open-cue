@@ -12,7 +12,7 @@ index 748b799554aa0f3432432a73ea93435d60a581dc..e3dab827940ba1af593d79e57a8ac954
          // For Smooth Streaming playback support with ExoPlayer
          if (media3_buildFromSource) {
 diff --git a/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java b/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
-index e16ac96d8a89055ee6e950777ce73388d22061ee..bac756d2067eb1864eeeda329954faed0f0ad175 100644
+index e16ac96d8a89055ee6e950777ce73388d22061ee..0be346ad91787b1dde82f24200c6f300fa1f490e 100644
 --- a/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
 +++ b/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
 @@ -59,7 +59,10 @@ import androidx.media3.datasource.DefaultDataSource;
@@ -87,7 +87,52 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..bac756d2067eb1864eeeda329954faed
  
          DefaultMediaSourceFactory mediaSourceFactory;
          
-@@ -1970,6 +2003,25 @@ public class ReactExoplayerView extends FrameLayout implements
+@@ -1587,25 +1620,33 @@ public class ReactExoplayerView extends FrameLayout implements
+ 
+     private ArrayList<VideoTrack> getVideoTrackInfo() {
+         ArrayList<VideoTrack> videoTracks = new ArrayList<>();
+-        if (trackSelector == null) {
++        if (trackSelector == null || player == null) {
+             // Likely player is unmounting so no video tracks are available anymore
+             return videoTracks;
+         }
+         MappingTrackSelector.MappedTrackInfo info = trackSelector.getCurrentMappedTrackInfo();
+-        int index = getTrackRendererIndex(C.TRACK_TYPE_VIDEO);
+-        if (info == null || index == C.INDEX_UNSET) {
++        if (info == null) {
+             return videoTracks;
+         }
+ 
+-        TrackGroupArray groups = info.getTrackGroups(index);
+-        for (int i = 0; i < groups.length; ++i) {
+-            TrackGroup group = groups.get(i);
++        // The FFmpeg software decoder is appended as an extra video renderer, so
++        // a codec with no hardware decoder (e.g. HEVC on some devices) is mapped
++        // there instead of the first video renderer. Collect tracks from every
++        // video renderer, otherwise those streams report zero video tracks.
++        for (int rendererIndex = 0; rendererIndex < player.getRendererCount(); rendererIndex++) {
++            if (player.getRendererType(rendererIndex) != C.TRACK_TYPE_VIDEO) {
++                continue;
++            }
++            TrackGroupArray groups = info.getTrackGroups(rendererIndex);
++            for (int i = 0; i < groups.length; ++i) {
++                TrackGroup group = groups.get(i);
+ 
+-            for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+-                Format format = group.getFormat(trackIndex);
+-                if (isFormatSupported(format)) {
+-                    VideoTrack videoTrack = exoplayerVideoTrackToGenericVideoTrack(format, trackIndex);
+-                    videoTracks.add(videoTrack);
++                for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
++                    Format format = group.getFormat(trackIndex);
++                    if (isFormatSupported(format)) {
++                        VideoTrack videoTrack = exoplayerVideoTrackToGenericVideoTrack(format, trackIndex);
++                        videoTracks.add(videoTrack);
++                    }
+                 }
+             }
+         }
+@@ -1970,6 +2011,25 @@ public class ReactExoplayerView extends FrameLayout implements
                      return;
                  }
                  break;
@@ -113,7 +158,7 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..bac756d2067eb1864eeeda329954faed
              default:
                  break;
          }
-@@ -2042,6 +2094,8 @@ public class ReactExoplayerView extends FrameLayout implements
+@@ -2042,6 +2102,8 @@ public class ReactExoplayerView extends FrameLayout implements
              clearResumePosition();
              boolean isSourceEqual = source.isEquals(this.source);
              hasDrmFailed = false;
@@ -122,14 +167,13 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..bac756d2067eb1864eeeda329954faed
              this.source = source;
              final DataSource.Factory tmpMediaDataSourceFactory =
                      DataSourceUtil.getDefaultDataSourceFactory(this.themedReactContext, bandwidthMeter,
-@@ -2391,7 +2445,12 @@ public class ReactExoplayerView extends FrameLayout implements
-         }
+@@ -2392,6 +2454,11 @@ public class ReactExoplayerView extends FrameLayout implements
      }
  
      private boolean isFormatSupported(Format format) {
 +        // When using the FFmpeg software decoder, include all tracks - FFmpeg has
 +        // broad codec support and will fail at decode time if truly unsupported.
-+        if (forceSoftwareVideoDecoder) {
++        if (forceSoftwareVideoDecoder || FfmpegLibrary.isAvailable()) {
 +            return true;
 +        }
          int width = format.width == Format.NO_VALUE ? 0 : format.width;
