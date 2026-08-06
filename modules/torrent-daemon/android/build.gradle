@@ -1,19 +1,10 @@
-buildscript {
-  ext.safeExtGet = {prop, fallback ->
-    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
-  }
-  repositories {
-    google()
-    mavenCentral()
-  }
-  dependencies {
-    classpath("com.android.tools.build:gradle:7.4.2")
-    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion', '1.8.10')}")
-  }
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
 }
 
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
+group = 'expo.modules.torrentdaemon'
+version = '1.0.0'
 
 // The gomobile-generated AAR (gitignored, regenerate with `gomobile bind`) cannot be
 // referenced as a direct local .aar dependency: AGP 8.x rejects that when building an AAR.
@@ -52,21 +43,14 @@ tasks.configureEach { task ->
 
 android {
   namespace "expo.modules.torrentdaemon"
-  compileSdkVersion safeExtGet("compileSdkVersion", 34)
 
   defaultConfig {
-    minSdkVersion safeExtGet("minSdkVersion", 23)
-    targetSdkVersion safeExtGet("targetSdkVersion", 34)
+    versionCode 1
+    versionName '1.0.0'
     consumerProguardFiles "proguard-consumer.pro"
   }
   sourceSets {
     main {
-      java {
-        srcDirs += 'src/main/java'
-      }
-      res {
-        srcDirs += 'src/main/res'
-      }
       jniLibs {
         srcDirs += daemonJniDir
       }
@@ -75,9 +59,6 @@ android {
 }
 
 dependencies {
-  implementation project(':expo-modules-core')
-  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${safeExtGet('kotlinVersion', '1.8.10')}"
-
   // Gomobile bindings (classes only; native libs are wired via the jniLibs source set).
   // Using a Provider-backed FileCollection so Gradle tracks the dependency on
   // extractDaemonAar automatically (no implicit dependency warning in Gradle 8+).
