@@ -58,12 +58,14 @@ var (
 	streamSet  bool
 )
 
-// streamEntry holds the reader backing one active stream URL.
+// streamEntry describes one active stream URL. The torrent.File it references
+// is used to create a fresh, independent reader per HTTP request, because a
+// torrent.Reader is not safe for concurrent use and video players issue
+// overlapping byte-range requests.
 type streamEntry struct {
-	reader *lockedReader
-	size   int64
-	file   *torrent.File
-	t      *torrent.Torrent
+	size int64
+	file *torrent.File
+	t    *torrent.Torrent
 }
 
 // fileInfo describes one file inside a torrent, used by ProbeTorrent so callers
@@ -73,37 +75,6 @@ type fileInfo struct {
 	Path  string `json:"path"`
 	Size  int64  `json:"size"`
 	Video bool   `json:"video"`
-}
-
-// lockedReader serializes access to a torrent.Reader, which is not safe for
-// concurrent use. Video players can issue overlapping range requests.
-type lockedReader struct {
-	mu sync.Mutex
-	r  torrent.Reader
-}
-
-func (l *lockedReader) Read(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.r.Read(p)
-}
-
-func (l *lockedReader) ReadContext(ctx context.Context, p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.r.ReadContext(ctx, p)
-}
-
-func (l *lockedReader) Seek(off int64, whence int) (int64, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.r.Seek(off, whence)
-}
-
-func (l *lockedReader) Close() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.r.Close()
 }
 
 var streamVideoExts = map[string]bool{
@@ -161,7 +132,6 @@ func stopStreamServer() {
 	streamSet = false
 	streamAddr = ""
 	for hash, entry := range streams {
-		entry.reader.Close()
 		entry.t.Drop()
 		delete(streams, hash)
 	}
@@ -229,7 +199,15 @@ func handleStreamRequest(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusPartialContent)
 	}
 
-	if _, err := entry.reader.Seek(start, io.SeekStart); err != nil {
+	// Each request gets its own reader so concurrent byte-range requests cannot
+	// interleave Seek/Read calls on a single shared position. Readers of the same
+	// file are independent; the torrent's piece cache is shared, so pieces
+	// fetched by one request still help the others.
+	reader := entry.file.NewReader()
+	reader.SetReadahead(streamReadahead)
+	defer reader.Close()
+
+	if _, err := reader.Seek(start, io.SeekStart); err != nil {
 		return
 	}
 
@@ -240,7 +218,7 @@ func handleStreamRequest(w http.ResponseWriter, r *http.Request) {
 		if int64(len(chunk)) > remaining {
 			chunk = buf[:remaining]
 		}
-		n, err := entry.reader.ReadContext(r.Context(), chunk)
+		n, err := reader.ReadContext(r.Context(), chunk)
 		if n > 0 {
 			if _, werr := w.Write(chunk[:n]); werr != nil {
 				return
@@ -1262,14 +1240,17 @@ func resolveStreamTarget(uri string, index *int) (*torrent.File, *torrent.Torren
 }
 
 // startStream serves an already-selected file of a torrent that has its
-// metadata resolved. Replacing an existing stream for the same torrent closes
-// the previous reader so switching episodes doesn't leak resources.
+// metadata resolved. Replacing an existing stream for the same torrent drops
+// the old entry so switching episodes doesn't leak resources.
 func startStream(t *torrent.Torrent, file *torrent.File) (string, error) {
-	reader := &lockedReader{r: file.NewReader()}
-	reader.r.SetReadahead(streamReadahead)
-
 	// Warm up the start of the file so playback begins without a long stall.
-	// ReadContext lets the timeout cancel the warm-up if peers are slow.
+	// ReadContext lets the timeout cancel the warm-up if peers are slow. The
+	// warm-up reader is throwaway: each HTTP request later creates its own
+	// reader, so pieces fetched here only prime the shared piece cache.
+	reader := file.NewReader()
+	reader.SetReadahead(streamReadahead)
+	defer reader.Close()
+
 	ctx, cancel := context.WithTimeout(context.Background(), warmupTimeout)
 	buf := make([]byte, 32*1024)
 	remaining := int64(warmupBytes)
@@ -1287,14 +1268,10 @@ func startStream(t *torrent.Torrent, file *torrent.File) (string, error) {
 	hash := t.InfoHash().HexString()
 
 	streamsMu.Lock()
-	if existing, ok := streams[hash]; ok {
-		existing.reader.Close()
-	}
 	streams[hash] = &streamEntry{
-		reader: reader,
-		size:   file.Length(),
-		file:   file,
-		t:      t,
+		size: file.Length(),
+		file: file,
+		t:    t,
 	}
 	streamsMu.Unlock()
 
@@ -1309,10 +1286,12 @@ func StopStreaming(infoHashHex string) error {
 	return stopStreamingEntryLocked(infoHashHex)
 }
 
-// stopStreamingEntry closes an active stream's reader and drops its torrent,
-// then removes the torrent's on-disk data so streaming doesn't leave orphaned
-// files in the storage directory. Callers must hold streamsMu. A missing stream
-// is not an error here, so cleanup during torrent deletion is best-effort.
+// stopStreamingEntry closes an active stream and drops its torrent, then
+// removes the torrent's on-disk data so streaming doesn't leave orphaned files
+// in the storage directory. In-flight HTTP requests hold their own readers;
+// they fail on the next read once the torrent is dropped. Callers must hold
+// streamsMu. A missing stream is not an error here, so cleanup during torrent
+// deletion is best-effort.
 func stopStreamingEntryLocked(infoHashHex string) error {
 	entry := streams[infoHashHex]
 	if entry == nil {
@@ -1324,7 +1303,6 @@ func stopStreamingEntryLocked(infoHashHex string) error {
 		name = info.Name
 	}
 
-	entry.reader.Close()
 	entry.t.Drop()
 	delete(streams, infoHashHex)
 

@@ -20,7 +20,9 @@ go get golang.org/x/mobile/bind
 
 echo "Compiling for Android (AAR)..."
 mkdir -p ../modules/torrent-daemon/android/libs
-gomobile bind -target=android/arm64 -androidapi 23 -ldflags "-s -w" -o ../modules/torrent-daemon/android/libs/daemon.aar ./
+# -std=gnu11: newer GCCs default to C23, where `bool` is a keyword that
+# conflicts with go-libutp's `typedef uint8 bool;`.
+CGO_CFLAGS="-std=gnu11" gomobile bind -target=android/arm64 -androidapi 23 -ldflags "-s -w" -o ../modules/torrent-daemon/android/libs/daemon.aar ./
 
 if [ "$(uname -s)" = "Darwin" ]; then
     echo "Compiling for iOS (Framework)..."

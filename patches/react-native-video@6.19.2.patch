@@ -6,7 +6,7 @@ index 748b799554aa0f3432432a73ea93435d60a581dc..e3dab827940ba1af593d79e57a8ac954
          implementation "androidx.media3:media3-exoplayer:$media3_version"
      }
  
-+    implementation "org.jellyfin.media3:media3-ffmpeg-decoder:1.8.0+1"
++    implementation "io.github.anilbeesetti:nextlib-media3ext:1.8.0-0.9.0"
 +
      if (ExoplayerDependencies["useExoplayerSmoothStreaming"]) {
          // For Smooth Streaming playback support with ExoPlayer
@@ -30,8 +30,8 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..0be346ad91787b1dde82f24200c6f300
  import androidx.media3.exoplayer.upstream.DefaultAllocator;
  import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
  import androidx.media3.exoplayer.util.EventLogger;
-+import androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer;
-+import androidx.media3.decoder.ffmpeg.FfmpegLibrary;
++import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegVideoRenderer;
++import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegLibrary;
  import androidx.media3.extractor.metadata.emsg.EventMessage;
  import androidx.media3.extractor.metadata.id3.Id3Frame;
  import androidx.media3.extractor.metadata.id3.TextInformationFrame;
@@ -66,7 +66,7 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..0be346ad91787b1dde82f24200c6f300
 +                // advertised as supported (e.g. 10-bit HEVC Main10).
 +                try {
 +                    if (FfmpegLibrary.isAvailable() && renderers.length > 0) {
-+                        renderers[0] = new ExperimentalFfmpegVideoRenderer(0L, eventHandler, videoRendererEventListener, C.TRACK_TYPE_VIDEO);
++                        renderers[0] = new FfmpegVideoRenderer(0L, eventHandler, videoRendererEventListener, C.TRACK_TYPE_VIDEO);
 +                    }
 +                } catch (Throwable ignored) {
 +                }
@@ -75,7 +75,7 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..0be346ad91787b1dde82f24200c6f300
 +                    if (FfmpegLibrary.isAvailable() && renderers.length > 0) {
 +                        Renderer[] withFfmpegFallback = new Renderer[renderers.length + 1];
 +                        System.arraycopy(renderers, 0, withFfmpegFallback, 0, 1);
-+                        withFfmpegFallback[1] = new ExperimentalFfmpegVideoRenderer(0L, eventHandler, videoRendererEventListener, C.TRACK_TYPE_VIDEO);
++                        withFfmpegFallback[1] = new FfmpegVideoRenderer(0L, eventHandler, videoRendererEventListener, C.TRACK_TYPE_VIDEO);
 +                        System.arraycopy(renderers, 1, withFfmpegFallback, 2, renderers.length - 1);
 +                        renderers = withFfmpegFallback;
 +                    }
