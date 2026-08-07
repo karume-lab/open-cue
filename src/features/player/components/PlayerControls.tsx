@@ -59,7 +59,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
 }) => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const insets = useSafeAreaInsets();
-  const [showRemaining, setShowRemaining] = useState(false);
+  const [showRemaining, setShowRemaining] = useState(true);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
