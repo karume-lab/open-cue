@@ -171,15 +171,21 @@ export const useAppStore = create<AppState>()(
     {
       name: APP_STORAGE_NAME,
       storage: createJSONStorage(() => zustandStorage),
-      version: 3,
+      version: 4,
       migrate: (persistedState, version) => {
         const state = (persistedState ?? {}) as Partial<AppState>;
+        const prefs = {
+          ...DEFAULT_SUBTITLE_PREFS,
+          ...(state.settings?.subtitlePrefs ?? {}),
+        };
+        // v4 shrinks the default subtitle font, so upgrade users to the new
+        // default regardless of what was persisted before.
+        if (version < 4) {
+          prefs.fontSize = DEFAULT_SUBTITLE_PREFS.fontSize;
+        }
         const settings = {
           ...state.settings,
-          subtitlePrefs: {
-            ...DEFAULT_SUBTITLE_PREFS,
-            ...(state.settings?.subtitlePrefs ?? {}),
-          },
+          subtitlePrefs: prefs,
           preferredQuality: state.settings?.preferredQuality ?? "1080p",
         };
         if (version >= 1) {

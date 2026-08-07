@@ -1,6 +1,6 @@
 import * as Brightness from "expo-brightness";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Dimensions, Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { VolumeManager } from "react-native-volume-manager";
@@ -12,14 +12,27 @@ const { width, height } = Dimensions.get("window");
 // the second tap must not toggle the controls on top of the first one.
 const DOUBLE_TAP_WINDOW_MS = 250;
 
+// Swipes map to a VLC-style 0-200% range. The native brightness/volume APIs
+// only accept 0-1, so anything above 100% shows on the HUD but is clamped when
+// written to the OS.
+const MAX_PERCENT = 200;
+
+type SwipeSide = "brightness" | "volume";
+
 interface GestureLayerProps {
   onSingleTap: () => void;
   onDoubleTapLeft: () => void;
   onDoubleTapRight: () => void;
   onControlsInteract: () => void;
-  onLongPressStart: () => void;
+  onLongPressStart: (direction: "forward" | "backward") => void;
   onLongPressEnd: () => void;
+  onSwipeStart: (side: SwipeSide) => void;
+  onSwipeUpdate: (percent: number) => void;
+  onSwipeEnd: () => void;
 }
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, value));
 
 const GestureLayer: React.FC<GestureLayerProps> = ({
   onSingleTap,
@@ -28,10 +41,14 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
   onControlsInteract,
   onLongPressStart,
   onLongPressEnd,
+  onSwipeStart,
+  onSwipeUpdate,
+  onSwipeEnd,
 }) => {
-  const [startBrightness, setStartBrightness] = useState(0.5);
-  const [startVolume, setStartVolume] = useState(0.5);
+  const [startBrightnessPercent, setStartBrightnessPercent] = useState(50);
+  const [startVolumePercent, setStartVolumePercent] = useState(50);
   const lastSingleTapAt = useRef(0);
+  const swipeSideRef = useRef<SwipeSide>("brightness");
 
   useEffect(() => {
     (async () => {
@@ -45,48 +62,65 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
           await Brightness.requestPermissionsAsync();
         }
         const b = await Brightness.getBrightnessAsync();
-        setStartBrightness(b);
+        setStartBrightnessPercent(b * 100);
         const v = await VolumeManager.getVolume();
-        if (typeof v === "number") setStartVolume(v);
-        else if (v && typeof v.volume === "number") setStartVolume(v.volume);
+        if (typeof v === "number") setStartVolumePercent(v * 100);
+        else if (v && typeof v.volume === "number")
+          setStartVolumePercent(v.volume * 100);
       } catch (e) {
         console.warn("Failed to initialize volume/brightness", e);
       }
     })();
   }, []);
 
+  const applyNative = useCallback((side: SwipeSide, percent: number) => {
+    const native = Math.min(1, percent / 100);
+    if (side === "brightness") {
+      Brightness.setBrightnessAsync(native).catch(() => {});
+    } else {
+      VolumeManager.setVolume(native).catch(() => {});
+    }
+  }, []);
+
   const pan = Gesture.Pan()
     .onStart((e) => {
       onControlsInteract();
+      const side = e.x < width / 2 ? "brightness" : "volume";
+      swipeSideRef.current = side;
+      onSwipeStart(side);
       // Fetch fresh on start to avoid jumping if changed elsewhere
-      if (e.x < width / 2) {
+      if (side === "brightness") {
         Brightness.getBrightnessAsync()
-          .then((val) => setStartBrightness(val))
+          .then((val) => setStartBrightnessPercent(val * 100))
           .catch(() => {});
       } else {
         VolumeManager.getVolume()
           .then((val) => {
-            if (typeof val === "number") setStartVolume(val);
-            else if (val && typeof val.volume === "number")
-              setStartVolume(val.volume);
+            const v =
+              typeof val === "number"
+                ? val
+                : val && typeof val.volume === "number"
+                  ? val.volume
+                  : 0;
+            setStartVolumePercent(v * 100);
           })
           .catch(() => {});
       }
     })
     .onUpdate((e) => {
       onControlsInteract();
-      // Delta as percentage of screen height (swipe up = positive delta)
-      const delta = -(e.translationY / height);
-
-      if (e.x < width / 2) {
-        // Brightness (Left half)
-        const newBrightness = Math.max(0, Math.min(1, startBrightness + delta));
-        Brightness.setBrightnessAsync(newBrightness).catch(() => {});
-      } else {
-        // Volume (Right half)
-        const newVolume = Math.max(0, Math.min(1, startVolume + delta));
-        VolumeManager.setVolume(newVolume).catch(() => {});
-      }
+      // Delta as percentage of screen height (swipe up = positive delta),
+      // scaled so a full-screen swipe reaches the 200% ceiling.
+      const side = swipeSideRef.current;
+      const start =
+        side === "brightness" ? startBrightnessPercent : startVolumePercent;
+      const delta = -(e.translationY / height) * MAX_PERCENT;
+      const percent = clamp(start + delta, 0, MAX_PERCENT);
+      applyNative(side, percent);
+      onSwipeUpdate(percent);
+    })
+    .onFinalize(() => {
+      onSwipeEnd();
     })
     .runOnJS(true);
 
@@ -119,8 +153,9 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
 
   const longPress = Gesture.LongPress()
     .minDuration(300)
-    .onStart(() => {
-      onLongPressStart();
+    .maxDistance(Number.MAX_SAFE_INTEGER)
+    .onStart((e) => {
+      onLongPressStart(e.x < width / 2 ? "backward" : "forward");
     })
     .onEnd(() => {
       onLongPressEnd();

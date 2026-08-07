@@ -1,16 +1,9 @@
+import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import type { LucideIcon } from "lucide-react-native";
-import {
-  Bell,
-  Clapperboard,
-  Download,
-  Film,
-  FolderOpen,
-  Settings,
-  Sparkles,
-} from "lucide-react-native";
+import { Bell, Settings } from "lucide-react-native";
 import type React from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type FlatList,
   type GestureResponderEvent,
@@ -32,27 +25,20 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { FolderSelectionSlide } from "@/features/onboarding/components/FolderSelectionSlide";
 import {
   PermissionSlide,
   type PermissionSlideType,
 } from "@/features/onboarding/components/PermissionSlide";
-import { TagSelectionSlide } from "@/features/onboarding/components/TagSelectionSlide";
+import { WelcomeSlide } from "@/features/onboarding/components/WelcomeSlide";
 import { PRIMARY } from "@/lib/colors";
-import { cn } from "@/lib/utils";
+import { requestNotificationPermissions } from "@/services/NotificationService";
 import {
   getCueDirectoryPath,
   setDefaultCueDirectory,
 } from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
-type SlideType =
-  | "discover"
-  | "download"
-  | "folder"
-  | "player"
-  | "interests"
-  | PermissionSlideType;
+type SlideType = "welcome" | PermissionSlideType;
 
 interface OnboardingSlide {
   id: string;
@@ -62,49 +48,19 @@ interface OnboardingSlide {
   icon: LucideIcon;
 }
 
+// All non-permission onboarding content lives on a single cohesive welcome
+// slide (intro, interests, folder picker). The remaining slides are the
+// permission steps, which must be granted before advancing.
 const BASE_SLIDES: OnboardingSlide[] = [
   {
-    id: "1",
-    title: "Discover Greatness.",
-    description:
-      "Browse thousands of movies in high quality and discover your next favorite film.",
-    type: "discover",
-    icon: Film,
+    id: "welcome",
+    title: "Welcome to Cue",
+    description: "",
+    type: "welcome",
+    icon: Bell,
   },
   {
-    id: "2",
-    title: "Offline Viewing.",
-    description:
-      "Download movies directly to your device and watch them anywhere, anytime.",
-    type: "download",
-    icon: Download,
-  },
-  {
-    id: "3",
-    title: "Your files, one place.",
-    description:
-      "Pick a folder and Cue keeps your movies in media/ and your backups in backups/, so everything survives reinstalls.",
-    type: "folder",
-    icon: FolderOpen,
-  },
-  {
-    id: "4",
-    title: "Beautiful Player.",
-    description:
-      "Enjoy a seamless viewing experience with our beautiful, feature-rich video player.",
-    type: "player",
-    icon: Clapperboard,
-  },
-  {
-    id: "5",
-    title: "Pick your interests.",
-    description:
-      "Choose your favorite genres to personalize your discover feed.",
-    type: "interests",
-    icon: Sparkles,
-  },
-  {
-    id: "6",
+    id: "notifications",
     title: "Don't miss a release.",
     description:
       "Cue can let you know when a bookmarked movie gets a new 4K release, even when the app is closed.",
@@ -116,16 +72,13 @@ const BASE_SLIDES: OnboardingSlide[] = [
 // WRITE_SETTINGS is an Android-only permission (granted from the system
 // settings screen), so the slide only exists on Android.
 const WRITE_SETTINGS_SLIDE: OnboardingSlide = {
-  id: "7",
+  id: "writeSettings",
   title: "Own the playback experience.",
   description:
     "Swipe on the left edge of the screen to adjust brightness while streaming.",
   type: "writeSettings",
   icon: Settings,
 };
-
-const isPermissionSlide = (type: SlideType): type is PermissionSlideType =>
-  type === "notifications" || type === "writeSettings";
 
 interface PaginatorDotProps {
   index: number;
@@ -188,20 +141,49 @@ const OnboardingScreen: React.FC = () => {
   );
   const folderPathRef = useRef(folderPath);
   const previousIndexRef = useRef(0);
-
-  const updateFolderPath = (path: string | null) => {
-    folderPathRef.current = path;
-    setFolderPath(path);
-  };
+  const [busy, setBusy] = useState(false);
   const [permissions, setPermissions] = useState<
     Record<PermissionSlideType, boolean>
   >({ notifications: false, writeSettings: false });
   const { completeOnboarding } = useOnboardingStore();
 
+  const updateFolderPath = (path: string | null) => {
+    folderPathRef.current = path;
+    setFolderPath(path);
+  };
+
   const slides =
     Platform.OS === "android"
       ? [...BASE_SLIDES, WRITE_SETTINGS_SLIDE]
       : BASE_SLIDES;
+
+  // Pre-check permissions on mount so an already-granted permission is
+  // reflected right away (e.g. when replaying onboarding from Settings).
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Notifications.getPermissionsAsync();
+        setPermissions((prev) => ({
+          ...prev,
+          notifications: status === "granted",
+        }));
+      } catch {
+        // ignore
+      }
+      if (Platform.OS === "android") {
+        try {
+          const SettingsPermission =
+            require("~/modules/settings-permission").default;
+          setPermissions((prev) => ({
+            ...prev,
+            writeSettings: SettingsPermission.isWriteSettingsGranted(),
+          }));
+        } catch {
+          // ignore
+        }
+      }
+    })();
+  }, []);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -216,31 +198,8 @@ const OnboardingScreen: React.FC = () => {
         viewableItems[0].index !== null &&
         viewableItems[0].index !== undefined
       ) {
-        const prevIdx = previousIndexRef.current;
-        const newIdx = viewableItems[0].index;
-        previousIndexRef.current = newIdx;
-        setCurrentIndex(newIdx);
-
-        // The folder slide is at index 2. If the user swiped away from it
-        // without ever picking (or creating) a folder, create the default now.
-        const folderSlideIndex = BASE_SLIDES.findIndex(
-          (s) => s.type === "folder",
-        );
-        if (
-          prevIdx === folderSlideIndex &&
-          newIdx !== folderSlideIndex &&
-          !folderPathRef.current &&
-          !getCueDirectoryPath()
-        ) {
-          setDefaultCueDirectory()
-            .then((p) => {
-              folderPathRef.current = p;
-              setFolderPath(p);
-            })
-            .catch((err) =>
-              console.error("Failed to create default Cue directory:", err),
-            );
-        }
+        previousIndexRef.current = viewableItems[0].index;
+        setCurrentIndex(viewableItems[0].index);
       }
     },
   ).current;
@@ -253,8 +212,9 @@ const OnboardingScreen: React.FC = () => {
     );
   };
 
-  // Slides that require an explicit user action before proceeding.
-  // The Next button stays disabled and forward swiping is locked until done.
+  // Slides that require an explicit user action before proceeding. Permission
+  // slides stay locked (no swiping forward) until granted; the Next button on
+  // them requests the permission and only advances once it's granted.
   const isSlideReady = (slide: OnboardingSlide): boolean => {
     switch (slide.type) {
       case "notifications":
@@ -262,7 +222,7 @@ const OnboardingScreen: React.FC = () => {
       case "writeSettings":
         return permissions.writeSettings;
       default:
-        // folder and interests slides: always ready
+        // welcome slide: always ready
         return true;
     }
   };
@@ -299,10 +259,9 @@ const OnboardingScreen: React.FC = () => {
   );
 
   const handleFinishOnboarding = async () => {
-    // Ensure the Cue folder exists even if the user swiped past the folder
-    // slide without tapping "Next" (which is where the default was previously
-    // created). Without this, no folder is persisted and features like backup
-    // think no folder was ever chosen.
+    // Ensure the Cue folder exists even if the user never picked one on the
+    // welcome slide. Without this, no folder is persisted and features like
+    // backup think no folder was ever chosen.
     if (!folderPath && !getCueDirectoryPath()) {
       try {
         const defaultPath = await setDefaultCueDirectory();
@@ -313,6 +272,44 @@ const OnboardingScreen: React.FC = () => {
     }
     completeOnboarding(selectedTags);
     router.replace("/(tabs)/discover");
+  };
+
+  // The single onboarding CTA. On permission slides it requests the approval
+  // and only advances once granted; on the welcome slide it creates the default
+  // Cue folder when the user didn't pick one.
+  const handleNext = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const slide = slides[currentIndex];
+      if (slide.type === "notifications") {
+        const granted = await requestNotificationPermissions();
+        setPermissions((prev) => ({ ...prev, notifications: granted }));
+        if (!granted) return;
+      } else if (slide.type === "writeSettings") {
+        const SettingsPermission =
+          require("~/modules/settings-permission").default;
+        const granted = await SettingsPermission.requestWriteSettings().catch(
+          () => false,
+        );
+        setPermissions((prev) => ({ ...prev, writeSettings: granted }));
+        if (!granted) return;
+      } else if (slide.type === "welcome" && !folderPath) {
+        const defaultPath = await setDefaultCueDirectory();
+        updateFolderPath(defaultPath);
+      }
+
+      if (currentIndex < slides.length - 1) {
+        flatListRef.current?.scrollToIndex({
+          index: currentIndex + 1,
+          animated: true,
+        });
+      } else {
+        await handleFinishOnboarding();
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -334,59 +331,35 @@ const OnboardingScreen: React.FC = () => {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
         renderItem={({ item }) => {
+          if (item.type === "welcome") {
+            return (
+              <View style={{ width }} className="flex-1">
+                <WelcomeSlide
+                  selectedTags={selectedTags}
+                  onToggleTag={handleToggleTag}
+                  onFolderSelected={updateFolderPath}
+                />
+              </View>
+            );
+          }
           const IconComponent = item.icon;
-          const isPermission = isPermissionSlide(item.type);
-          const isCompact = isPermission || item.type === "folder";
           return (
             <View style={{ width }} className="flex-1 justify-center px-8">
-              <View
-                className={cn(
-                  "items-center justify-center",
-                  isCompact ? "mb-4" : "mb-10 min-h-50",
-                )}
-              >
-                {item.type !== "interests" && (
-                  <View
-                    className={cn(
-                      "rounded-full bg-primary/20 items-center justify-center",
-                      isCompact ? "size-20" : "w-32 h-32 mb-6",
-                    )}
-                  >
-                    <IconComponent size={isCompact ? 40 : 64} color={PRIMARY} />
-                  </View>
-                )}
-                {item.type === "interests" && (
-                  <TagSelectionSlide
-                    selectedTags={selectedTags}
-                    onToggleTag={handleToggleTag}
-                  />
-                )}
+              <View className="items-center justify-center mb-4">
+                <View className="rounded-full bg-primary/20 items-center justify-center size-20">
+                  <IconComponent size={40} color={PRIMARY} />
+                </View>
               </View>
-              <Text className="text-4xl font-bold text-foreground text-center mb-3 pb-2 leading-tight">
+              <Text className="text-3xl font-bold text-foreground text-center mb-2 leading-tight">
                 {item.title}
               </Text>
-              <Text
-                className={cn(
-                  "text-base text-muted-foreground text-center leading-6",
-                  isCompact && "mb-6",
-                )}
-              >
+              <Text className="text-sm text-muted-foreground text-center leading-5 mb-6">
                 {item.description}
               </Text>
-              {isPermissionSlide(item.type) && (
-                <PermissionSlide
-                  type={item.type}
-                  onStatusChange={(granted) =>
-                    setPermissions((prev) => ({
-                      ...prev,
-                      [item.type]: granted,
-                    }))
-                  }
-                />
-              )}
-              {item.type === "folder" && (
-                <FolderSelectionSlide onFolderSelected={updateFolderPath} />
-              )}
+              <PermissionSlide
+                type={item.type}
+                granted={permissions[item.type]}
+              />
             </View>
           );
         }}
@@ -410,23 +383,8 @@ const OnboardingScreen: React.FC = () => {
 
         <Button
           className="w-full h-14 rounded-md"
-          disabled={!currentSlideReady}
-          onPress={async () => {
-            const slide = slides[currentIndex];
-            // If folder slide and no folder picked yet, create the default.
-            if (slide.type === "folder" && !folderPath) {
-              const defaultPath = await setDefaultCueDirectory();
-              updateFolderPath(defaultPath);
-            }
-            if (currentIndex < slides.length - 1) {
-              flatListRef.current?.scrollToIndex({
-                index: currentIndex + 1,
-                animated: true,
-              });
-            } else {
-              handleFinishOnboarding();
-            }
-          }}
+          disabled={busy}
+          onPress={handleNext}
         >
           <Text
             className="font-bold text-lg text-center text-primary-foreground"

@@ -1,88 +1,37 @@
-import * as Notifications from "expo-notifications";
 import { Check } from "lucide-react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Platform, View } from "react-native";
-import { Button } from "@/components/ui/button";
+import { View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import { requestNotificationPermissions } from "@/services/NotificationService";
 
 export type PermissionSlideType = "notifications" | "writeSettings";
 
 const PERMISSION_CONTENT: Record<
   PermissionSlideType,
-  {
-    why: string;
-    without: string;
-    actionLabel: string;
-    grantedLabel: string;
-  }
+  { why: string; without: string; grantedLabel: string }
 > = {
   notifications: {
     why: "Notifications alert you when a bookmarked movie gets a new 4K release, even while the app is closed.",
     without: "Without them, you won't be notified about new 4K releases.",
-    actionLabel: "Allow notifications",
     grantedLabel: "Notifications enabled",
   },
   writeSettings: {
     why: "The player needs this to adjust brightness when you swipe the left edge of the screen during playback.",
     without: "Without it, brightness gestures won't work while streaming.",
-    actionLabel: "Open system settings",
     grantedLabel: "Permission granted",
   },
 };
 
 interface PermissionSlideProps {
   type: PermissionSlideType;
-  onStatusChange?: (granted: boolean) => void;
+  granted: boolean;
 }
 
+// Explains a permission and reflects whether it has been granted. Approval is
+// handled by the onboarding's Next button, not a button on this slide.
 export const PermissionSlide: React.FC<PermissionSlideProps> = ({
   type,
-  onStatusChange,
+  granted,
 }) => {
-  const [granted, setGranted] = useState(false);
-  const onStatusChangeRef = useRef(onStatusChange);
-  useEffect(() => {
-    onStatusChangeRef.current = onStatusChange;
-  }, [onStatusChange]);
-
-  const checkStatus = useCallback(async () => {
-    let isGranted = false;
-    if (type === "notifications") {
-      const { status } = await Notifications.getPermissionsAsync();
-      isGranted = status === "granted";
-    } else if (Platform.OS === "android") {
-      const SettingsPermission =
-        require("~/modules/settings-permission").default;
-      isGranted = SettingsPermission.isWriteSettingsGranted();
-    }
-    setGranted(isGranted);
-    onStatusChangeRef.current?.(isGranted);
-  }, [type]);
-
-  useEffect(() => {
-    checkStatus();
-    // Re-check when the user returns from the system settings screen, where
-    // the WRITE_SETTINGS permission must be granted manually.
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") checkStatus();
-    });
-    return () => subscription.remove();
-  }, [checkStatus]);
-
-  const handleRequest = useCallback(async () => {
-    if (type === "notifications") {
-      await requestNotificationPermissions();
-    } else if (Platform.OS === "android") {
-      const SettingsPermission =
-        require("~/modules/settings-permission").default;
-      await SettingsPermission.requestWriteSettings().catch(() => {});
-    }
-    await checkStatus();
-  }, [type, checkStatus]);
-
   const content = PERMISSION_CONTENT[type];
 
   return (
@@ -97,29 +46,19 @@ export const PermissionSlide: React.FC<PermissionSlideProps> = ({
           <Text className="text-muted-foreground">{content.without}</Text>
         </Text>
       </View>
-      <Button
-        variant={granted ? "secondary" : "outline"}
-        onPress={handleRequest}
-        disabled={granted}
-        className="w-full h-14 rounded-md"
-      >
-        {granted && (
-          <Icon
-            as={Check}
-            size={16}
-            className={cn(
-              granted ? "text-secondary-foreground" : "text-primary-foreground",
-            )}
-          />
-        )}
-        <Text
-          className="font-semibold text-lg"
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          {granted ? content.grantedLabel : content.actionLabel}
+      {granted ? (
+        <View className="self-center flex-row items-center gap-2 rounded-full bg-primary/10 border border-primary/30 px-4 py-2">
+          <Icon as={Check} size={16} className="text-primary" />
+          <Text className="text-sm font-semibold text-primary">
+            {content.grantedLabel}
+          </Text>
+        </View>
+      ) : (
+        <Text className="text-xs text-muted-foreground text-center leading-5">
+          Tap <Text className="font-semibold text-foreground">Next</Text> to
+          grant this permission.
         </Text>
-      </Button>
+      )}
     </View>
   );
 };

@@ -5,6 +5,7 @@ import Video from "react-native-video";
 import CastBackdrop from "@/features/player/components/CastBackdrop";
 import CastOverlay from "@/features/player/components/CastOverlay";
 import EpisodesSheet from "@/features/player/components/EpisodesSheet";
+import GestureHud from "@/features/player/components/GestureHud";
 import GestureLayer from "@/features/player/components/GestureLayer";
 import PlayerControls from "@/features/player/components/PlayerControls";
 import PlayerSpinnerOverlay from "@/features/player/components/PlayerSpinnerOverlay";
@@ -14,6 +15,7 @@ import SubtitleOverlay from "@/features/player/components/SubtitleOverlay";
 import SubtitleSheet from "@/features/player/components/SubtitleSheet";
 import UpNextCard from "@/features/player/components/UpNextCard";
 import { useControlsVisibility } from "@/features/player/hooks/useControlsVisibility";
+import { useGestureHud } from "@/features/player/hooks/useGestureHud";
 import { usePlaybackSession } from "@/features/player/hooks/usePlaybackSession";
 import { usePlaybackState } from "@/features/player/hooks/usePlaybackState";
 import { usePlayerCast } from "@/features/player/hooks/usePlayerCast";
@@ -43,6 +45,7 @@ const PlayerDetailScreen = () => {
   });
   const state = usePlaybackState(route.savedCurrentTime);
   const controls = useControlsVisibility();
+  const hud = useGestureHud();
   const subs = useSubtitleSession({
     isLocal: route.isLocal,
     downloadId: route.downloadId,
@@ -161,7 +164,13 @@ const PlayerDetailScreen = () => {
         />
       )}
 
-      <SeekPill anim={seeks.seekPillAnim} />
+      <SeekPill
+        anim={seeks.seekPillAnim}
+        delta={seeks.seekDelta}
+        direction={seeks.seekDirection}
+      />
+
+      <GestureHud side={hud.side} percent={hud.percent} visible={hud.visible} />
 
       {cast.isCasting && (
         <CastBackdrop imageUrl={media.movie?.large_cover_image} />
@@ -204,6 +213,9 @@ const PlayerDetailScreen = () => {
         onControlsInteract={controls.interactControls}
         onLongPressStart={seeks.handleLongPressStart}
         onLongPressEnd={seeks.handleLongPressEnd}
+        onSwipeStart={hud.show}
+        onSwipeUpdate={hud.update}
+        onSwipeEnd={hud.hide}
       />
 
       <PlayerControls

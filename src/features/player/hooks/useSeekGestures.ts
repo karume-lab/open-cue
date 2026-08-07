@@ -12,53 +12,70 @@ interface SeekGesturesOptions {
   state: PlaybackState;
 }
 
-// 10s double-tap seeks and the long-press fast-forward, plus the animated
-// "10s >>" pill that shows while the long press is active.
+// 5s step applied immediately on hold and every 200ms while holding, so the
+// badge ticks up in YouTube-style 5s jumps (the double-tap quick seek is ±10s).
+const HOLD_SEEK_STEP = 5;
+const HOLD_SEEK_INTERVAL_MS = 200;
+
+export type SeekDirection = "forward" | "backward";
+
+// 10s double-tap seeks and hold-to-seek fast-forwards/rewinds, plus the
+// YouTube-style animated pill that shows the live seek delta while holding.
 export const useSeekGestures = (options: SeekGesturesOptions) => {
   const { duration, currentTime, isCasting, castClient, state } = options;
   const { videoRef, currentTimeRef, setCurrentTime } = state;
 
   const [isLongPressSeeking, setIsLongPressSeeking] = useState(false);
+  const [seekDelta, setSeekDelta] = useState(0);
+  const [seekDirection, setSeekDirection] = useState<SeekDirection>("forward");
   const longPressIntervalRef = useRef<
     ReturnType<typeof setInterval> | undefined
   >(undefined);
   const seekPillAnim = useRef(new Animated.Value(0)).current;
 
+  const applySeek = useCallback(
+    (time: number) => {
+      if (isCasting && castClient) {
+        castSeek(castClient, time);
+      } else {
+        videoRef.current?.seek(time);
+      }
+      setCurrentTime(time);
+    },
+    [isCasting, castClient, videoRef, setCurrentTime],
+  );
+
   const seekForward = useCallback(() => {
-    const newTime = Math.min(currentTime + 10, duration);
-    if (isCasting && castClient) {
-      castSeek(castClient, newTime);
-    } else {
-      videoRef.current?.seek(newTime);
-    }
-    setCurrentTime(newTime);
-  }, [currentTime, duration, isCasting, castClient, videoRef, setCurrentTime]);
+    applySeek(Math.min(currentTime + 10, duration));
+  }, [applySeek, currentTime, duration]);
 
   const seekBackward = useCallback(() => {
-    const newTime = Math.max(currentTime - 10, 0);
-    if (isCasting && castClient) {
-      castSeek(castClient, newTime);
-    } else {
-      videoRef.current?.seek(newTime);
-    }
-    setCurrentTime(newTime);
-  }, [currentTime, isCasting, castClient, videoRef, setCurrentTime]);
+    applySeek(Math.max(currentTime - 10, 0));
+  }, [applySeek, currentTime]);
 
-  const handleLongPressStart = useCallback(() => {
-    setIsLongPressSeeking(true);
-    let seekTime = currentTimeRef.current;
-    longPressIntervalRef.current = setInterval(() => {
-      seekTime = Math.min(seekTime + 5, duration);
-      if (videoRef.current) {
-        videoRef.current.seek(seekTime);
-      }
-      setCurrentTime(seekTime);
-      currentTimeRef.current = seekTime;
-    }, 200);
-  }, [duration, currentTimeRef, videoRef, setCurrentTime]);
+  const handleLongPressStart = useCallback(
+    (direction: SeekDirection) => {
+      setIsLongPressSeeking(true);
+      setSeekDirection(direction);
+      setSeekDelta(0);
+      const step = direction === "forward" ? HOLD_SEEK_STEP : -HOLD_SEEK_STEP;
+      let seekTime = currentTimeRef.current;
+      const tick = () => {
+        seekTime = Math.min(Math.max(seekTime + step, 0), duration);
+        applySeek(seekTime);
+        currentTimeRef.current = seekTime;
+        setSeekDelta((delta) => delta + step);
+      };
+      // Apply the first step immediately for instant feedback.
+      tick();
+      longPressIntervalRef.current = setInterval(tick, HOLD_SEEK_INTERVAL_MS);
+    },
+    [applySeek, currentTimeRef, duration],
+  );
 
   const handleLongPressEnd = useCallback(() => {
     setIsLongPressSeeking(false);
+    setSeekDelta(0);
     if (longPressIntervalRef.current) {
       clearInterval(longPressIntervalRef.current);
       longPressIntervalRef.current = undefined;
@@ -76,6 +93,8 @@ export const useSeekGestures = (options: SeekGesturesOptions) => {
 
   return {
     seekPillAnim,
+    seekDelta,
+    seekDirection,
     seekForward,
     seekBackward,
     handleLongPressStart,
