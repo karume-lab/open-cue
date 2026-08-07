@@ -56,7 +56,7 @@ export const SeasonEpisodesSection = ({
   searchQuery,
   sortBy,
 }: SeasonEpisodesSectionProps) => {
-  const { watchHistory } = useAppStore();
+  const watchHistory = useAppStore((store) => store.watchHistory);
   const mediaId = movie ? `${movie.mediaType}:${movie.tmdbId}` : null;
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -111,6 +111,15 @@ export const SeasonEpisodesSection = ({
     [processedEpisodes, visibleCount],
   );
 
+  // FlashList skips re-rendering cells unless `data` or `extraData` changes.
+  // Progress (watchHistory) and the per-row spinner (loadingEpisode) are state
+  // outside the data array, so surface them here or rows go stale (buttons keep
+  // showing the old spinner / progress appears late after leaving the player).
+  const extraData = useMemo(
+    () => ({ watchHistory, loadingEpisode }),
+    [watchHistory, loadingEpisode],
+  );
+
   const hasMore = visibleCount < processedEpisodes.length;
 
   if (isLoading) {
@@ -141,6 +150,7 @@ export const SeasonEpisodesSection = ({
     <FlashList
       data={visibleEpisodes}
       keyExtractor={(item) => String(item.id)}
+      extraData={extraData}
       onEndReached={() => {
         if (hasMore) setVisibleCount((c) => c + PAGE_SIZE);
       }}
