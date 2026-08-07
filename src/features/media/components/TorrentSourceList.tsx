@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { TorrentEmptyState } from "@/features/media/components/TorrentEmptyState";
@@ -78,39 +78,19 @@ export const TorrentSourceList = ({
           onAction={onShowAll}
         />
       ) : query.trim().length > 0 ? (
-        <View className="px-4 pt-4">
-          <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
-            Results {results.length > 0 && `(${results.length})`}
-          </Text>
-          {results.length === 0 ? (
-            <View className="items-center justify-center py-10 px-6">
-              <Text className="text-muted-foreground text-sm text-center">
-                No sources match “{query.trim()}”.
-              </Text>
-            </View>
-          ) : (
-            results.map((torrent) => (
-              <TorrentRow
-                key={torrentId(torrent)}
-                torrent={torrent}
-                mode={mode}
-                onSelect={onSelect}
-                selectionMode={selectionMode}
-                selected={selection.has(torrentId(torrent))}
-                onToggle={onToggle}
-                onOpenSeason={onOpenSeason}
-              />
-            ))
-          )}
-        </View>
-      ) : (
-        <View className="px-4 pt-4 pb-8">
-          {filteredGroups.map((group) => (
-            <View key={group.title} className="mb-4">
-              <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
-                {group.title}
-              </Text>
-              {group.seasonPacks.map((torrent) => (
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="px-4 pt-4">
+            <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
+              Results {results.length > 0 && `(${results.length})`}
+            </Text>
+            {results.length === 0 ? (
+              <View className="items-center justify-center py-10 px-6">
+                <Text className="text-muted-foreground text-sm text-center">
+                  No sources match "{query.trim()}".
+                </Text>
+              </View>
+            ) : (
+              results.map((torrent) => (
                 <TorrentRow
                   key={torrentId(torrent)}
                   torrent={torrent}
@@ -121,22 +101,46 @@ export const TorrentSourceList = ({
                   onToggle={onToggle}
                   onOpenSeason={onOpenSeason}
                 />
-              ))}
-              {group.episodes.map((torrent) => (
-                <TorrentRow
-                  key={torrentId(torrent)}
-                  torrent={torrent}
-                  mode={mode}
-                  onSelect={onSelect}
-                  selectionMode={selectionMode}
-                  selected={selection.has(torrentId(torrent))}
-                  onToggle={onToggle}
-                  indent
-                />
-              ))}
-            </View>
-          ))}
-        </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="px-4 pt-4 pb-8">
+            {filteredGroups.map((group) => (
+              <View key={group.title} className="mb-4">
+                <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-1">
+                  {group.title}
+                </Text>
+                {group.seasonPacks.map((torrent) => (
+                  <TorrentRow
+                    key={torrentId(torrent)}
+                    torrent={torrent}
+                    mode={mode}
+                    onSelect={onSelect}
+                    selectionMode={selectionMode}
+                    selected={selection.has(torrentId(torrent))}
+                    onToggle={onToggle}
+                    onOpenSeason={onOpenSeason}
+                  />
+                ))}
+                {group.episodes.map((torrent) => (
+                  <TorrentRow
+                    key={torrentId(torrent)}
+                    torrent={torrent}
+                    mode={mode}
+                    onSelect={onSelect}
+                    selectionMode={selectionMode}
+                    selected={selection.has(torrentId(torrent))}
+                    onToggle={onToggle}
+                    indent
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       )}
     </View>
   );

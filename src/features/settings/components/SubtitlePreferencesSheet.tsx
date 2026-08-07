@@ -2,7 +2,7 @@ import {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
   BottomSheetModal,
-  BottomSheetView,
+  BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import { Minus, Plus } from "lucide-react-native";
 import { forwardRef, useCallback, useMemo } from "react";
@@ -53,7 +53,13 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
       handleIndicatorStyle={{ backgroundColor: BORDER /* --color-border */ }}
       enablePanDownToClose
     >
-      <BottomSheetView className="flex-1 px-6 pt-4 pb-8">
+      <BottomSheetScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 16,
+          paddingBottom: 32,
+        }}
+      >
         <Text className="text-xl font-bold text-foreground mb-6">
           Subtitle Preferences
         </Text>
@@ -183,7 +189,7 @@ const SubtitlePreferencesSheet = forwardRef<BottomSheetModal>((_, ref) => {
             This is how subtitles will look.
           </Text>
         </View>
-      </BottomSheetView>
+      </BottomSheetScrollView>
     </BottomSheetModal>
   );
 });

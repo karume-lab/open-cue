@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Keyboard,
+  ScrollView,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -88,7 +89,11 @@ const SearchScreen = () => {
       </View>
 
       {!debounced ? (
-        <View className="flex-1 px-4 pt-6">
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
           {recentSearches.length > 0 && (
             <>
               <View className="flex-row items-center justify-between mb-3">
@@ -133,7 +138,7 @@ const SearchScreen = () => {
               ? "Search for a movie, show, or anime to start exploring."
               : "Type to search across movies and shows."}
           </Text>
-        </View>
+        </ScrollView>
       ) : isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={PRIMARY} />
