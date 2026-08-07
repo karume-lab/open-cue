@@ -76,8 +76,22 @@ export const usePlaybackSession = (options: PlaybackSessionOptions) => {
       castClient.stop().catch(() => {});
     }
     stopLanServing().catch(() => {});
+    // Streamed data is transient: tear the torrent down and delete its files
+    // the moment the player closes instead of waiting for the screen unmount
+    // or the background cleanup, so nothing is left on disk.
+    if (mode === "stream" && hash) {
+      StreamService.stopStreaming(hash).catch(() => {});
+    }
     router.back();
-  }, [saveProgress, isCasting, castClient, currentTimeRef, wasCastingRef]);
+  }, [
+    saveProgress,
+    isCasting,
+    castClient,
+    currentTimeRef,
+    wasCastingRef,
+    mode,
+    hash,
+  ]);
 
   const handleStopCast = useCallback(async () => {
     wasCastingRef.current = false;

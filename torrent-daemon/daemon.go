@@ -124,16 +124,32 @@ func startStreamServer() error {
 
 func stopStreamServer() {
 	streamsMu.Lock()
-	defer streamsMu.Unlock()
 	if streamSrv != nil {
 		streamSrv.Close()
 		streamSrv = nil
 	}
 	streamSet = false
 	streamAddr = ""
+	type drop struct {
+		hash string
+		name string
+	}
+	var dropped []drop
 	for hash, entry := range streams {
+		name := ""
+		if info := entry.t.Info(); info != nil {
+			name = info.Name
+		}
 		entry.t.Drop()
 		delete(streams, hash)
+		dropped = append(dropped, drop{hash, name})
+	}
+	streamsMu.Unlock()
+
+	// Streaming data is transient; remove it even on daemon shutdown so
+	// nothing is left behind.
+	for _, d := range dropped {
+		removeStreamData(d.name)
 	}
 }
 
@@ -1279,47 +1295,68 @@ func startStream(t *torrent.Torrent, file *torrent.File) (string, error) {
 }
 
 // StopStreaming stops serving a stream and drops the underlying torrent, so no
-// further pieces are downloaded in the background.
+// further pieces are downloaded in the background, then deletes the torrent's
+// on-disk data. Streaming is transient — nothing it downloaded should survive
+// the stream.
 func StopStreaming(infoHashHex string) error {
 	streamsMu.Lock()
-	defer streamsMu.Unlock()
-	return stopStreamingEntryLocked(infoHashHex)
-}
-
-// stopStreamingEntry closes an active stream and drops its torrent, then
-// removes the torrent's on-disk data so streaming doesn't leave orphaned files
-// in the storage directory. In-flight HTTP requests hold their own readers;
-// they fail on the next read once the torrent is dropped. Callers must hold
-// streamsMu. A missing stream is not an error here, so cleanup during torrent
-// deletion is best-effort.
-func stopStreamingEntryLocked(infoHashHex string) error {
 	entry := streams[infoHashHex]
 	if entry == nil {
+		streamsMu.Unlock()
 		return nil
 	}
-
 	name := ""
 	if info := entry.t.Info(); info != nil {
 		name = info.Name
 	}
-
 	entry.t.Drop()
 	delete(streams, infoHashHex)
+	streamsMu.Unlock()
 
-	// Remove on-disk data to match DeleteTorrent's cleanup.
-	if name != "" && name != "." && name != ".." {
-		dir := filepath.Join(dataDir, filepath.Base(name))
-		os.RemoveAll(dir)
-	}
+	removeStreamData(name)
 	return nil
 }
 
 // stopStreamingEntry closes an active stream without requiring the caller to
-// hold the streams lock.
+// hold the streams lock. In-flight HTTP requests hold their own readers; they
+// fail on the next read once the torrent is dropped. A missing stream is not
+// an error, so cleanup during torrent deletion is best-effort.
 func stopStreamingEntry(infoHashHex string) {
 	streamsMu.Lock()
-	defer streamsMu.Unlock()
-	stopStreamingEntryLocked(infoHashHex)
+	entry := streams[infoHashHex]
+	if entry == nil {
+		streamsMu.Unlock()
+		return
+	}
+	name := ""
+	if info := entry.t.Info(); info != nil {
+		name = info.Name
+	}
+	entry.t.Drop()
+	delete(streams, infoHashHex)
+	streamsMu.Unlock()
+
+	removeStreamData(name)
+}
+
+// removeStreamData deletes a streamed torrent's directory from the data dir.
+// The video player may still hold the file open for a brief moment after the
+// torrent is dropped (its in-flight HTTP reads), so a few quick retries are
+// attempted before giving up, and failures are logged instead of swallowed.
+func removeStreamData(name string) {
+	if name == "" || name == "." || name == ".." {
+		return
+	}
+	dir := filepath.Join(dataDir, filepath.Base(name))
+	for attempt := 0; attempt < 3; attempt++ {
+		if err := os.RemoveAll(dir); err == nil {
+			return
+		} else if attempt < 2 {
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			log.Printf("failed to remove stream data %s: %v", dir, err)
+		}
+	}
 }
 
 /*
