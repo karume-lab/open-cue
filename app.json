@@ -10,16 +10,14 @@
     "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.karume-lab.cue",
-      "userInterfaceStyle": "dark"
+      "bundleIdentifier": "com.karume-lab.cue"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "public/core/adaptive-icon.png"
       },
-      "package": "com.karume_lab.cue",
-      "userInterfaceStyle": "dark"
+      "package": "com.karume_lab.cue"
     },
     "plugins": [
       "./plugins/with-localhost-cleartext.ts",
