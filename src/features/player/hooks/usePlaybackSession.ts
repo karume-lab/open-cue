@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { AppState, BackHandler, Platform, StatusBar } from "react-native";
 import type {
   OnPictureInPictureStatusChangedData,
@@ -44,7 +44,7 @@ export const usePlaybackSession = (options: PlaybackSessionOptions) => {
   } = options;
 
   const { isCasting, castClient, castStreamPosition, wasCastingRef } = cast;
-  const { videoRef, currentTimeRef, isPlaying, ended, setIsPlaying } = state;
+  const { videoRef, currentTimeRef, setIsPlaying } = state;
   const { mode, hash } = route;
 
   usePlaybackSource({ route, state });
@@ -68,9 +68,6 @@ export const usePlaybackSession = (options: PlaybackSessionOptions) => {
     setUpNextDismissed,
     setEmbeddedTracks,
   });
-
-  const [isInPip, setIsInPip] = useState(false);
-  const hasEnteredPipRef = useRef(false);
 
   const handleBack = useCallback(() => {
     wasCastingRef.current = false;
@@ -107,15 +104,12 @@ export const usePlaybackSession = (options: PlaybackSessionOptions) => {
 
   const enterPictureInPicture = useCallback(() => {
     if (Platform.OS !== "android") return;
-    hasEnteredPipRef.current = true;
     videoRef.current?.enterPictureInPicture();
   }, [videoRef]);
 
   const handlePiPStatusChanged = useCallback(
     (data: OnPictureInPictureStatusChangedData) => {
-      setIsInPip(data.isActive);
       if (data.isActive) {
-        hasEnteredPipRef.current = true;
         setShowControls(false);
         return;
       }
@@ -153,16 +147,6 @@ export const usePlaybackSession = (options: PlaybackSessionOptions) => {
 
   const handleHardwareBackRef = useRef<() => boolean>(() => false);
   handleHardwareBackRef.current = () => {
-    if (Platform.OS === "android" && isPlaying && !isInPip && !ended) {
-      // First back enters PIP while the video keeps playing; the next back
-      // (after the PIP window is dismissed) exits the screen normally.
-      if (hasEnteredPipRef.current) {
-        handleBackRef.current();
-      } else {
-        enterPictureInPicture();
-      }
-      return true;
-    }
     handleBackRef.current();
     return true;
   };
