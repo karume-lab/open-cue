@@ -165,10 +165,17 @@ const GestureLayer: React.FC<GestureLayerProps> = ({
     })
     .runOnJS(true);
 
-  // Simultaneous (not exclusive) so the single tap fires immediately instead of
-  // waiting ~300ms for the double tap to fail. The timestamp guard above keeps a
-  // double-tap's second tap from also toggling the controls.
-  const composed = Gesture.Simultaneous(pan, longPress, doubleTap, singleTap);
+  // pan and longPress race each other: whichever activates first wins, so a
+  // swipe (movement) never also triggers hold-to-seek, and a hold (time) never
+  // also triggers a swipe. They stay simultaneous with the taps so the single
+  // tap still fires immediately instead of waiting ~300ms for the double tap to
+  // fail; the timestamp guard above keeps a double-tap's second tap from also
+  // toggling the controls.
+  const composed = Gesture.Simultaneous(
+    Gesture.Race(pan, longPress),
+    doubleTap,
+    singleTap,
+  );
 
   return (
     <GestureDetector gesture={composed}>
