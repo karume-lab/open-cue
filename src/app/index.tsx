@@ -1,7 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import type { LucideIcon } from "lucide-react-native";
-import { Bell, Settings } from "lucide-react-native";
+import { Bell, FolderOpen, Settings } from "lucide-react-native";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -25,6 +25,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { FolderSelectionSlide } from "@/features/onboarding/components/FolderSelectionSlide";
 import {
   PermissionSlide,
   type PermissionSlideType,
@@ -38,7 +39,7 @@ import {
 } from "@/services/StorageLocation";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
-type SlideType = "welcome" | PermissionSlideType;
+type SlideType = "welcome" | "folder" | PermissionSlideType;
 
 interface OnboardingSlide {
   id: string;
@@ -48,9 +49,6 @@ interface OnboardingSlide {
   icon: LucideIcon;
 }
 
-// All non-permission onboarding content lives on a single cohesive welcome
-// slide (intro, interests, folder picker). The remaining slides are the
-// permission steps, which must be granted before advancing.
 const BASE_SLIDES: OnboardingSlide[] = [
   {
     id: "welcome",
@@ -58,6 +56,14 @@ const BASE_SLIDES: OnboardingSlide[] = [
     description: "",
     type: "welcome",
     icon: Bell,
+  },
+  {
+    id: "folder",
+    title: "Pick your storage folder.",
+    description:
+      "Choose where Cue stores your downloaded movies and backups. You can change this later in Settings.",
+    type: "folder",
+    icon: FolderOpen,
   },
   {
     id: "notifications",
@@ -222,7 +228,7 @@ const OnboardingScreen: React.FC = () => {
       case "writeSettings":
         return permissions.writeSettings;
       default:
-        // welcome slide: always ready
+        // welcome and folder slides: always ready
         return true;
     }
   };
@@ -294,7 +300,7 @@ const OnboardingScreen: React.FC = () => {
         );
         setPermissions((prev) => ({ ...prev, writeSettings: granted }));
         if (!granted) return;
-      } else if (slide.type === "welcome" && !folderPath) {
+      } else if (slide.type === "folder" && !folderPath) {
         const defaultPath = await setDefaultCueDirectory();
         updateFolderPath(defaultPath);
       }
@@ -337,8 +343,26 @@ const OnboardingScreen: React.FC = () => {
                 <WelcomeSlide
                   selectedTags={selectedTags}
                   onToggleTag={handleToggleTag}
-                  onFolderSelected={updateFolderPath}
+                  topInset={insets.top}
                 />
+              </View>
+            );
+          }
+          if (item.type === "folder") {
+            return (
+              <View style={{ width }} className="flex-1 justify-center px-8">
+                <View className="items-center justify-center mb-4">
+                  <View className="rounded-full bg-primary/20 items-center justify-center size-20">
+                    <FolderOpen size={40} color={PRIMARY} />
+                  </View>
+                </View>
+                <Text className="text-3xl font-bold text-foreground text-center mb-2 leading-tight">
+                  {item.title}
+                </Text>
+                <Text className="text-sm text-muted-foreground text-center leading-5 mb-6">
+                  {item.description}
+                </Text>
+                <FolderSelectionSlide onFolderSelected={updateFolderPath} />
               </View>
             );
           }

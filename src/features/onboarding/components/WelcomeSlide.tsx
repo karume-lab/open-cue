@@ -2,7 +2,6 @@ import { Clapperboard, Download, Film } from "lucide-react-native";
 import { ScrollView, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { FolderSelectionSlide } from "@/features/onboarding/components/FolderSelectionSlide";
 import { TagSelectionSlide } from "@/features/onboarding/components/TagSelectionSlide";
 import { PRIMARY } from "@/lib/colors";
 
@@ -15,21 +14,25 @@ const FEATURES = [
 interface WelcomeSlideProps {
   selectedTags: string[];
   onToggleTag: (tagId: string) => void;
-  onFolderSelected: (path: string | null) => void;
+  topInset: number;
 }
 
 // The single non-permission onboarding step: a cohesive welcome screen that
-// introduces the app, collects interests, and picks the storage folder before
-// the permission steps follow.
+// introduces the app and collects interests before the folder and permission
+// steps follow.
 export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({
   selectedTags,
   onToggleTag,
-  onFolderSelected,
+  topInset,
 }) => {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 32, paddingVertical: 24 }}
+      contentContainerStyle={{
+        paddingHorizontal: 32,
+        paddingTop: topInset + 24,
+        paddingBottom: 24,
+      }}
       showsVerticalScrollIndicator={false}
     >
       <View className="items-center mb-5">
@@ -64,8 +67,6 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({
           onToggleTag={onToggleTag}
         />
       </View>
-
-      <FolderSelectionSlide onFolderSelected={onFolderSelected} />
     </ScrollView>
   );
 };

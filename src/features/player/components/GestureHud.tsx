@@ -12,12 +12,18 @@ interface GestureHudProps {
   visible: boolean;
 }
 
-// VLC-style pill shown while swiping: brightness on the left edge, volume on
-// the right edge, with the live 0-200% value. Pops in with a spring and fades
-// out when the swipe ends.
+const BAR_HEIGHT = 200;
+const BAR_WIDTH = 36;
+const TRACK_WIDTH = 4;
+
+// VLC-style vertical bar shown while swiping: brightness on the left edge,
+// volume on the right edge. A thin fill bar rises from the bottom to represent
+// the 0–100% value, with an icon at the base and the percentage overlaid.
 const GestureHud = ({ side, percent, visible }: GestureHudProps) => {
   const anim = useRef(new Animated.Value(0)).current;
   const isBrightness = side === "brightness";
+  const clampedPercent = Math.min(Math.max(percent, 0), 100);
+  const fillHeight = (clampedPercent / 100) * (BAR_HEIGHT - 8);
 
   useEffect(() => {
     if (visible) {
@@ -42,29 +48,45 @@ const GestureHud = ({ side, percent, visible }: GestureHudProps) => {
       pointerEvents="none"
       style={{
         position: "absolute",
-        top: "45%",
-        ...(isBrightness ? { left: 24 } : { right: 24 }),
+        top: "50%",
+        transform: [{ translateY: -BAR_HEIGHT / 2 }],
+        ...(isBrightness ? { left: 16 } : { right: 16 }),
         opacity: anim,
-        transform: [
-          {
-            scale: anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.85, 1],
-            }),
-          },
-        ],
         zIndex: 20,
       }}
     >
-      <View className="items-center gap-1 rounded-2xl bg-black/70 border border-white/20 px-4 py-3">
-        <Icon
-          as={isBrightness ? Sun : Volume2}
-          size={24}
-          className="text-white"
+      <View
+        style={{ width: BAR_WIDTH, height: BAR_HEIGHT }}
+        className="items-center justify-end rounded-full bg-black/60 border border-white/10 overflow-hidden"
+      >
+        {/* Fill bar */}
+        <View
+          style={{
+            width: TRACK_WIDTH,
+            height: fillHeight,
+            position: "absolute",
+            bottom: 4,
+            borderRadius: 2,
+            backgroundColor: "rgba(255,255,255,0.85)",
+          }}
         />
-        <Text className="text-white font-bold text-base">
-          {Math.round(percent)}%
+
+        {/* Percentage text */}
+        <Text
+          style={{ fontSize: 11 }}
+          className="text-white font-semibold text-center mb-1 z-10"
+        >
+          {Math.round(clampedPercent)}
         </Text>
+
+        {/* Icon at the bottom */}
+        <View className="mb-2 z-10">
+          <Icon
+            as={isBrightness ? Sun : Volume2}
+            size={16}
+            className="text-white"
+          />
+        </View>
       </View>
     </Animated.View>
   );

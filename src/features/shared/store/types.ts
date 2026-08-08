@@ -26,7 +26,7 @@ export interface SubtitlePreferences {
 }
 
 export const DEFAULT_SUBTITLE_PREFS: SubtitlePreferences = {
-  fontSize: 14,
+  fontSize: 12,
   color: "#FFFFFF",
   backgroundOpacity: 0.6,
   enabled: true,

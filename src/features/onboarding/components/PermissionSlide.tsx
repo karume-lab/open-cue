@@ -55,8 +55,7 @@ export const PermissionSlide: React.FC<PermissionSlideProps> = ({
         </View>
       ) : (
         <Text className="text-xs text-muted-foreground text-center leading-5">
-          Tap <Text className="font-semibold text-foreground">Next</Text> to
-          grant this permission.
+          Tap the button below to grant this permission.
         </Text>
       )}
     </View>

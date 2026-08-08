@@ -179,3 +179,109 @@ index e16ac96d8a89055ee6e950777ce73388d22061ee..0be346ad91787b1dde82f24200c6f300
          int width = format.width == Format.NO_VALUE ? 0 : format.width;
          int height = format.height == Format.NO_VALUE ? 0 : format.height;
          float frameRate = format.frameRate == Format.NO_VALUE ? 0 : format.frameRate;
+diff --git a/android/src/main/java/com/brentvatne/common/api/SubtitleStyle.kt b/android/src/main/java/com/brentvatne/common/api/SubtitleStyle.kt
+--- a/android/src/main/java/com/brentvatne/common/api/SubtitleStyle.kt
++++ b/android/src/main/java/com/brentvatne/common/api/SubtitleStyle.kt
+@@ -21,6 +21,14 @@
+         private set
+     var subtitlesFollowVideo = true
+         private set
++    var hasColor = false
++        private set
++    var color = android.graphics.Color.TRANSPARENT
++        private set
++    var hasBackgroundColor = false
++        private set
++    var backgroundColor = android.graphics.Color.TRANSPARENT
++        private set
+ 
+     companion object {
+         private const val PROP_FONT_SIZE_TRACK = "fontSize"
+@@ -30,6 +38,8 @@
+         private const val PROP_PADDING_RIGHT = "paddingRight"
+         private const val PROP_OPACITY = "opacity"
+         private const val PROP_SUBTITLES_FOLLOW_VIDEO = "subtitlesFollowVideo"
++        private const val PROP_COLOR = "color"
++        private const val PROP_BACKGROUND_COLOR = "backgroundColor"
+ 
+         @JvmStatic
+         fun parse(src: ReadableMap?): SubtitleStyle {
+@@ -41,6 +51,14 @@
+             subtitleStyle.paddingRight = ReactBridgeUtils.safeGetInt(src, PROP_PADDING_RIGHT, 0)
+             subtitleStyle.opacity = ReactBridgeUtils.safeGetFloat(src, PROP_OPACITY, 1f)
+             subtitleStyle.subtitlesFollowVideo = ReactBridgeUtils.safeGetBool(src, PROP_SUBTITLES_FOLLOW_VIDEO, true)
++            src?.getString(PROP_COLOR)?.let {
++                subtitleStyle.color = android.graphics.Color.parseColor(it)
++                subtitleStyle.hasColor = true
++            }
++            src?.getString(PROP_BACKGROUND_COLOR)?.let {
++                subtitleStyle.backgroundColor = android.graphics.Color.parseColor(it)
++                subtitleStyle.hasBackgroundColor = true
++            }
+             return subtitleStyle
+         }
+     }
+diff --git a/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt b/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt
+--- a/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt
++++ b/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt
+@@ -13,6 +13,7 @@
+ import androidx.media3.common.util.UnstableApi
+ import androidx.media3.exoplayer.ExoPlayer
+ import androidx.media3.ui.AspectRatioFrameLayout
++import androidx.media3.ui.CaptionStyleCompat
+ import androidx.media3.ui.DefaultTimeBar
+ import androidx.media3.ui.PlayerView
+ import com.brentvatne.common.api.ResizeMode
+@@ -118,6 +119,22 @@
+                 subtitleView.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, style.fontSize.toFloat())
+             }
+ 
++            if (style.hasColor || style.hasBackgroundColor) {
++                // A custom caption style must win over the track's embedded
++                // styling, otherwise the cue's own colors override the app's.
++                subtitleView.setApplyEmbeddedStyles(false)
++                subtitleView.setStyle(
++                    CaptionStyleCompat(
++                        if (style.hasColor) style.color else CaptionStyleCompat.USE_TRACK_COLOR_SETTINGS,
++                        if (style.hasBackgroundColor) style.backgroundColor else 0,
++                        0,
++                        CaptionStyleCompat.EDGE_TYPE_NONE,
++                        android.graphics.Color.TRANSPARENT,
++                        null
++                    )
++                )
++            }
++
+             subtitleView.setPadding(
+                 style.paddingLeft,
+                 style.paddingTop,
+diff --git a/lib/specs/VideoNativeComponent.d.ts b/lib/specs/VideoNativeComponent.d.ts
+--- a/lib/specs/VideoNativeComponent.d.ts
++++ b/lib/specs/VideoNativeComponent.d.ts
+@@ -118,6 +118,8 @@
+     paddingRight?: WithDefault<Float, 0>;
+     opacity?: WithDefault<Float, 1>;
+     subtitlesFollowVideo?: WithDefault<boolean, true>;
++    color?: String;
++    backgroundColor?: String;
+ }>;
+ type OnLoadData = Readonly<{
+     currentTime: Float;
+diff --git a/lib/types/video.d.ts b/lib/types/video.d.ts
+--- a/lib/types/video.d.ts
++++ b/lib/types/video.d.ts
+@@ -166,6 +166,14 @@
+     paddingRight?: number;
+     opacity?: number;
+     subtitlesFollowVideo?: boolean;
++    /**
++     * Android only. Text color of the native subtitle view, e.g. "#FFFFFF".
++     */
++    color?: string;
++    /**
++     * Android only. Background color (ARGB hex) behind the native subtitle text.
++     */
++    backgroundColor?: string;
+ };
+ export declare enum TextTrackType {
+     SUBRIP = "application/x-subrip",

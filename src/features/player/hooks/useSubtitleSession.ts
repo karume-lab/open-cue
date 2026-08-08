@@ -82,6 +82,20 @@ export const useSubtitleSession = (options: SubtitleSessionOptions) => {
     };
   }, [externalSubtitleUri]);
 
+  // Auto-select English embedded track when tracks load and nothing is
+  // selected yet (or user is still on "off").
+  useEffect(() => {
+    if (embeddedTracks.length === 0) return;
+    if (selectedSubtitleTrack !== "off" && selectedSubtitleTrack !== "") return;
+    const englishIndex = embeddedTracks.findIndex((t) => {
+      const lang = (t.language ?? "").toLowerCase();
+      return lang === "en" || lang === "eng" || lang.startsWith("en");
+    });
+    if (englishIndex >= 0) {
+      setSelectedSubtitleTrack(`embedded:${englishIndex}`);
+    }
+  }, [embeddedTracks, selectedSubtitleTrack]);
+
   const handleSelectSubtitleTrack = (id: string) => {
     setSelectedSubtitleTrack(id);
     if (ended) return;

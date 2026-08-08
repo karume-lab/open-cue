@@ -171,16 +171,16 @@ export const useAppStore = create<AppState>()(
     {
       name: APP_STORAGE_NAME,
       storage: createJSONStorage(() => zustandStorage),
-      version: 4,
+      version: 5,
       migrate: (persistedState, version) => {
         const state = (persistedState ?? {}) as Partial<AppState>;
         const prefs = {
           ...DEFAULT_SUBTITLE_PREFS,
           ...(state.settings?.subtitlePrefs ?? {}),
         };
-        // v4 shrinks the default subtitle font, so upgrade users to the new
-        // default regardless of what was persisted before.
-        if (version < 4) {
+        // v5 shrinks the default subtitle font to 12px, so upgrade users
+        // to the new default regardless of what was persisted before.
+        if (version < 5) {
           prefs.fontSize = DEFAULT_SUBTITLE_PREFS.fontSize;
         }
         const settings = {

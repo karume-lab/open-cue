@@ -129,6 +129,17 @@ const PlayerDetailScreen = () => {
     ? `${media.movie?.title ?? ""} · ${route.episodeSubtitle}`
     : (media.movie?.title ?? "");
 
+  // Styling for the native-rendered embedded subtitle tracks. color and
+  // backgroundColor are applied via a local patch to react-native-video's
+  // Android subtitleStyle prop (see patches/react-native-video@6.19.2.patch).
+  const subtitleStyle = {
+    fontSize: subs.subtitlePrefs.fontSize,
+    color: subs.subtitlePrefs.color,
+    backgroundColor: `#${Math.round(subs.subtitlePrefs.backgroundOpacity * 255)
+      .toString(16)
+      .padStart(2, "0")}000000`,
+  };
+
   // Local playback resolves its movie from persisted state, so never block on
   // the network query; only the stream flow waits for TMDB metadata.
   if (route.isLocal && !media.movie) {
@@ -151,6 +162,7 @@ const PlayerDetailScreen = () => {
           paused={!state.isPlaying || state.isPreparing}
           rate={state.rate}
           selectedTextTrack={subs.videoTextTrack}
+          subtitleStyle={subtitleStyle}
           playInBackground
           enterPictureInPictureOnLeave
           onPictureInPictureStatusChanged={session.handlePiPStatusChanged}
