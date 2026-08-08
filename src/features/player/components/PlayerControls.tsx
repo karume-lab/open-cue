@@ -104,14 +104,10 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
           {!ended && (
             <TouchableOpacity
               onPress={onCycleRate}
-              className="h-10 px-3 rounded-full bg-black/40 items-center justify-center border border-white/10"
+              className="h-10 px-3 rounded-full bg-black/40 flex-row items-center justify-center gap-1.5 border border-white/10"
             >
-              <View className="flex-row items-center gap-1.5">
-                <Icon as={Gauge} size={16} className="text-white" />
-                <Text className="text-white font-semibold text-xs">
-                  {rate}x
-                </Text>
-              </View>
+              <Icon as={Gauge} size={16} className="text-white" />
+              <Text className="text-white font-semibold text-xs">{rate}x</Text>
             </TouchableOpacity>
           )}
           {onOpenEpisodes && !ended && (
