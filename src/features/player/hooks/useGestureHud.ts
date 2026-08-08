@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { GestureHudSide } from "@/features/player/components/GestureHud";
 
 // Small delay before the brightness/volume HUD fades after the swipe ends.
-const HIDE_DELAY_MS = 400;
+const HIDE_DELAY_MS = 2500;
 
 // Drives the GestureHud from GestureLayer's pan callbacks. The value updates on
 // every pan frame while the pill lingers briefly after the finger lifts.
@@ -37,5 +37,10 @@ export const useGestureHud = () => {
     hideTimer.current = setTimeout(() => setVisible(false), HIDE_DELAY_MS);
   }, []);
 
-  return { side, percent, visible, show, update, hide };
+  const awake = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setVisible(true);
+  }, []);
+
+  return { side, percent, visible, show, update, hide, awake };
 };

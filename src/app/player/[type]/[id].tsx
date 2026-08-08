@@ -182,7 +182,13 @@ const PlayerDetailScreen = () => {
         direction={seeks.seekDirection}
       />
 
-      <GestureHud side={hud.side} percent={hud.percent} visible={hud.visible} />
+      <GestureHud
+        side={hud.side}
+        percent={hud.percent}
+        visible={hud.visible}
+        onPercentChange={hud.update}
+        onInteract={hud.awake}
+      />
 
       {cast.isCasting && (
         <CastBackdrop imageUrl={media.movie?.large_cover_image} />

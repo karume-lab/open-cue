@@ -139,7 +139,7 @@ export const MediaPrimaryAction = ({
           />
         )}
         <Text className="text-primary-foreground font-bold text-base">
-          {isPlayLoading ? "Loading..." : "Watch Now"}
+          Watch Now
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -152,9 +152,7 @@ export const MediaPrimaryAction = ({
         ) : (
           <Icon as={Download} size={20} className="text-foreground" />
         )}
-        <Text className="text-foreground font-bold text-base">
-          {isDownloadLoading ? "Loading..." : "Download"}
-        </Text>
+        <Text className="text-foreground font-bold text-base">Download</Text>
       </TouchableOpacity>
     </View>
   );
