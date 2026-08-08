@@ -183,7 +183,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
               top: 18,
               height: 4,
               width: "100%",
-              backgroundColor: "rgba(201,119,66,0.25)",
+              backgroundColor: "rgba(178,62,158,0.25)",
             }}
           />
           {/* Buffered progress (lighter) */}

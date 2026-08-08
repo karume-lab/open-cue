@@ -2,6 +2,7 @@ import { SearchIcon } from "lucide-react-native";
 import { View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { MUTED_FOREGROUND } from "@/lib/colors";
 
 interface SearchProps {
   value?: string;
@@ -17,7 +18,7 @@ const Search = ({ value, onChangeText }: SearchProps) => {
           className="flex-1 text-sm text-foreground border-0 shadow-none h-auto py-0 px-0"
           style={{ backgroundColor: "transparent" }}
           placeholder="Search movies, shows, anime..."
-          placeholderTextColor="#6b7280"
+          placeholderTextColor={MUTED_FOREGROUND}
           value={value}
           onChangeText={onChangeText}
           autoCapitalize="none"

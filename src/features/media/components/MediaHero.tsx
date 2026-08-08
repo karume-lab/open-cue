@@ -69,7 +69,7 @@ export const MediaHero = ({ movie }: MediaHeroProps) => {
               key={genre}
               className="bg-muted border border-border rounded-md px-3 py-1"
             >
-              <Text className="text-muted-foreground text-xs font-medium">
+              <Text className="text-foreground text-xs font-medium">
                 {genre}
               </Text>
             </View>

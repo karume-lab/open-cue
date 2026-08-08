@@ -50,7 +50,7 @@ const AnimatedSwitch = React.forwardRef<
     backgroundColor: interpolateColor(
       isChecked.value,
       [0, 1],
-      ['#333a41', '#c97742'],
+      ['#3f1f4a', '#b23e9e'],
     ),
   }));
 

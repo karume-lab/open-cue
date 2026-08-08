@@ -4,6 +4,7 @@ import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import type { DownloadState } from "@/features/shared/store/types";
+import { FOREGROUND } from "@/lib/colors";
 import { CONTINUE_WATCHING_MIN_PERCENT } from "@/lib/constants";
 import { DownloadService } from "@/services/downloads/DownloadManager";
 import type { Movie } from "@/types/movie";
@@ -130,7 +131,7 @@ export const MediaPrimaryAction = ({
         className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
       >
         {isPlayLoading ? (
-          <ActivityIndicator size="small" color="#FFF" />
+          <ActivityIndicator size="small" color={FOREGROUND} />
         ) : (
           <Icon
             as={Play}
@@ -148,7 +149,7 @@ export const MediaPrimaryAction = ({
         className="flex-1 flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4"
       >
         {isDownloadLoading ? (
-          <ActivityIndicator size="small" color="#FFF" />
+          <ActivityIndicator size="small" color={FOREGROUND} />
         ) : (
           <Icon as={Download} size={20} className="text-foreground" />
         )}

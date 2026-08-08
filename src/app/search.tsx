@@ -15,7 +15,7 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { useAppStore } from "@/features/shared/store/useAppStore";
-import { PRIMARY } from "@/lib/colors";
+import { MUTED_FOREGROUND, PRIMARY } from "@/lib/colors";
 import { searchMulti } from "@/services/tmdb/endpoints";
 
 const SearchScreen = () => {
@@ -67,7 +67,7 @@ const SearchScreen = () => {
             className="flex-1 text-sm text-foreground border-0 shadow-none h-auto py-0 px-0"
             style={{ backgroundColor: "transparent" }}
             placeholder="Search movies, shows, anime..."
-            placeholderTextColor="#6b7280"
+            placeholderTextColor={MUTED_FOREGROUND}
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={submitSearch}
