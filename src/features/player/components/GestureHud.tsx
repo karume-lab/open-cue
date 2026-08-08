@@ -57,7 +57,7 @@ const GestureHud = ({ side, percent, visible }: GestureHudProps) => {
     >
       <View
         style={{ width: BAR_WIDTH, height: BAR_HEIGHT }}
-        className="items-center justify-end rounded-full bg-black/60 border border-white/10 overflow-hidden"
+        className="items-center justify-start rounded-full bg-black/60 border border-white/10 overflow-hidden"
       >
         {/* Fill bar */}
         <View
@@ -74,13 +74,13 @@ const GestureHud = ({ side, percent, visible }: GestureHudProps) => {
         {/* Percentage text */}
         <Text
           style={{ fontSize: 11 }}
-          className="text-white font-semibold text-center mb-1 z-10"
+          className="text-white font-semibold text-center mt-2 z-10"
         >
           {Math.round(clampedPercent)}
         </Text>
 
-        {/* Icon at the bottom */}
-        <View className="mb-2 z-10">
+        {/* Icon below the number */}
+        <View className="mt-1 z-10">
           <Icon
             as={isBrightness ? Sun : Volume2}
             size={16}
