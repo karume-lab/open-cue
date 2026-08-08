@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Download, Pause, Play } from "lucide-react-native";
-import { TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import type { DownloadState } from "@/features/shared/store/types";
@@ -14,6 +14,8 @@ interface MediaPrimaryActionProps {
   pausedDownload?: DownloadState;
   completeDownloads: DownloadState[];
   progress: number;
+  isPlayLoading?: boolean;
+  isDownloadLoading?: boolean;
   onPrimaryPlay: () => void;
   onDownloadPress: () => void;
 }
@@ -80,6 +82,8 @@ export const MediaPrimaryAction = ({
   pausedDownload,
   completeDownloads,
   progress,
+  isPlayLoading,
+  isDownloadLoading,
   onPrimaryPlay,
   onDownloadPress,
 }: MediaPrimaryActionProps) => {
@@ -91,6 +95,7 @@ export const MediaPrimaryAction = ({
     return (
       <TouchableOpacity
         className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
+        disabled={isPlayLoading}
         onPress={() =>
           router.push({
             pathname: "/player/[type]/[id]",
@@ -121,23 +126,35 @@ export const MediaPrimaryAction = ({
     <View className="flex-1 flex-row gap-3">
       <TouchableOpacity
         onPress={onPrimaryPlay}
+        disabled={isPlayLoading || isDownloadLoading}
         className="flex-1 flex-row items-center justify-center gap-2 bg-primary rounded-2xl py-4"
       >
-        <Icon
-          as={Play}
-          size={20}
-          className="text-primary-foreground fill-primary-foreground"
-        />
+        {isPlayLoading ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Icon
+            as={Play}
+            size={20}
+            className="text-primary-foreground fill-primary-foreground"
+          />
+        )}
         <Text className="text-primary-foreground font-bold text-base">
-          Watch Now
+          {isPlayLoading ? "Loading..." : "Watch Now"}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
         onPress={onDownloadPress}
+        disabled={isPlayLoading || isDownloadLoading}
         className="flex-1 flex-row items-center justify-center gap-2 bg-muted rounded-2xl py-4"
       >
-        <Icon as={Download} size={20} className="text-foreground" />
-        <Text className="text-foreground font-bold text-base">Download</Text>
+        {isDownloadLoading ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Icon as={Download} size={20} className="text-foreground" />
+        )}
+        <Text className="text-foreground font-bold text-base">
+          {isDownloadLoading ? "Loading..." : "Download"}
+        </Text>
       </TouchableOpacity>
     </View>
   );

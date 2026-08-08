@@ -26,6 +26,8 @@ interface UseMediaDetailActionsOptions {
 // Play / download entry points for the media detail screen: one-tap resume
 // through the Continue Watching queue, local playback when a download exists,
 // or a source picker otherwise.
+import { useState } from "react";
+
 export const useMediaDetailActions = ({
   movie,
   mediaId,
@@ -36,6 +38,8 @@ export const useMediaDetailActions = ({
 }: UseMediaDetailActionsOptions) => {
   const downloads = useAppStore((store) => store.downloads);
   const watchHistory = useAppStore((store) => store.watchHistory);
+  const [isPlayLoading, setIsPlayLoading] = useState(false);
+  const [isDownloadLoading, setIsDownloadLoading] = useState(false);
 
   const playEpisodeRef = async (season: number, episode: number) => {
     if (movie?.mediaType !== "tv") return;
@@ -55,22 +59,48 @@ export const useMediaDetailActions = ({
     });
   };
 
-  const handlePrimaryPlay = () => {
+  const handlePrimaryPlay = async () => {
     if (!movie) return;
-    if (movie.mediaType === "movie") {
-      playMovie(movie, preferredQuality);
-      return;
+    setIsPlayLoading(true);
+    try {
+      if (movie.mediaType === "movie") {
+        // playMovie is synchronous for movies (it routes to stream or player)
+        playMovie(movie, preferredQuality);
+        return;
+      }
+      if (seasons.length === 0) {
+        openSources(movie, "stream");
+        return;
+      }
+      const target = nextEpisodeToPlay(
+        mediaId,
+        seasons.map((season) => ({ season, count: Number.MAX_SAFE_INTEGER })),
+        watchHistory,
+      ) ?? { season: seasons[0], episode: 1 };
+
+      const local = findLocalEpisodeDownload(
+        movie,
+        target.season,
+        target.episode,
+        downloads,
+      );
+      if (local) {
+        pushToPlayer(movie, {
+          mode: "local",
+          downloadId: local.id,
+          season: target.season,
+          episode: target.episode,
+        });
+        return;
+      }
+      await playEpisode(movie, target.season, target.episode, {
+        preferredQuality,
+        onLoading: (loading) =>
+          setLoadingEpisode(loading ? target.episode : null),
+      });
+    } finally {
+      setIsPlayLoading(false);
     }
-    if (seasons.length === 0) {
-      openSources(movie, "stream");
-      return;
-    }
-    const target = nextEpisodeToPlay(
-      mediaId,
-      seasons.map((season) => ({ season, count: Number.MAX_SAFE_INTEGER })),
-      watchHistory,
-    ) ?? { season: seasons[0], episode: 1 };
-    playEpisodeRef(target.season, target.episode);
   };
 
   const handleDownloadEpisode = async (episode: TvEpisode) => {
@@ -97,11 +127,21 @@ export const useMediaDetailActions = ({
     });
   };
 
-  const handleDownloadPress = () => {
-    if (movie) openSources(movie, "download");
+  const handleDownloadPress = async () => {
+    if (!movie) return;
+    setIsDownloadLoading(true);
+    try {
+      openSources(movie, "download");
+      // Since openSources is just routing, we simulate a brief delay so the user sees feedback
+      await new Promise((r) => setTimeout(r, 300));
+    } finally {
+      setIsDownloadLoading(false);
+    }
   };
 
   return {
+    isPlayLoading,
+    isDownloadLoading,
     playEpisodeRef,
     handlePrimaryPlay,
     handleDownloadEpisode,

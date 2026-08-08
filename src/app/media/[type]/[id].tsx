@@ -71,6 +71,8 @@ const MediaDetailScreen = () => {
   } = useMediaSeasons({ movie, tmdbId, mediaId, watchHistory });
 
   const {
+    isPlayLoading,
+    isDownloadLoading,
     playEpisodeRef,
     handlePrimaryPlay,
     handleDownloadEpisode,
@@ -164,6 +166,8 @@ const MediaDetailScreen = () => {
               pausedDownload={pausedDownload}
               completeDownloads={completeDownloads}
               progress={progress}
+              isPlayLoading={isPlayLoading}
+              isDownloadLoading={isDownloadLoading}
               onPrimaryPlay={handlePrimaryPlay}
               onDownloadPress={handleDownloadPress}
             />
