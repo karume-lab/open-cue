@@ -147,6 +147,7 @@ const OnboardingScreen: React.FC = () => {
   );
   const folderPathRef = useRef(folderPath);
   const previousIndexRef = useRef(0);
+  const permissionLockRef = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [permissions, setPermissions] = useState<
     Record<PermissionSlideType, boolean>
@@ -199,6 +200,7 @@ const OnboardingScreen: React.FC = () => {
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (permissionLockRef.current !== null) return;
       if (
         viewableItems[0] &&
         viewableItems[0].index !== null &&
@@ -289,15 +291,27 @@ const OnboardingScreen: React.FC = () => {
     try {
       const slide = slides[currentIndex];
       if (slide.type === "notifications") {
+        permissionLockRef.current = currentIndex;
         const granted = await requestNotificationPermissions();
+        flatListRef.current?.scrollToIndex({
+          index: currentIndex,
+          animated: false,
+        });
+        permissionLockRef.current = null;
         setPermissions((prev) => ({ ...prev, notifications: granted }));
         if (!granted) return;
       } else if (slide.type === "writeSettings") {
+        permissionLockRef.current = currentIndex;
         const SettingsPermission =
           require("~/modules/settings-permission").default;
         const granted = await SettingsPermission.requestWriteSettings().catch(
           () => false,
         );
+        flatListRef.current?.scrollToIndex({
+          index: currentIndex,
+          animated: false,
+        });
+        permissionLockRef.current = null;
         setPermissions((prev) => ({ ...prev, writeSettings: granted }));
         if (!granted) return;
       } else if (slide.type === "folder" && !folderPath) {

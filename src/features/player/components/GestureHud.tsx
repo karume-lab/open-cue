@@ -50,7 +50,7 @@ const GestureHud = ({ side, percent, visible }: GestureHudProps) => {
         position: "absolute",
         top: "50%",
         transform: [{ translateY: -BAR_HEIGHT / 2 }],
-        ...(isBrightness ? { left: 16 } : { right: 16 }),
+        ...(isBrightness ? { right: 16 } : { left: 16 }),
         opacity: anim,
         zIndex: 20,
       }}
