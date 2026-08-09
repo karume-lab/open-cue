@@ -223,9 +223,8 @@ const OnboardingScreen: React.FC = () => {
     );
   };
 
-  // Slides that require an explicit user action before proceeding. Permission
-  // slides stay locked (no swiping forward) until granted; the Next button on
-  // them requests the permission and only advances once it's granted.
+  // Permission slides require an explicit grant before the user can advance.
+  // Welcome and folder slides are always ready (free scrolling).
   const isSlideReady = (slide: OnboardingSlide): boolean => {
     switch (slide.type) {
       case "notifications":
@@ -233,21 +232,20 @@ const OnboardingScreen: React.FC = () => {
       case "writeSettings":
         return permissions.writeSettings;
       default:
-        // welcome and folder slides: always ready
         return true;
     }
   };
 
   const currentSlideReady = isSlideReady(slides[currentIndex]);
 
-  // When a slide requires action, lock the FlatList and intercept swipes
-  // manually: rightward (backward) swipes navigate back; leftward (forward)
-  // swipes on locked permission slides trigger the permission request.
-  const backSwipePanResponder = useMemo(
+  // On permission slides the FlatList is locked. The pan responder intercepts
+  // horizontal swipes so swiping forward triggers the same permission flow as
+  // pressing Next. On all other slides the FlatList scrolls natively.
+  const swipePanResponder = useMemo(
     () =>
       PanResponder.create({
-        // Claim the gesture when the slide is locked and the move is clearly
-        // horizontal (either direction).
+        // Only claim the gesture when the slide is locked (permission slide)
+        // and the move is clearly horizontal.
         onMoveShouldSetPanResponder: (
           _: GestureResponderEvent,
           gs: PanResponderGestureState,
@@ -346,10 +344,7 @@ const OnboardingScreen: React.FC = () => {
   handleNextRef.current = handleNext;
 
   return (
-    <View
-      className="flex-1 bg-background"
-      {...backSwipePanResponder.panHandlers}
-    >
+    <View className="flex-1 bg-background" {...swipePanResponder.panHandlers}>
       {/* The Animated FlatList */}
       <Animated.FlatList
         ref={flatListRef}
