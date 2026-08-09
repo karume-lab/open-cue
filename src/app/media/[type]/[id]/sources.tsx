@@ -296,7 +296,11 @@ const SourcesScreen = () => {
 
       {/* Show all duplicates toggle — visible for all media types */}
       {hasCollapsedTorrents && (
-        <View className="flex-row items-center justify-between px-4 mb-2">
+        <TouchableOpacity
+          className="flex-row items-center justify-between px-4 mb-2"
+          activeOpacity={0.7}
+          onPress={() => setShowAllTorrents(!showAllTorrents)}
+        >
           <Text className="text-foreground/80 text-sm">
             Show all duplicates
           </Text>
@@ -305,7 +309,7 @@ const SourcesScreen = () => {
             onCheckedChange={setShowAllTorrents}
             accessibilityLabel="Toggle showing all duplicate torrents"
           />
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* List */}
