@@ -36,7 +36,7 @@ export const WelcomeSlide: React.FC<WelcomeSlideProps> = ({
       showsVerticalScrollIndicator={false}
     >
       <View className="items-center mb-5">
-        <View className="rounded-full bg-primary/20 items-center justify-center size-20 mb-4">
+        <View className="rounded-md bg-primary/20 items-center justify-center size-20 mb-4">
           <Clapperboard size={40} color={PRIMARY} />
         </View>
         <Text className="text-3xl font-bold text-foreground text-center mb-2 leading-tight">

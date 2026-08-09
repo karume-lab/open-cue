@@ -148,6 +148,9 @@ const OnboardingScreen: React.FC = () => {
   const folderPathRef = useRef(folderPath);
   const previousIndexRef = useRef(0);
   const permissionLockRef = useRef<number | null>(null);
+  // A stable ref so the pan responder can call handleNext without it being a
+  // dependency (handleNext is declared after the pan responder).
+  const handleNextRef = useRef<() => void>(() => {});
   const [busy, setBusy] = useState(false);
   const [permissions, setPermissions] = useState<
     Record<PermissionSlideType, boolean>
@@ -237,28 +240,35 @@ const OnboardingScreen: React.FC = () => {
 
   const currentSlideReady = isSlideReady(slides[currentIndex]);
 
-  // When a slide requires action, lock the FlatList and intercept rightward
-  // (backward) swipes manually so the user can still go back.
+  // When a slide requires action, lock the FlatList and intercept swipes
+  // manually: rightward (backward) swipes navigate back; leftward (forward)
+  // swipes on locked permission slides trigger the permission request.
   const backSwipePanResponder = useMemo(
     () =>
       PanResponder.create({
-        // Claim the gesture only when: slide is locked AND the initial move is
-        // clearly horizontal-right (backward swipe).
+        // Claim the gesture when the slide is locked and the move is clearly
+        // horizontal (either direction).
         onMoveShouldSetPanResponder: (
           _: GestureResponderEvent,
           gs: PanResponderGestureState,
         ) =>
-          !currentSlideReady && gs.dx > 10 && Math.abs(gs.dx) > Math.abs(gs.dy),
+          !currentSlideReady &&
+          Math.abs(gs.dx) > 10 &&
+          Math.abs(gs.dx) > Math.abs(gs.dy),
         onPanResponderRelease: (
           _: GestureResponderEvent,
           gs: PanResponderGestureState,
         ) => {
-          // Require at least 50 px of rightward drag to count as a back-swipe.
           if (gs.dx > 50 && currentIndex > 0) {
+            // Rightward swipe → go back.
             flatListRef.current?.scrollToIndex({
               index: currentIndex - 1,
               animated: true,
             });
+          } else if (gs.dx < -50) {
+            // Leftward swipe on a locked slide → trigger the permission flow,
+            // same as pressing Next.
+            handleNextRef.current();
           }
         },
       }),
@@ -332,6 +342,9 @@ const OnboardingScreen: React.FC = () => {
     }
   };
 
+  // Keep the ref in sync so the pan responder always calls the latest version.
+  handleNextRef.current = handleNext;
+
   return (
     <View
       className="flex-1 bg-background"
@@ -364,9 +377,12 @@ const OnboardingScreen: React.FC = () => {
           }
           if (item.type === "folder") {
             return (
-              <View style={{ width }} className="flex-1 justify-center px-8">
-                <View className="items-center justify-center mb-4">
-                  <View className="rounded-full bg-primary/20 items-center justify-center size-20">
+              <View
+                style={{ width, paddingTop: insets.top + 24 }}
+                className="flex-1 px-8"
+              >
+                <View className="items-center mb-4">
+                  <View className="rounded-md bg-primary/20 items-center justify-center size-20">
                     <FolderOpen size={40} color={PRIMARY} />
                   </View>
                 </View>
@@ -382,9 +398,12 @@ const OnboardingScreen: React.FC = () => {
           }
           const IconComponent = item.icon;
           return (
-            <View style={{ width }} className="flex-1 justify-center px-8">
-              <View className="items-center justify-center mb-4">
-                <View className="rounded-full bg-primary/20 items-center justify-center size-20">
+            <View
+              style={{ width, paddingTop: insets.top + 24 }}
+              className="flex-1 px-8"
+            >
+              <View className="items-center mb-4">
+                <View className="rounded-md bg-primary/20 items-center justify-center size-20">
                   <IconComponent size={40} color={PRIMARY} />
                 </View>
               </View>
