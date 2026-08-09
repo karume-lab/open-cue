@@ -74,7 +74,7 @@ const AnimatedSwitch = React.forwardRef<
       />
       <SwitchPrimitives.Thumb asChild>
         <Animated.View
-          className="h-5 w-5 rounded-full bg-background shadow-sm"
+          className="h-4 w-4 rounded-full bg-background shadow-sm m-0.5"
           style={animatedThumbStyle}
         />
       </SwitchPrimitives.Thumb>

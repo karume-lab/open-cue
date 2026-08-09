@@ -278,7 +278,7 @@ const SourcesScreen = () => {
         </View>
       )}
 
-      {/* Filters */}
+      {/* Filters (TV only) */}
       {showFilters && (
         <View className="px-4 mt-3">
           <View className="flex-row gap-2 mb-3">
@@ -291,18 +291,20 @@ const SourcesScreen = () => {
               />
             ))}
           </View>
-          {hasCollapsedTorrents && (
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-foreground/80 text-sm">
-                Show all season packs
-              </Text>
-              <Switch
-                checked={showAllTorrents}
-                onCheckedChange={setShowAllTorrents}
-                accessibilityLabel="Toggle showing all season packs"
-              />
-            </View>
-          )}
+        </View>
+      )}
+
+      {/* Show all duplicates toggle — visible for all media types */}
+      {hasCollapsedTorrents && (
+        <View className="flex-row items-center justify-between px-4 mb-2">
+          <Text className="text-foreground/80 text-sm">
+            Show all duplicates
+          </Text>
+          <Switch
+            checked={showAllTorrents}
+            onCheckedChange={setShowAllTorrents}
+            accessibilityLabel="Toggle showing all duplicate torrents"
+          />
         </View>
       )}
 

@@ -4,7 +4,7 @@ import {
   type TorrentFilter,
   torrentSearchText,
 } from "@/features/media/utils/torrentGroups";
-import type { Movie } from "@/types/movie";
+import type { Movie, MovieTorrent } from "@/types/movie";
 
 export interface TorrentListTarget {
   season?: number;
@@ -79,23 +79,48 @@ export const useTorrentSourceList = (
         .filter((group) => group.episodes.length > 0);
     }
 
-    if (!showAllTorrents && movie.mediaType === "tv") {
-      result = result.map((group) => {
-        if (group.seasonPacks.length <= 1) return group;
-        const best = group.seasonPacks.reduce((a, b) =>
-          b.seeds > a.seeds ? b : a,
-        );
-        return { ...group, seasonPacks: [best] };
-      });
+    if (!showAllTorrents) {
+      if (movie.mediaType === "tv") {
+        // TV: keep only the best season pack per group.
+        result = result.map((group) => {
+          if (group.seasonPacks.length <= 1) return group;
+          const best = group.seasonPacks.reduce((a, b) =>
+            b.seeds > a.seeds ? b : a,
+          );
+          return { ...group, seasonPacks: [best] };
+        });
+      } else {
+        // Movies / anime: keep only the best torrent per quality level.
+        result = result.map((group) => {
+          const byQuality = new Map<string, MovieTorrent>();
+          for (const torrent of group.seasonPacks) {
+            const existing = byQuality.get(torrent.quality);
+            if (!existing || torrent.seeds > existing.seeds) {
+              byQuality.set(torrent.quality, torrent);
+            }
+          }
+          return { ...group, seasonPacks: [...byQuality.values()] };
+        });
+      }
     }
 
     return result;
   }, [groups, filter, movie, showAllTorrents, target.season, target.episode]);
 
+  // True whenever duplicates exist for any media type — does NOT depend on
+  // showAllTorrents so the toggle stays visible even after being switched on.
   const hasCollapsedTorrents = useMemo(() => {
-    if (showAllTorrents || movie?.mediaType !== "tv") return false;
-    return groups.some((group) => group.seasonPacks.length > 1);
-  }, [showAllTorrents, movie, groups]);
+    if (!movie) return false;
+    if (movie.mediaType === "tv") {
+      return groups.some((group) => group.seasonPacks.length > 1);
+    }
+    // Movies / anime: check whether any quality bucket has more than one torrent.
+    const byQuality = new Map<string, number>();
+    for (const torrent of movie.torrents ?? []) {
+      byQuality.set(torrent.quality, (byQuality.get(torrent.quality) ?? 0) + 1);
+    }
+    return [...byQuality.values()].some((count) => count > 1);
+  }, [movie, groups]);
 
   const visibleTorrents = useMemo(() => {
     if (query.trim()) return results;
